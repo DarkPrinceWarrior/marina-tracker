@@ -422,19 +422,64 @@ export const CHORE_FREQUENCIES = [
 
 export const CHORE_FREQUENCY_MAP = Object.fromEntries(CHORE_FREQUENCIES.map((f) => [f.key, f]));
 
-export const SHOPPING_CATEGORIES = [
+export const GROCERY_CATEGORIES = [
   { key: 'Овощи и фрукты', label: 'Овощи и фрукты', icon: 'Salad' },
-  { key: 'Молочное', label: 'Молочное', icon: 'Milk' },
   { key: 'Белок и рыба', label: 'Белок и рыба', icon: 'Fish' },
+  { key: 'Молочное', label: 'Молочное', icon: 'Milk' },
   { key: 'Бакалея', label: 'Бакалея', icon: 'Wheat' },
-  { key: 'Для уборки и дома', label: 'Для уборки и дома', icon: 'SprayCan' },
-  { key: 'Витамины и уход', label: 'Витамины и уход', icon: 'Sparkles' },
-  { key: 'Напитки и чай', label: 'Напитки и чай', icon: 'Coffee' },
-  { key: 'Другое', label: 'Другое', icon: 'ShoppingBag' },
+  { key: 'Напитки и перекусы', label: 'Напитки и перекусы', icon: 'Coffee' },
+  { key: 'Прочее', label: 'Прочее', icon: 'ShoppingBag' },
+];
+
+export const GROCERY_CATEGORY_MAP = Object.fromEntries(
+  GROCERY_CATEGORIES.map((c) => [c.key, c]),
+);
+
+export const HOUSEHOLD_CATEGORIES = [
+  { key: 'Моющие и уборка', label: 'Моющие и уборка', icon: 'SprayCan' },
+  { key: 'Бытовая техника', label: 'Бытовая техника', icon: 'Sparkles' },
+  { key: 'Мебель и интерьер', label: 'Мебель и интерьер', icon: 'Sofa' },
+  { key: 'Текстиль и уют', label: 'Текстиль и уют', icon: 'Home' },
+  { key: 'Хозтовары', label: 'Хозтовары', icon: 'ShoppingBag' },
+  { key: 'Ремонт и мелочи', label: 'Ремонт и мелочи', icon: 'Wrench' },
+];
+
+export const HOUSEHOLD_CATEGORY_MAP = Object.fromEntries(
+  HOUSEHOLD_CATEGORIES.map((c) => [c.key, c]),
+);
+
+export const SHOPPING_CATEGORIES = [
+  ...GROCERY_CATEGORIES,
+  ...HOUSEHOLD_CATEGORIES,
 ];
 
 export const SHOPPING_CATEGORY_MAP = Object.fromEntries(
   SHOPPING_CATEGORIES.map((c) => [c.key, c]),
+);
+
+export const GRATITUDE_CATEGORIES = [
+  { key: 'self', label: 'Себе' },
+  { key: 'people', label: 'Близким' },
+  { key: 'day', label: 'Дню' },
+  { key: 'body', label: 'Телу' },
+  { key: 'other', label: 'Другое' },
+];
+
+export const GRATITUDE_CATEGORY_MAP = Object.fromEntries(
+  GRATITUDE_CATEGORIES.map((c) => [c.key, c]),
+);
+
+export const EVENT_CATEGORIES = [
+  { key: 'doctor', label: 'Врач' },
+  { key: 'beauty', label: 'Косметолог' },
+  { key: 'meeting', label: 'Встреча' },
+  { key: 'event', label: 'Событие' },
+  { key: 'personal', label: 'Личное' },
+  { key: 'home', label: 'Дом' },
+];
+
+export const EVENT_CATEGORY_MAP = Object.fromEntries(
+  EVENT_CATEGORIES.map((c) => [c.key, c]),
 );
 
 // ---------------------------------------------------------------------------
@@ -502,11 +547,47 @@ export const GOAL_SPHERES = [
 ];
 
 export const GOAL_HORIZONS = [
-  { years: 1, label: '1 год', shortLabel: '1 год' },
-  { years: 2, label: '2 года', shortLabel: '2 года' },
-  { years: 3, label: '3 года', shortLabel: '3 года' },
-  { years: 5, label: '5 лет', shortLabel: '5 лет' },
+  {
+    key: 'month',
+    value: 'month',
+    horizon_unit: 'month',
+    horizon_years: 1,
+    years: 0,
+    months: 1,
+    label: '1 месяц',
+    shortLabel: '1 мес.',
+  },
+  {
+    key: '1y',
+    value: '1y',
+    horizon_unit: 'year',
+    horizon_years: 1,
+    years: 1,
+    months: 12,
+    label: '1 год',
+    shortLabel: '1 год',
+  },
+  {
+    key: '5y',
+    value: '5y',
+    horizon_unit: 'year',
+    horizon_years: 5,
+    years: 5,
+    months: 60,
+    label: '5 лет',
+    shortLabel: '5 лет',
+  },
 ];
+
+export function formatGoalHorizonRu(goal) {
+  if (!goal) return '1 год';
+  if (goal.horizon_unit === 'month') return '1 месяц';
+  const y = Number(goal.horizon_years) || 1;
+  if (y === 1) return '1 год';
+  if (y >= 5) return `${y} лет`;
+  if (y >= 2 && y <= 4) return `${y} года`;
+  return `${y} лет`;
+}
 
 export const GOAL_CHECKIN_CADENCES = [
   { key: 'weekly', label: 'Раз в неделю' },
@@ -583,6 +664,7 @@ export const GOAL_STARTER_BLUEPRINTS = [
     title: 'Сильное гибкое тело и спокойное дыхание',
     description: 'Регулярные занятия пилатесом, цигуном и дыхательной практикой 3–4 раза в неделю без перегрузки.',
     category: 'Здоровье и тело',
+    horizon_unit: 'year',
     horizon_years: 1,
     check_in_cadence: 'weekly',
     milestones: [
@@ -592,29 +674,43 @@ export const GOAL_STARTER_BLUEPRINTS = [
     ],
   },
   {
-    id: 'blueprint-language',
-    title: 'Свободный английский для жизни и путешествий',
-    description: 'Живое чтение, подкасты и разговорная практика маленькими шагами в течение двух лет.',
-    category: 'Личностный рост',
-    horizon_years: 2,
+    id: 'blueprint-month-sprint',
+    title: 'Месяц без пропусков утренних практик',
+    description: 'Короткий фокусный шаг на 30 дней: дыхание, вода и спокойный утренний старт.',
+    category: 'Здоровье и тело',
+    horizon_unit: 'month',
+    horizon_years: 1,
     check_in_cadence: 'weekly',
     milestones: [
-      { title: 'Устойчивый словарь и 20 минут практики 4 раза в неделю', offsetMonths: 6 },
-      { title: 'Свободный разговорный клуб и книги в оригинале', offsetMonths: 12 },
-      { title: 'Свободное общение и чтение без языкового барьера', offsetMonths: 24 },
+      { title: 'Первая неделя в стабильном ритме', offsetMonths: 1 },
+    ],
+  },
+  {
+    id: 'blueprint-language',
+    title: 'Свободный английский для жизни и путешествий',
+    description: 'Живое чтение, подкасты и разговорная практика маленькими шагами.',
+    category: 'Личностный рост',
+    horizon_unit: 'year',
+    horizon_years: 1,
+    check_in_cadence: 'weekly',
+    milestones: [
+      { title: 'Устойчивый словарь и 20 минут практики 4 раза в неделю', offsetMonths: 4 },
+      { title: 'Свободный разговорный клуб и книги в оригинале', offsetMonths: 8 },
+      { title: 'Свободное общение и чтение без языкового барьера', offsetMonths: 12 },
     ],
   },
   {
     id: 'blueprint-finance',
     title: 'Финансовая подушка и спокойный капитал',
-    description: 'Ежемесячное пополнение резерва и осознанное планирование крупных покупок.',
+    description: 'Ежемесячное пополнение резерва и осознанное планирование крупных целей на 5 лет.',
     category: 'Финансы',
-    horizon_years: 2,
+    horizon_unit: 'year',
+    horizon_years: 5,
     check_in_cadence: 'monthly',
     milestones: [
-      { title: 'Настроить автоматический перевод 15% дохода', offsetMonths: 3 },
-      { title: 'Собрать резерв на 6 месяцев спокойной жизни', offsetMonths: 12 },
-      { title: 'Сформировать долгосрочный портфель на 2 года', offsetMonths: 24 },
+      { title: 'Настроить автоматический перевод 15% дохода', offsetMonths: 6 },
+      { title: 'Собрать резерв на 6 месяцев спокойной жизни', offsetMonths: 18 },
+      { title: 'Сформировать устойчивый долгосрочный капитал', offsetMonths: 60 },
     ],
   },
   {
@@ -622,12 +718,13 @@ export const GOAL_STARTER_BLUEPRINTS = [
     title: 'Светлый уютный дом в гармонии',
     description: 'Поэтапное обновление пространства, расхламление и простые системы порядка.',
     category: 'Дом и уют',
-    horizon_years: 3,
+    horizon_unit: 'year',
+    horizon_years: 5,
     check_in_cadence: 'monthly',
     milestones: [
-      { title: 'Навести базовую систему хранения на кухне и в шкафах', offsetMonths: 6 },
-      { title: 'Обновить текстиль, свет и рабочую зону', offsetMonths: 18 },
-      { title: 'Завершить все этапы обновления пространства', offsetMonths: 36 },
+      { title: 'Навести базовую систему хранения на кухне и в шкафах', offsetMonths: 12 },
+      { title: 'Обновить текстиль, свет и рабочую зону', offsetMonths: 30 },
+      { title: 'Завершить все этапы обновления пространства', offsetMonths: 60 },
     ],
   },
 ];

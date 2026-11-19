@@ -1,12 +1,12 @@
-"""Today aggregator and daily reflection endpoints."""
+"""Today aggregator, daily reflection, and gratitude journal endpoints."""
 
 from __future__ import annotations
 
-from datetime import date
-from typing import Annotated, Any
+from datetime import date, timedelta
+from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, Query
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, HTTPException, Path, Query, status
+from pydantic import BaseModel, Field, field_validator
 
 from ..db import (
     DB,
@@ -22,7 +22,9 @@ from ..db import (
 )
 from .tasks_goals import compute_goals_summary, fetch_tasks_for_date
 
-router = APIRouter(prefix="/api/today", tags=["today"])
+router = APIRouter(prefix="/api", tags=["today", "gratitudes"])
+
+GratitudeCategory = Literal["self", "people", "day", "body", "other"]
 
 PERIOD_LABELS: dict[str, str] = {
     "morning": "Утро",
@@ -54,6 +56,32 @@ class ReflectionUpsert(BaseModel):
     mood: str | None = Field(default="", max_length=60)
 
 
+class GratitudeCreate(BaseModel):
+    date: str | None = None
+    log_date: str | None = None
+    content: str = Field(min_length=1, max_length=1000)
+    category: GratitudeCategory = "day"
+
+    @field_validator("category", mode="before")
+    @classmethod
+    def _coerce_category(cls, v: Any) -> Any:
+        return "day" if v is None or v == "" else v
+
+
+class GratitudeUpdate(BaseModel):
+    date: str | None = None
+    log_date: str | None = None
+    content: str | None = Field(default=None, min_length=1, max_length=1000)
+    category: GratitudeCategory | None = None
+
+
+def _require_non_empty(value: str, label: str) -> str:
+    cleaned = value.strip()
+    if not cleaned:
+        raise HTTPException(status_code=422, detail=f"Поле «{label}» не может быть пустым")
+    return cleaned
+
+
 def _greeting_period() -> str:
     hour = now_dt().hour
     if 5 <= hour < 12:
@@ -63,7 +91,17 @@ def _greeting_period() -> str:
     return "evening"
 
 
-@router.get("")
+def _format_gratitude(row: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": int(row["id"]),
+        "log_date": row["log_date"],
+        "content": row["content"],
+        "category": row["category"],
+        "created_at": row["created_at"],
+    }
+
+
+@router.get("/today")
 def get_today_overview(
     db: DB,
     date_str: Annotated[str | None, Query(alias="date")] = None,
@@ -158,7 +196,7 @@ def get_today_overview(
     tasks_done = sum(1 for t in tasks if t["completed"])
     tasks_total = len(tasks)
 
-    # 6. Chores & Shopping
+    # 6. Chores & Split Shopping (Groceries vs Household)
     chore_rows = records(
         db,
         """SELECT c.*, cl.completed AS log_completed, cl.completed_at
@@ -174,8 +212,24 @@ def get_today_overview(
     chores_done = len(chores_done_rows)
     non_daily_done = sum(1 for c in chores_done_rows if c["frequency"] != "daily")
     chores_total = (len(daily_chores) + non_daily_done) if daily_chores else len(chore_rows)
-    shopping_rem_row = record(db, "SELECT COUNT(*) AS cnt FROM shopping_items WHERE bought = 0")
-    shopping_remaining = int(shopping_rem_row["cnt"]) if shopping_rem_row else 0
+
+    household_rem_row = record(
+        db,
+        "SELECT COUNT(*) AS cnt FROM shopping_items WHERE bought = 0 AND list_type = 'household'",
+    )
+    groceries_rem_row = record(
+        db,
+        "SELECT COUNT(*) AS cnt FROM shopping_items WHERE bought = 0 AND list_type = 'groceries'",
+    )
+    household_remaining = int(household_rem_row["cnt"]) if household_rem_row else 0
+    groceries_remaining = int(groceries_rem_row["cnt"]) if groceries_rem_row else 0
+
+    grat_day_row = record(
+        db,
+        "SELECT COUNT(*) AS cnt FROM gratitudes WHERE log_date = ?",
+        (target_date,),
+    )
+    gratitudes_count = int(grat_day_row["cnt"]) if grat_day_row else 0
 
     # 7. Goals
     goals_summary = compute_goals_summary(db, ref_date=ref_date)
@@ -316,8 +370,15 @@ def get_today_overview(
             "chores": {
                 "done": chores_done,
                 "total": chores_total,
-                "shopping_remaining": shopping_remaining,
+                "shopping_remaining": household_remaining,
             },
+            "shopping": {
+                "household_remaining": household_remaining,
+                "groceries_remaining": groceries_remaining,
+                "remaining": household_remaining,
+                "total_remaining": household_remaining + groceries_remaining,
+            },
+            "gratitudes_count": gratitudes_count,
             "goals": {
                 "active_count": goals_summary["active_count"],
                 "avg_progress_pct": goals_summary["avg_progress_pct"],
@@ -331,7 +392,7 @@ def get_today_overview(
     }
 
 
-@router.put("/reflection")
+@router.put("/today/reflection")
 def upsert_reflection(db: DB, body: ReflectionUpsert) -> dict[str, Any]:
     target_date = validate_date_str(body.date or body.log_date, default_today=True)
     updated_at = now_iso()
@@ -355,3 +416,105 @@ def upsert_reflection(db: DB, body: ReflectionUpsert) -> dict[str, Any]:
     saved = record(db, "SELECT * FROM day_reflections WHERE log_date = ?", (target_date,))
     assert saved is not None
     return saved
+
+
+# ---------------------------------------------------------------------------
+# Gratitude Journal Endpoints
+# ---------------------------------------------------------------------------
+
+
+@router.get("/gratitudes")
+def list_gratitudes(
+    db: DB,
+    date_str: Annotated[str | None, Query(alias="date")] = None,
+    days: Annotated[int, Query(ge=1, le=365)] = 30,
+) -> dict[str, Any]:
+    target_date = validate_date_str(date_str, default_today=True)
+    ref_d = date.fromisoformat(target_date)
+    since_date = (ref_d - timedelta(days=days)).isoformat()
+
+    day_rows = records(
+        db,
+        "SELECT * FROM gratitudes WHERE log_date = ? ORDER BY id DESC",
+        (target_date,),
+    )
+    recent_rows = records(
+        db,
+        """SELECT * FROM gratitudes
+           WHERE log_date != ? AND log_date >= ?
+           ORDER BY log_date DESC, id DESC
+           LIMIT 30""",
+        (target_date, since_date),
+    )
+    total_row = record(db, "SELECT COUNT(*) AS cnt FROM gratitudes")
+    total_count = int(total_row["cnt"]) if total_row else 0
+
+    return {
+        "date": target_date,
+        "items": [_format_gratitude(r) for r in day_rows],
+        "recent": [_format_gratitude(r) for r in recent_rows],
+        "total_count": total_count,
+    }
+
+
+@router.post("/gratitudes", status_code=status.HTTP_201_CREATED)
+def create_gratitude(db: DB, body: GratitudeCreate) -> dict[str, Any]:
+    content = _require_non_empty(body.content, "Благодарность")
+    target_date = validate_date_str(body.date or body.log_date, default_today=True)
+    created_at = now_iso()
+
+    with transaction(db):
+        cur = db.execute(
+            """INSERT INTO gratitudes(log_date, content, category, created_at)
+               VALUES(?,?,?,?)""",
+            (target_date, content, body.category, created_at),
+        )
+        g_id = int(cur.lastrowid)
+
+    saved = record(db, "SELECT * FROM gratitudes WHERE id = ?", (g_id,))
+    assert saved is not None
+    return _format_gratitude(saved)
+
+
+@router.patch("/gratitudes/{gratitude_id}")
+def update_gratitude(
+    db: DB,
+    gratitude_id: Annotated[int, Path(ge=1)],
+    body: GratitudeUpdate,
+) -> dict[str, Any]:
+    existing = record(db, "SELECT * FROM gratitudes WHERE id = ?", (gratitude_id,))
+    if existing is None:
+        raise HTTPException(status_code=404, detail="Запись благодарности не найдена")
+
+    fields = body.model_fields_set
+    updates: dict[str, Any] = {}
+    if "content" in fields and body.content is not None:
+        updates["content"] = _require_non_empty(body.content, "Благодарность")
+    if "category" in fields and body.category is not None:
+        updates["category"] = body.category
+    if "date" in fields and body.date is not None:
+        updates["log_date"] = validate_date_str(body.date)
+    elif "log_date" in fields and body.log_date is not None:
+        updates["log_date"] = validate_date_str(body.log_date)
+
+    if updates:
+        clause = ", ".join(f"{col} = ?" for col in updates)
+        with transaction(db):
+            db.execute(f"UPDATE gratitudes SET {clause} WHERE id = ?", (*updates.values(), gratitude_id))
+
+    saved = record(db, "SELECT * FROM gratitudes WHERE id = ?", (gratitude_id,))
+    assert saved is not None
+    return _format_gratitude(saved)
+
+
+@router.delete("/gratitudes/{gratitude_id}")
+def delete_gratitude(
+    db: DB,
+    gratitude_id: Annotated[int, Path(ge=1)],
+) -> dict[str, Any]:
+    existing = record(db, "SELECT id FROM gratitudes WHERE id = ?", (gratitude_id,))
+    if existing is None:
+        raise HTTPException(status_code=404, detail="Запись благодарности не найдена")
+    with transaction(db):
+        db.execute("DELETE FROM gratitudes WHERE id = ?", (gratitude_id,))
+    return {"deleted": True, "id": gratitude_id}

@@ -716,6 +716,184 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* --- Phase 4: Mini-Goal Links, Events Calendar & Gratitude --- */
+
+.goal-parent-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12.5px;
+  line-height: 17px;
+  font-weight: 500;
+  color: var(--cobalt);
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.goal-mini-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--cobalt-soft);
+  color: var(--cobalt-ink);
+  font-size: 11.5px;
+  line-height: 16px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.events-cal-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  padding: 14px;
+  box-shadow: var(--shadow-card);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.events-cal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.events-cal-header h3 {
+  font-size: 15px;
+  text-transform: capitalize;
+  text-align: center;
+  flex: 1 1 auto;
+}
+
+.events-cal-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 3px;
+  text-align: center;
+  font-size: 11px;
+  line-height: 16px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.events-cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 3px;
+  min-width: 0;
+}
+
+.events-cal-day {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  min-height: 42px;
+  padding: 0;
+  border: 1.5px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--font-heading);
+  font-size: 13.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  transition: transform 90ms ease, background-color 120ms ease, border-color 120ms ease;
+}
+
+.events-cal-day:hover:not(:disabled) {
+  background: var(--surface-subtle);
+}
+
+.events-cal-day:active:not(:disabled) {
+  transform: scale(0.93);
+}
+
+.events-cal-day.is-outside {
+  color: var(--subtle);
+  opacity: 0.38;
+}
+
+.events-cal-day.has-events {
+  background: var(--cobalt-soft);
+  color: var(--cobalt-ink);
+}
+
+.events-cal-day.is-today {
+  box-shadow: inset 0 0 0 1.5px var(--ink);
+  font-weight: 800;
+}
+
+.events-cal-day.is-selected {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #FFFFFF;
+}
+
+.events-cal-day.is-selected.is-today {
+  box-shadow: none;
+}
+
+.events-cal-dots {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  height: 5px;
+}
+
+.events-cal-dot {
+  width: 4.5px;
+  height: 4.5px;
+  border-radius: 50%;
+  background: var(--cobalt);
+  flex-shrink: 0;
+}
+
+.events-cal-day.is-selected .events-cal-dot {
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.gratitude-composer {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  padding: 14px;
+  box-shadow: var(--shadow-card);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.gratitude-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  padding: 12px 14px;
+  box-shadow: var(--shadow-card);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
 /* ==========================================================================
    UX SHEETS: PracticeTimerSheet & YearReviewSheet (2026 Studio Polish)
    ========================================================================== */

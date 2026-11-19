@@ -8,14 +8,28 @@ import {
   GOAL_CHECKIN_CADENCES,
   GOAL_STARTER_BLUEPRINTS,
   QUARTER_OPTIONS,
+  formatGoalHorizonRu,
   formatYearQuarterRu,
 } from "../../data/presets.js";
 import { todayISO, parseISODate, toISODate } from "../../utils/date.js";
 
-function addYearsISO(iso, years) {
+function addHorizonISO(iso, horizonKey) {
   const dt = parseISODate(iso || todayISO());
+  if (horizonKey === "month") {
+    const next = new Date(
+      dt.getFullYear(),
+      dt.getMonth() + 1,
+      dt.getDate(),
+      12,
+      0,
+      0,
+      0,
+    );
+    return toISODate(next);
+  }
+  const years = horizonKey === "5y" ? 5 : 1;
   const next = new Date(
-    dt.getFullYear() + Number(years || 1),
+    dt.getFullYear() + years,
     dt.getMonth(),
     dt.getDate(),
     12,
@@ -41,9 +55,18 @@ function addMonthsToYearQuarter(iso, offsetMonths) {
   return { target_year: next.getFullYear(), target_quarter: `Q${q}` };
 }
 
+function resolveHorizonKey(goal, defaultHorizon = "1y") {
+  if (!goal?.id) return defaultHorizon;
+  if (goal.horizon_unit === "month") return "month";
+  return Number(goal.horizon_years) >= 3 ? "5y" : "1y";
+}
+
 export default function GoalFormSheet({
   open,
   goal = null,
+  defaultHorizon = "1y",
+  defaultParentGoalId = null,
+  bigGoals = [],
   habits = [],
   todayDate,
   onClose,
@@ -57,9 +80,10 @@ export default function GoalFormSheet({
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState(GOAL_SPHERES[0].key);
-  const [horizonYears, setHorizonYears] = useState(1);
+  const [horizonKey, setHorizonKey] = useState("1y");
+  const [parentGoalId, setParentGoalId] = useState("");
   const [startDate, setStartDate] = useState(baseDate);
-  const [targetDate, setTargetDate] = useState(addYearsISO(baseDate, 1));
+  const [targetDate, setTargetDate] = useState(addHorizonISO(baseDate, "1y"));
   const [linkedHabitId, setLinkedHabitId] = useState("");
   const [checkInCadence, setCheckInCadence] = useState("weekly");
   const [status, setStatus] = useState("active");
@@ -76,15 +100,16 @@ export default function GoalFormSheet({
 
   useEffect(() => {
     if (!open) return;
+    const hKey = resolveHorizonKey(goal, defaultHorizon || "1y");
     if (goal?.id) {
       setTitle(goal.title || "");
       setDescription(goal.description || "");
       setCategory(goal.category || GOAL_SPHERES[0].key);
-      setHorizonYears(Number(goal.horizon_years) || 1);
+      setHorizonKey(hKey);
+      setParentGoalId(goal.parent_goal_id ? String(goal.parent_goal_id) : "");
       setStartDate(goal.start_date || baseDate);
       setTargetDate(
-        goal.target_date ||
-          addYearsISO(goal.start_date || baseDate, goal.horizon_years || 1),
+        goal.target_date || addHorizonISO(goal.start_date || baseDate, hKey),
       );
       setLinkedHabitId(goal.linked_habit_id ? String(goal.linked_habit_id) : "");
       setCheckInCadence(goal.check_in_cadence || "weekly");
@@ -94,36 +119,44 @@ export default function GoalFormSheet({
       setTitle("");
       setDescription("");
       setCategory(GOAL_SPHERES[0].key);
-      setHorizonYears(1);
+      setHorizonKey(hKey);
+      setParentGoalId(defaultParentGoalId ? String(defaultParentGoalId) : "");
       setStartDate(baseDate);
-      setTargetDate(addYearsISO(baseDate, 1));
+      setTargetDate(addHorizonISO(baseDate, hKey));
       setLinkedHabitId("");
       setCheckInCadence("weekly");
       setStatus("active");
       setMilestones([]);
     }
     setMsTitle("");
-    setMsYear(currentYear + 1);
+    setMsYear(hKey === "month" ? currentYear : currentYear + 1);
     setMsQuarter("Q2");
     setSaving(false);
     setConfirmDelete(false);
     setError("");
-  }, [open, goal, baseDate, currentYear]);
+  }, [open, goal, defaultHorizon, defaultParentGoalId, baseDate, currentYear]);
 
-  function handleSelectHorizon(years) {
-    setHorizonYears(years);
-    setTargetDate(addYearsISO(startDate || baseDate, years));
+  function handleSelectHorizon(nextKey) {
+    setHorizonKey(nextKey);
+    setTargetDate(addHorizonISO(startDate || baseDate, nextKey));
+    if (nextKey !== "month") {
+      setParentGoalId("");
+    }
     setMsYear(
-      parseISODate(startDate || baseDate).getFullYear() + Math.min(years, 1),
+      nextKey === "month"
+        ? parseISODate(startDate || baseDate).getFullYear()
+        : parseISODate(startDate || baseDate).getFullYear() + 1,
     );
   }
 
   function handleApplyBlueprint(bp) {
+    const bpHorizonKey = Number(bp.horizon_years) >= 3 ? "5y" : "1y";
     setTitle(bp.title);
     setDescription(bp.description);
     setCategory(bp.category);
-    setHorizonYears(bp.horizon_years);
-    setTargetDate(addYearsISO(startDate || baseDate, bp.horizon_years));
+    setHorizonKey(bpHorizonKey);
+    setParentGoalId("");
+    setTargetDate(addHorizonISO(startDate || baseDate, bpHorizonKey));
     setCheckInCadence(bp.check_in_cadence || "weekly");
     setMilestones(
       (bp.milestones || []).map((m, idx) => {
@@ -168,11 +201,14 @@ export default function GoalFormSheet({
 
     const effectiveStart = startDate || baseDate;
     const effectiveTarget =
-      targetDate || addYearsISO(effectiveStart, horizonYears);
+      targetDate || addHorizonISO(effectiveStart, horizonKey);
     if (effectiveTarget <= effectiveStart) {
       setError("Целевая дата должна быть позже даты начала");
       return;
     }
+
+    const horizonMeta =
+      GOAL_HORIZONS.find((h) => h.key === horizonKey) || GOAL_HORIZONS[1];
 
     const finalMilestones = [...milestones];
     if (!isEditing && msTitle.trim()) {
@@ -191,7 +227,10 @@ export default function GoalFormSheet({
         title: trimmed,
         description: description.trim(),
         category,
-        horizon_years: Number(horizonYears) || 1,
+        horizon_unit: horizonMeta.horizon_unit,
+        horizon_years: horizonMeta.horizon_years,
+        parent_goal_id:
+          horizonKey === "month" && parentGoalId ? Number(parentGoalId) : null,
         start_date: effectiveStart,
         target_date: effectiveTarget,
         linked_habit_id: linkedHabitId ? Number(linkedHabitId) : null,
@@ -248,11 +287,28 @@ export default function GoalFormSheet({
     })),
   ];
 
+  const parentGoalOptions = [
+    { value: "", label: "Самостоятельная цель на месяц" },
+    ...bigGoals
+      .filter((bg) => bg.id !== goal?.id)
+      .map((bg) => ({
+        value: String(bg.id),
+        label: bg.title,
+        meta: formatGoalHorizonRu(bg),
+      })),
+  ];
+
   return (
     <Sheet
       open={open}
       onClose={onClose}
-      title={isEditing ? "Редактировать цель" : "Новая цель"}
+      title={
+        isEditing
+          ? "Редактировать цель"
+          : horizonKey === "month"
+            ? "Новая мини-цель на месяц"
+            : "Новая цель"
+      }
       footer={
         <div className="mt-stack mt-stack--sm">
           <button
@@ -286,8 +342,8 @@ export default function GoalFormSheet({
       <form className="mt-stack" onSubmit={handleSubmit}>
         {error ? <div className="mt-form-error">{error}</div> : null}
 
-        {/* Starter Blueprints (only when creating) */}
-        {!isEditing && (
+        {/* Starter Blueprints (only when creating a non-mini goal) */}
+        {!isEditing && horizonKey !== "month" && (
           <div className="mt-field">
             <span className="mt-label">Готовые шаблоны</span>
             <div className="mt-chip-row">
@@ -298,10 +354,44 @@ export default function GoalFormSheet({
                   icon={<Sparkles size={12} />}
                   onClick={() => handleApplyBlueprint(bp)}
                 >
-                  {bp.category} · {bp.horizon_years} г.
+                  {bp.category} · {Number(bp.horizon_years) >= 3 ? "5 лет" : "1 год"}
                 </Pill>
               ))}
             </div>
+          </div>
+        )}
+
+        {/* Horizon Selector: strictly 1 месяц / 1 год / 5 лет */}
+        <div className="mt-field">
+          <span className="mt-label">Горизонт</span>
+          <div className="mt-chip-row mt-chip-row--wrap">
+            {GOAL_HORIZONS.map((h) => (
+              <Pill
+                key={h.key}
+                tone="neutral"
+                active={horizonKey === h.key}
+                onClick={() => handleSelectHorizon(h.key)}
+              >
+                {h.label}
+              </Pill>
+            ))}
+          </div>
+        </div>
+
+        {/* Parent Big Goal Selector when horizon === "month" */}
+        {horizonKey === "month" && (
+          <div className="mt-field">
+            <label className="mt-label" htmlFor="goal-parent-select">
+              Для какой большой цели (1 год / 5 лет)
+            </label>
+            <SelectField
+              id="goal-parent-select"
+              value={parentGoalId}
+              onChange={setParentGoalId}
+              options={parentGoalOptions}
+              placeholder="Самостоятельная цель на месяц"
+              ariaLabel="Для какой большой цели (1 год / 5 лет)"
+            />
           </div>
         )}
 
@@ -319,7 +409,11 @@ export default function GoalFormSheet({
               setTitle(e.target.value);
               if (error) setError("");
             }}
-            placeholder="Например: свободный английский"
+            placeholder={
+              horizonKey === "month"
+                ? "Например: 12 тренировок за месяц"
+                : "Например: свободный английский"
+            }
             autoComplete="off"
           />
         </div>
@@ -351,23 +445,6 @@ export default function GoalFormSheet({
                 onClick={() => setCategory(sphere.key)}
               >
                 {sphere.label}
-              </Pill>
-            ))}
-          </div>
-        </div>
-
-        {/* Horizon Selector */}
-        <div className="mt-field">
-          <span className="mt-label">Горизонт</span>
-          <div className="mt-chip-row mt-chip-row--wrap">
-            {GOAL_HORIZONS.map((h) => (
-              <Pill
-                key={h.years}
-                tone="neutral"
-                active={horizonYears === h.years}
-                onClick={() => handleSelectHorizon(h.years)}
-              >
-                {h.label}
               </Pill>
             ))}
           </div>

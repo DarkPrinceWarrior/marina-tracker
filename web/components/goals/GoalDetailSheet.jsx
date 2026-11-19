@@ -5,6 +5,7 @@ import {
   Trash2,
   Sparkles,
   Link2,
+  ChevronRight,
   CheckCircle2,
   AlertTriangle,
   TrendingUp,
@@ -23,8 +24,8 @@ import {
   GOAL_PACE_META,
   QUARTER_OPTIONS,
   formatCountRu,
+  formatGoalHorizonRu,
   formatYearQuarterRu,
-  pluralRu,
 } from "../../data/presets.js";
 import {
   MONTH_SHORT_RU,
@@ -33,13 +34,8 @@ import {
   formatDateWithYearRu,
 } from "../../utils/date.js";
 
-function formatHorizonShort(years) {
-  const n = Number(years) || 1;
-  return `${n} ${pluralRu(n, "год", "года", "лет")}`;
-}
-
 function formatTargetLine(goal) {
-  const parts = [formatHorizonShort(goal.horizon_years)];
+  const parts = [formatGoalHorizonRu(goal)];
   if (goal.target_date) {
     const dt = parseISODate(goal.target_date);
     parts.push(`до ${MONTH_SHORT_RU[dt.getMonth()]}. ${dt.getFullYear()}`);
@@ -60,6 +56,8 @@ export default function GoalDetailSheet({
   open,
   goal,
   onClose,
+  onSelectGoal,
+  onAddMiniGoal,
   onOpenCheckin,
   onEditGoal,
   onDeleteGoal,
@@ -94,7 +92,12 @@ export default function GoalDetailSheet({
 
   const milestones = Array.isArray(goal.milestones) ? goal.milestones : [];
   const checkins = Array.isArray(goal.checkins) ? goal.checkins : [];
+  const miniGoals = Array.isArray(goal.mini_goals) ? goal.mini_goals : [];
   const completedMs = milestones.filter((m) => m.completed).length;
+  const completedMini = miniGoals.filter(
+    (mg) => mg.status === "completed" || Number(mg.progress_pct) >= 100,
+  ).length;
+  const isMiniGoal = goal.horizon_unit === "month";
 
   const isCompleted = goal.status === "completed";
   const paceKey = isCompleted
@@ -201,7 +204,7 @@ export default function GoalDetailSheet({
       }
     >
       <div className="mt-stack">
-        {/* Status & Description */}
+        {/* Status & Category */}
         <div className="mt-row mt-row--wrap" style={{ gap: "6px" }}>
           <span className={`goal-pace-badge goal-pace-badge--${paceKey}`}>
             <PaceIcon size={12} />
@@ -209,6 +212,21 @@ export default function GoalDetailSheet({
           </span>
           {goal.category ? <Pill tone="neutral">{goal.category}</Pill> : null}
         </div>
+
+        {/* Parent big goal link (for 1-month mini-goals) */}
+        {isMiniGoal && goal.parent_goal_title && goal.parent_goal_id ? (
+          <button
+            type="button"
+            className="goal-habit-link"
+            style={{ width: "100%", border: 0, textAlign: "left" }}
+            onClick={() => onSelectGoal?.(goal.parent_goal_id)}
+          >
+            <span className="goal-parent-link">
+              Большая цель: {goal.parent_goal_title}
+            </span>
+            <ChevronRight size={15} aria-hidden="true" />
+          </button>
+        ) : null}
 
         {goal.description ? (
           <p
@@ -258,6 +276,67 @@ export default function GoalDetailSheet({
             <span className="tabular" style={{ fontWeight: 700 }}>
               {goal.linked_habit.rate_30d_pct}%
             </span>
+          </div>
+        ) : null}
+
+        {/* Linked 1-Month Mini-Goals (for big 1-year / 5-year goals) */}
+        {!isMiniGoal ? (
+          <div className="mt-stack mt-stack--xs">
+            <GroupHeader
+              title="Мини-цели на месяц"
+              meta={
+                miniGoals.length > 0
+                  ? `${completedMini}/${miniGoals.length}`
+                  : undefined
+              }
+              action={
+                <button
+                  type="button"
+                  className="mt-btn mt-btn--ghost mt-btn--sm"
+                  onClick={() => {
+                    onClose?.();
+                    onAddMiniGoal?.(goal);
+                  }}
+                >
+                  <Plus size={15} />
+                  <span>Мини-цель</span>
+                </button>
+              }
+            />
+
+            {miniGoals.length > 0 ? (
+              <GroupList>
+                {miniGoals.map((mg) => {
+                  const targetLabel = mg.target_date
+                    ? `до ${formatDateShortRu(mg.target_date)}`
+                    : "1 месяц";
+                  return (
+                    <ListRow
+                      key={mg.id}
+                      onClick={() => onSelectGoal?.(mg.id)}
+                      title={mg.title}
+                      meta={targetLabel}
+                      trailing={
+                        <span className="mt-row" style={{ gap: "6px" }}>
+                          <span className="goal-mini-badge">
+                            {Math.round(Number(mg.progress_pct) || 0)}%
+                          </span>
+                          <ChevronRight
+                            size={15}
+                            className="muted"
+                            aria-hidden="true"
+                          />
+                        </span>
+                      }
+                    />
+                  );
+                })}
+              </GroupList>
+            ) : (
+              <p className="muted" style={{ fontSize: "13px" }}>
+                Разбейте большую цель на 1–2 спокойные мини-цели на ближайший месяц.
+              </p>
+            )}
           </div>
         ) : null}
 

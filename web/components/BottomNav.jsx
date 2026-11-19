@@ -9,7 +9,7 @@ import {
 
 const TABS = [
   { key: "today", label: "Сегодня", icon: Sun },
-  { key: "habits", label: "Привычки", icon: HeartPulse },
+  { key: "habits", label: "Здоровье", icon: HeartPulse },
   { key: "nutrition", label: "Питание", icon: UtensilsCrossed },
   { key: "home", label: "Дом", icon: Home },
   { key: "goals", label: "Цели", icon: Target },

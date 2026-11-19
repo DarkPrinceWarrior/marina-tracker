@@ -39,9 +39,9 @@ export default function HabitsSection({
   }, [initialSubTab]);
 
   return (
-    <div className="mt-section">
+    <div className="mt-section" aria-label="Здоровье">
       <PageHeader
-        title="Привычки"
+        title="Здоровье"
         subtitle={formatDateShortRu(activeDate)}
         action={
           subTab === "habits" ? (

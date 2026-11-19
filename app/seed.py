@@ -9,15 +9,111 @@ import sqlite3
 from .db import now_dt, now_iso, today_iso, transaction
 
 
+def _seed_phase4_if_missing(db: sqlite3.Connection, today: date, created_ts: str) -> bool:
+    """Idempotently seed Phase 4 tables/splits on fresh or migrated databases."""
+    changed = False
+    today_str = today.isoformat()
+
+    with transaction(db):
+        # Gratitudes
+        if db.execute("SELECT COUNT(*) FROM gratitudes").fetchone()[0] == 0:
+            gratitudes_spec = [
+                (today_str, "Благодарна себе за спокойное утро и 30 минут пилатеса без спешки", "self"),
+                (today_str, "Спасибо телу за лёгкость в спине и бодрую энергию с самого утра", "body"),
+                ((today - timedelta(days=1)).isoformat(), "Тёплый звонок с мамой и искренний смех вечером", "people"),
+                ((today - timedelta(days=2)).isoformat(), "Солнечная прогулка в парке и вкусный тыквенный суп на обед", "day"),
+            ]
+            for g_date, content, cat in gratitudes_spec:
+                db.execute(
+                    "INSERT INTO gratitudes(log_date, content, category, created_at) VALUES(?,?,?,?)",
+                    (g_date, content, cat, created_ts),
+                )
+            changed = True
+
+        # Calendar events
+        if db.execute("SELECT COUNT(*) FROM calendar_events").fetchone()[0] == 0:
+            events_spec = [
+                ((today + timedelta(days=2)).isoformat(), "11:30", "Запись к стоматологу", "doctor", "Клиника на Патриарших", "Плановый осмотр и чистка"),
+                ((today + timedelta(days=4)).isoformat(), "16:00", "Косметолог · уход за лицом", "beauty", "Студия у парка", "Увлажняющая процедура"),
+                ((today + timedelta(days=6)).isoformat(), "19:00", "Встреча с подругой", "meeting", "Кафе на Чистых прудах", "Обсудить планы на отпуск"),
+                ((today + timedelta(days=11)).isoformat(), "10:00", "Профосмотр у врача", "doctor", "Медицинский центр", "Взять свежие анализы"),
+                ((today + timedelta(days=16)).isoformat(), "18:30", "Выставка в галерее", "event", "Центр искусства", "Билеты уже куплены"),
+                ((today + timedelta(days=24)).isoformat(), "14:00", "Поход на массаж", "beauty", "Салон «Тишина»", "Расслабляющий массаж спины"),
+            ]
+            for e_date, e_time, title, cat, loc, note in events_spec:
+                db.execute(
+                    """INSERT INTO calendar_events(
+                        event_date, event_time, title, category, location, note,
+                        completed, completed_at, created_at
+                    ) VALUES(?,?,?,?,?,?,0,NULL,?)""",
+                    (e_date, e_time, title, cat, loc, note, created_ts),
+                )
+            changed = True
+
+        # Household shopping items (distinct from groceries)
+        if db.execute("SELECT COUNT(*) FROM shopping_items WHERE list_type = 'household'").fetchone()[0] == 0:
+            household_spec = [
+                ("Таблетки для посудомойки", "Моющие и уборка", "1 уп", 0, None),
+                ("Эко-спрей для стёкол", "Моющие и уборка", "1 шт", 0, None),
+                ("Льняной плед в спальню", "Текстиль и уют", "1 шт", 0, None),
+                ("Органайзер для шкафа", "Хозтовары", "2 шт", 1, "10:15"),
+                ("Фильтр-кассета для воды", "Бытовая техника", "2 шт", 0, None),
+                ("Настольная лампа с тёплым светом", "Мебель и интерьер", "1 шт", 0, None),
+            ]
+            for name, cat, qty, bought, b_at in household_spec:
+                db.execute(
+                    """INSERT INTO shopping_items(name, category, quantity, list_type, bought, bought_at, created_at)
+                       VALUES(?,?,?,'household',?,?,?)""",
+                    (name, cat, qty, bought, b_at, created_ts),
+                )
+            changed = True
+
+        # Monthly mini-goals linked to existing big goals
+        if db.execute("SELECT COUNT(*) FROM goals WHERE horizon_unit = 'month'").fetchone()[0] == 0:
+            big_goals = db.execute(
+                "SELECT id, title, linked_habit_id FROM goals WHERE horizon_unit = 'year' ORDER BY id ASC LIMIT 3"
+            ).fetchall()
+            if big_goals:
+                mini_templates = [
+                    ("20 практик пилатеса и дыхания за месяц", "Держать регулярный ритм 5 раз в неделю без пропусков.", "Здоровье и тело", 60, 12, 18),
+                    ("Прочитать первые 4 главы книги на итальянском", "По 20 минут каждый вечер с выписыванием любимых фраз.", "Личностный рост", 35, 8, 22),
+                    ("Разобрать кухню и обновить хранение специй", "Навести порядок в шкафах и подписать баночки.", "Дом и уют", 75, 16, 14),
+                ]
+                for idx, big in enumerate(big_goals):
+                    title, desc, cat, pct, started_ago, left_days = mini_templates[idx % len(mini_templates)]
+                    db.execute(
+                        """INSERT INTO goals(
+                            title, description, category, horizon_unit, horizon_years, parent_goal_id,
+                            start_date, target_date, progress_pct, linked_habit_id, status,
+                            check_in_cadence, last_checkin_at, created_at
+                        ) VALUES(?,?,?,'month',1,?,?,?,?,?,'active','weekly',?,?)""",
+                        (
+                            title,
+                            desc,
+                            cat,
+                            int(big["id"]),
+                            (today - timedelta(days=started_ago)).isoformat(),
+                            (today + timedelta(days=left_days)).isoformat(),
+                            pct,
+                            big["linked_habit_id"],
+                            (today - timedelta(days=2)).isoformat(),
+                            created_ts,
+                        ),
+                    )
+                changed = True
+
+    return changed
+
+
 def seed_if_empty(db: sqlite3.Connection) -> bool:
     """Populate realistic Russian personal-growth demo data if database is empty."""
-    existing = db.execute("SELECT COUNT(*) FROM habits").fetchone()[0]
-    if existing > 0:
-        return False
-
     today = now_dt().date()
     today_str = today.isoformat()
     created_ts = now_iso()
+
+    existing = db.execute("SELECT COUNT(*) FROM habits").fetchone()[0]
+    if existing > 0:
+        return _seed_phase4_if_missing(db, today, created_ts)
 
     with transaction(db):
         # 1. Settings
@@ -284,15 +380,16 @@ def seed_if_empty(db: sqlite3.Connection) -> bool:
                     (d_str, slot, menu_ids[idx], item[0], item[3], hhmm, item[4], created_ts),
                 )
 
-        # 7. Multi-Year Goals (1, 2, 3 years) with Milestones & Check-ins
+        # 7. Goals (1 год, 5 лет + linked 1 месяц mini-goals) with Milestones & Check-ins
         goals_spec = [
             (
                 "Гибкое и сильное тело без боли в спине",
                 "Регулярная практика пилатеса, цигуна и утреннего дыхания как естественная часть жизни.",
                 "Здоровье и тело",
-                2,
-                (today - timedelta(days=280)).isoformat(),
-                (today + timedelta(days=450)).isoformat(),
+                "year",
+                1,
+                (today - timedelta(days=145)).isoformat(),
+                (today + timedelta(days=220)).isoformat(),
                 42,
                 habit_ids[1],  # linked to morning breathing habit
                 "active",
@@ -300,12 +397,13 @@ def seed_if_empty(db: sqlite3.Connection) -> bool:
                 (today - timedelta(days=3)).isoformat(),
             ),
             (
-                "Свободный разговорный итальянский",
-                "Учить язык с удовольствием: книги, подкасты, разговорный клуб и поездка в Тоскану.",
+                "Свободный разговорный итальянский и жизнь без спешки",
+                "Учить язык с удовольствием: книги, подкасты, разговорный клуб и поездки в Италию.",
                 "Личностный рост",
-                3,
-                (today - timedelta(days=340)).isoformat(),
-                (today + timedelta(days=755)).isoformat(),
+                "year",
+                5,
+                (today - timedelta(days=520)).isoformat(),
+                (today + timedelta(days=1305)).isoformat(),
                 22,
                 habit_ids[7],  # linked to reading habit
                 "active",
@@ -316,6 +414,7 @@ def seed_if_empty(db: sqlite3.Connection) -> bool:
                 "Собственный уютный ритуал дома и осознанное пространство",
                 "Минимализм в шкафах, капсульный гардероб, порядок без стресса и живые растения.",
                 "Дом и уют",
+                "year",
                 1,
                 (today - timedelta(days=140)).isoformat(),
                 (today + timedelta(days=225)).isoformat(),
@@ -330,9 +429,10 @@ def seed_if_empty(db: sqlite3.Connection) -> bool:
         for g in goals_spec:
             cur = db.execute(
                 """INSERT INTO goals(
-                    title, description, category, horizon_years, start_date, target_date,
-                    progress_pct, linked_habit_id, status, check_in_cadence, last_checkin_at, created_at
-                ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)""",
+                    title, description, category, horizon_unit, horizon_years, parent_goal_id,
+                    start_date, target_date, progress_pct, linked_habit_id, status,
+                    check_in_cadence, last_checkin_at, created_at
+                ) VALUES(?,?,?,?,?,NULL,?,?,?,?,?,?,?,?)""",
                 (*g, created_ts),
             )
             goal_ids.append(int(cur.lastrowid))
@@ -430,21 +530,19 @@ def seed_if_empty(db: sqlite3.Connection) -> bool:
                 (chore_ids[c_idx], (today - timedelta(days=days_ago)).isoformat(), "18:30"),
             )
 
-        # Shopping items
-        shopping_spec = [
+        # Shopping items — groceries (6 fresh food products); household items seeded in _seed_phase4_if_missing
+        groceries_spec = [
             ("Авокадо спелое", "Овощи и фрукты", "2 шт", 0, None),
             ("Шпинат свежий бэби", "Овощи и фрукты", "1 уп", 0, None),
             ("Голубика", "Овощи и фрукты", "250 г", 1, "09:40"),
             ("Лосось охлаждённый филе", "Белок и рыба", "400 г", 0, None),
             ("Миндальное молоко без сахара", "Молочное", "1 л", 0, None),
-            ("Греческий йогурт 2%", "Молочное", "2 баночки", 1, "09:42"),
             ("Киноа белая", "Бакалея", "1 пачка", 0, None),
-            ("Средство для стёкол и зеркал", "Для уборки и дома", "1 шт", 0, None),
         ]
-        for name, cat, qty, bought, b_at in shopping_spec:
+        for name, cat, qty, bought, b_at in groceries_spec:
             db.execute(
-                """INSERT INTO shopping_items(name, category, quantity, bought, bought_at, created_at)
-                   VALUES(?,?,?,?,?,?)""",
+                """INSERT INTO shopping_items(name, category, quantity, list_type, bought, bought_at, created_at)
+                   VALUES(?,?,?,'groceries',?,?,?)""",
                 (name, cat, qty, bought, b_at, created_ts),
             )
 
@@ -461,4 +559,5 @@ def seed_if_empty(db: sqlite3.Connection) -> bool:
             ),
         )
 
+    _seed_phase4_if_missing(db, today, created_ts)
     return True

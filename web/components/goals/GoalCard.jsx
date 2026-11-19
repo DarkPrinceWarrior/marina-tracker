@@ -6,12 +6,14 @@ import {
   AlertTriangle,
   TrendingUp,
 } from "lucide-react";
-import { GOAL_PACE_META, pluralRu } from "../../data/presets.js";
+import {
+  GOAL_PACE_META,
+  formatGoalHorizonRu,
+} from "../../data/presets.js";
 import { MONTH_SHORT_RU, parseISODate } from "../../utils/date.js";
 
 function formatHorizonMeta(goal) {
-  const years = Number(goal.horizon_years) || 1;
-  const horizonPart = `${years} ${pluralRu(years, "год", "года", "лет")}`;
+  const horizonPart = formatGoalHorizonRu(goal);
   if (!goal.target_date) return horizonPart;
   const dt = parseISODate(goal.target_date);
   return `${horizonPart} · до ${MONTH_SHORT_RU[dt.getMonth()]}. ${dt.getFullYear()}`;
@@ -20,6 +22,11 @@ function formatHorizonMeta(goal) {
 export default function GoalCard({ goal, onOpenDetail, onOpenCheckin }) {
   const milestones = Array.isArray(goal.milestones) ? goal.milestones : [];
   const completedMs = milestones.filter((m) => m.completed).length;
+  const miniGoals = Array.isArray(goal.mini_goals) ? goal.mini_goals : [];
+  const completedMini = miniGoals.filter(
+    (mg) => mg.status === "completed" || Number(mg.progress_pct) >= 100,
+  ).length;
+  const isMiniGoal = goal.horizon_unit === "month";
 
   const isCompleted = goal.status === "completed";
   const paceKey = isCompleted
@@ -41,7 +48,10 @@ export default function GoalCard({ goal, onOpenDetail, onOpenCheckin }) {
         ? AlertTriangle
         : CheckCircle2;
 
-  const pct = Math.max(0, Math.min(100, Math.round(Number(goal.progress_pct) || 0)));
+  const pct = Math.max(
+    0,
+    Math.min(100, Math.round(Number(goal.progress_pct) || 0)),
+  );
 
   const subLine = goal.linked_habit
     ? `Привычка: ${goal.linked_habit.title} · ${goal.linked_habit.completions_30d}/30`
@@ -64,13 +74,16 @@ export default function GoalCard({ goal, onOpenDetail, onOpenCheckin }) {
         <span className="goal-horizon-meta">{formatHorizonMeta(goal)}</span>
       </div>
 
-      {/* 2. Title + 1 quiet line (linked habit or sphere) */}
+      {/* 2. Title + parent link (for 1-month mini-goal) or linked habit/sphere */}
       <button
         type="button"
         className="goal-card-main"
         onClick={() => onOpenDetail?.(goal)}
       >
         <span className="goal-card-title">{goal.title}</span>
+        {isMiniGoal && goal.parent_goal_title ? (
+          <span className="goal-parent-link">→ {goal.parent_goal_title}</span>
+        ) : null}
         {subLine ? <span className="goal-card-sub">{subLine}</span> : null}
       </button>
 
@@ -92,7 +105,7 @@ export default function GoalCard({ goal, onOpenDetail, onOpenCheckin }) {
         <span className="goal-progress-pct">{pct}%</span>
       </div>
 
-      {/* 4. Bottom row: Вехи link left + compact Чек-ин button right */}
+      {/* 4. Bottom row: Вехи (+ Мини-цели) left + compact Чек-ин button right */}
       <div className="goal-card-foot">
         <button
           type="button"
@@ -101,6 +114,9 @@ export default function GoalCard({ goal, onOpenDetail, onOpenCheckin }) {
         >
           <span>
             Вехи {completedMs}/{milestones.length}
+            {!isMiniGoal && miniGoals.length > 0
+              ? ` · Мини-цели ${completedMini}/${miniGoals.length}`
+              : ""}
           </span>
           <ChevronRight size={15} aria-hidden="true" />
         </button>

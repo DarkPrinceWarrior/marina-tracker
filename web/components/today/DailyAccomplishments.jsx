@@ -179,9 +179,12 @@ export default function DailyAccomplishments({
           <GroupList>
             {feed.map((item) => {
               const domainLabel = DOMAIN_LABELS[item.domain] || "Дело";
-              const meta = [domainLabel, item.subtitle]
-                .filter(Boolean)
-                .join(" · ");
+              const subtitleClean = String(item.subtitle || "").trim();
+              const meta =
+                subtitleClean &&
+                subtitleClean.toLowerCase() !== domainLabel.toLowerCase()
+                  ? `${domainLabel} · ${subtitleClean}`
+                  : domainLabel;
               return (
                 <ListRow
                   key={item.id}

@@ -33,7 +33,9 @@ function normalizeText(str) {
 
 export function inferShoppingCategory(item) {
   const hay = normalizeText(`${item?.category || ""} ${item?.name || ""}`);
-  if (/(матча|чай|кофе|напит|смузи|латте)/.test(hay)) return "Напитки и чай";
+  if (/(матча|чай|кофе|напит|смузи|латте|перекус|миндал|орех)/.test(hay)) {
+    return "Напитки и перекусы";
+  }
   if (/(лосос|дорадо|рыб|индейк|курин|кревет|тунец|мяс|филе)/.test(hay)) {
     return "Белок и рыба";
   }
@@ -50,7 +52,7 @@ export function inferShoppingCategory(item) {
   if (/(овсян|киноа|гречк|гранол|круп|рис|паст|хлеб|тост)/.test(hay)) {
     return "Бакалея";
   }
-  return "Другое";
+  return "Прочее";
 }
 
 export function MenuItemFormSheet({

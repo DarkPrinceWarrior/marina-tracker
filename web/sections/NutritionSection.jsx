@@ -10,6 +10,7 @@ import {
   PageHeader,
   SegmentedControl,
 } from "../components/UiPrimitives.jsx";
+import ShoppingPanel from "../components/ShoppingPanel.jsx";
 import MealPickerSheet, {
   formatAmountNumber,
   parseDefaultPortion,
@@ -17,7 +18,11 @@ import MealPickerSheet, {
 import MenuCatalogView, {
   inferShoppingCategory,
 } from "../components/nutrition/MenuCatalogSheet.jsx";
-import { MEAL_SLOTS, MEAL_SLOT_MAP } from "../data/presets.js";
+import {
+  GROCERY_CATEGORIES,
+  MEAL_SLOTS,
+  MEAL_SLOT_MAP,
+} from "../data/presets.js";
 import {
   formatDateShortRu,
   nowTimeHHMM,
@@ -102,12 +107,17 @@ export default function NutritionSection({
   const activeDate = selectedDate || todayDate;
 
   const [activeSubTab, setActiveSubTab] = useState(
-    initialSubTab === "menu" || initialSubTab === "catalog" ? "menu" : "ration",
+    initialSubTab === "menu" || initialSubTab === "catalog"
+      ? "menu"
+      : initialSubTab === "shopping" || initialSubTab === "groceries"
+        ? "shopping"
+        : "ration",
   );
   const [dayData, setDayData] = useState(() =>
     normalizeDayResponse(null, activeDate),
   );
   const [menuItems, setMenuItems] = useState([]);
+  const [groceryCount, setGroceryCount] = useState(null);
   const [loadingDay, setLoadingDay] = useState(true);
   const [loadingMenu, setLoadingMenu] = useState(true);
   const [errorMsg, setErrorMsg] = useState("");
@@ -123,6 +133,8 @@ export default function NutritionSection({
     if (!initialSubTab) return;
     if (initialSubTab === "menu" || initialSubTab === "catalog") {
       setActiveSubTab("menu");
+    } else if (initialSubTab === "shopping" || initialSubTab === "groceries") {
+      setActiveSubTab("shopping");
     } else if (
       initialSubTab === "ration" ||
       initialSubTab === "diary" ||
@@ -197,6 +209,26 @@ export default function NutritionSection({
   useEffect(() => {
     loadMenu();
   }, [loadMenu]);
+
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .getShopping("groceries")
+      .then((res) => {
+        if (cancelled) return;
+        const remaining =
+          typeof res?.summary?.remaining === "number"
+            ? res.summary.remaining
+            : Array.isArray(res?.items)
+              ? res.items.filter((it) => !it.bought).length
+              : 0;
+        setGroceryCount(remaining);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const menuById = useMemo(() => {
     const map = {};
@@ -440,8 +472,10 @@ export default function NutritionSection({
         quantity:
           menuItem.default_portion ||
           (menuItem.default_grams ? `${menuItem.default_grams} г` : "1 порция"),
+        list_type: "groceries",
       });
-      notify?.(`«${menuItem.name}» добавлено в покупки`, "success");
+      setGroceryCount((prev) => (typeof prev === "number" ? prev + 1 : 1));
+      notify?.(`«${menuItem.name}» добавлено в продукты`, "success");
       onDataChanged?.();
     } catch (err) {
       notify?.(err?.message || "Не удалось добавить в покупки", "error");
@@ -483,35 +517,43 @@ export default function NutritionSection({
     <div className="mt-section">
       <PageHeader
         title="Питание"
-        subtitle={formatDateShortRu(activeDate)}
+        subtitle={
+          activeSubTab === "shopping"
+            ? "Продукты"
+            : formatDateShortRu(activeDate)
+        }
         action={
-          <button
-            type="button"
-            className="mt-btn mt-btn--primary mt-btn--sm"
-            aria-label={
-              activeSubTab === "menu"
-                ? "Новое блюдо в меню"
-                : "Добавить блюдо в рацион"
-            }
-            onClick={() => {
-              if (activeSubTab === "menu") {
-                setCreateMenuSignal((n) => n + 1);
-              } else {
-                openPickerForSlot(overview.nextOpenSlot);
+          activeSubTab !== "shopping" ? (
+            <button
+              type="button"
+              className="mt-btn mt-btn--primary mt-btn--sm"
+              aria-label={
+                activeSubTab === "menu"
+                  ? "Новое блюдо в меню"
+                  : "Добавить блюдо в рацион"
               }
-            }}
-          >
-            <Plus size={16} />
-          </button>
+              onClick={() => {
+                if (activeSubTab === "menu") {
+                  setCreateMenuSignal((n) => n + 1);
+                } else {
+                  openPickerForSlot(overview.nextOpenSlot);
+                }
+              }}
+            >
+              <Plus size={16} />
+            </button>
+          ) : null
         }
       />
 
-      <DateStrip
-        selectedDate={activeDate}
-        todayDate={todayDate}
-        onSelectDate={onSelectDate}
-        markers={dateMarkers}
-      />
+      {activeSubTab !== "shopping" ? (
+        <DateStrip
+          selectedDate={activeDate}
+          todayDate={todayDate}
+          onSelectDate={onSelectDate}
+          markers={dateMarkers}
+        />
+      ) : null}
 
       <SegmentedControl
         value={activeSubTab}
@@ -526,6 +568,11 @@ export default function NutritionSection({
             value: "menu",
             label: "Меню",
             count: menuItems.length,
+          },
+          {
+            value: "shopping",
+            label: "Покупки",
+            count: typeof groceryCount === "number" ? groceryCount : undefined,
           },
         ]}
       />
@@ -658,7 +705,7 @@ export default function NutritionSection({
             })
           )}
         </div>
-      ) : (
+      ) : activeSubTab === "menu" ? (
         /* SUB-TAB 2: МЕНЮ */
         <MenuCatalogView
           menuItems={menuItems}
@@ -670,6 +717,18 @@ export default function NutritionSection({
           onAddToShopping={handleAddMenuItemToShopping}
           onSaveMenuItem={handleSaveMenuItem}
           onDeleteMenuItem={handleDeleteMenuItem}
+        />
+      ) : (
+        /* SUB-TAB 3: ПОКУПКИ ПРОДУКТОВ */
+        <ShoppingPanel
+          listType="groceries"
+          categories={GROCERY_CATEGORIES}
+          placeholder="Что купить из продуктов…"
+          emptyTitle="Список продуктов пуст"
+          emptyDescription="Добавьте продукты выше или отправьте блюдо в покупки из вкладки «Меню»."
+          notify={notify}
+          onDataChanged={onDataChanged}
+          onCountChange={setGroceryCount}
         />
       )}
 

@@ -141,7 +141,9 @@ CREATE TABLE IF NOT EXISTS goals (
     title TEXT NOT NULL,
     description TEXT NOT NULL DEFAULT '',
     category TEXT NOT NULL DEFAULT 'Личностный рост',
+    horizon_unit TEXT NOT NULL DEFAULT 'year' CHECK(horizon_unit IN ('month','year')),
     horizon_years INTEGER NOT NULL DEFAULT 1 CHECK(horizon_years BETWEEN 1 AND 10),
+    parent_goal_id INTEGER REFERENCES goals(id) ON DELETE SET NULL,
     start_date TEXT NOT NULL,
     target_date TEXT NOT NULL,
     progress_pct INTEGER NOT NULL DEFAULT 0 CHECK(progress_pct BETWEEN 0 AND 100),
@@ -216,6 +218,7 @@ CREATE TABLE IF NOT EXISTS shopping_items (
     name TEXT NOT NULL,
     category TEXT NOT NULL DEFAULT 'Прочее',
     quantity TEXT NOT NULL DEFAULT '1 шт',
+    list_type TEXT NOT NULL DEFAULT 'groceries' CHECK(list_type IN ('groceries','household')),
     bought INTEGER NOT NULL DEFAULT 0 CHECK(bought IN (0,1)),
     bought_at TEXT,
     created_at TEXT NOT NULL
@@ -228,6 +231,29 @@ CREATE TABLE IF NOT EXISTS day_reflections (
     mood TEXT NOT NULL DEFAULT '',
     updated_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS gratitudes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    log_date TEXT NOT NULL,
+    content TEXT NOT NULL,
+    category TEXT NOT NULL DEFAULT 'day' CHECK(category IN ('self','people','day','body','other')),
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_gratitudes_date ON gratitudes(log_date);
+
+CREATE TABLE IF NOT EXISTS calendar_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    event_date TEXT NOT NULL,
+    event_time TEXT NOT NULL DEFAULT '',
+    title TEXT NOT NULL,
+    category TEXT NOT NULL DEFAULT 'event' CHECK(category IN ('doctor','beauty','meeting','event','personal','home')),
+    location TEXT NOT NULL DEFAULT '',
+    note TEXT NOT NULL DEFAULT '',
+    completed INTEGER NOT NULL DEFAULT 0 CHECK(completed IN (0,1)),
+    completed_at TEXT,
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_calendar_events_date ON calendar_events(event_date);
 """
 
 
@@ -310,12 +336,47 @@ def record(db: sqlite3.Connection, sql: str, args: tuple[Any, ...] = ()) -> dict
     return dict(row) if row is not None else None
 
 
+HOUSEHOLD_MIGRATION_CATEGORIES: tuple[str, ...] = (
+    "Для уборки и дома",
+    "Для дома и быта",
+    "Моющие и уборка",
+    "Бытовая техника",
+    "Мебель и интерьер",
+    "Текстиль и уют",
+    "Хозтовары",
+    "Ремонт и мелочи",
+)
+
+
+def _table_columns(conn: sqlite3.Connection, table_name: str) -> set[str]:
+    return {row["name"] for row in conn.execute(f"PRAGMA table_info({table_name})")}
+
+
 def init_db(db: sqlite3.Connection | None = None) -> None:
     own = db is None
     conn = connect() if own else db
     try:
         conn.execute("PRAGMA journal_mode = WAL")
         conn.executescript(SCHEMA)
+
+        # Safe incremental migrations for existing SQLite databases
+        goal_cols = _table_columns(conn, "goals")
+        if "horizon_unit" not in goal_cols:
+            conn.execute("ALTER TABLE goals ADD COLUMN horizon_unit TEXT NOT NULL DEFAULT 'year'")
+        if "parent_goal_id" not in goal_cols:
+            conn.execute("ALTER TABLE goals ADD COLUMN parent_goal_id INTEGER REFERENCES goals(id) ON DELETE SET NULL")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_goals_parent ON goals(parent_goal_id)")
+
+        shopping_cols = _table_columns(conn, "shopping_items")
+        if "list_type" not in shopping_cols:
+            conn.execute("ALTER TABLE shopping_items ADD COLUMN list_type TEXT NOT NULL DEFAULT 'groceries'")
+            placeholders = ",".join("?" for _ in HOUSEHOLD_MIGRATION_CATEGORIES)
+            conn.execute(
+                f"UPDATE shopping_items SET list_type = 'household' WHERE category IN ({placeholders})",
+                HOUSEHOLD_MIGRATION_CATEGORIES,
+            )
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_shopping_list_type ON shopping_items(list_type)")
+
         conn.execute(
             "INSERT OR IGNORE INTO water_settings(id, daily_goal_ml) VALUES(1, 2000)"
         )

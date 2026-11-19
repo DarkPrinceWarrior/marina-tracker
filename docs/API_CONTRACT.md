@@ -85,8 +85,15 @@ Response `200`:
     "chores": {
       "done": 2,
       "total": 4,
-      "shopping_remaining": 6
+      "shopping_remaining": 5
     },
+    "shopping": {
+      "household_remaining": 5,
+      "groceries_remaining": 5,
+      "remaining": 5,
+      "total_remaining": 10
+    },
+    "gratitudes_count": 2,
     "goals": {
       "active_count": 3,
       "avg_progress_pct": 43,
@@ -137,6 +144,29 @@ Body:
 ```
 (`date` optional, defaults to today; `energy_level` `1..5` or `null`; `mood` optional string).
 Response `200`: saved reflection object `{log_date, summary_note, energy_level, mood, updated_at}`.
+
+### `GET /api/gratitudes?date=YYYY-MM-DD&days=30`
+Response `200`:
+```json
+{
+  "date": "2026-11-19",
+  "items": [
+    {"id": 1, "log_date": "2026-11-19", "content": "...", "category": "self", "created_at": "..."}
+  ],
+  "recent": [],
+  "total_count": 4
+}
+```
+`category`: `"self" | "people" | "day" | "body" | "other"`.
+
+### `POST /api/gratitudes`
+Body: `{date?, log_date?, content, category?}` -> Response `201`: `GratitudeItem`.
+
+### `PATCH /api/gratitudes/{id}`
+Body: `{date?, content?, category?}` -> Response `200`: `GratitudeItem`.
+
+### `DELETE /api/gratitudes/{id}`
+Response `200`: `{"deleted": true, "id": 1}`.
 
 ---
 
@@ -193,11 +223,48 @@ Response `200`: `{"deleted": true, "id": 1}`.
 
 ---
 
-## 3. Multi-Year Goals — 1 to 5 Years (`app/routes/tasks_goals.py`)
+## 3. Goals (`1 месяц` / `1 год` / `5 лет`) & Calendar Events (`app/routes/tasks_goals.py`)
 
 ### `GET /api/goals?status=all&horizon=all`
 - `status`: `"all" | "active" | "completed" | "paused"`
-- `horizon`: `"all" | "1" | "2-3" | "5"`
+- `horizon`: `"all" | "month" | "1y" | "5y"` (legacy `"1" | "2-3" | "5"` also accepted)
+
+Each `GoalDetail` additionally includes:
+- `horizon_unit`: `"month" | "year"` (`1 месяц` stores `horizon_unit="month", horizon_years=1`; `1 год` stores `horizon_unit="year", horizon_years=1`; `5 лет` stores `horizon_unit="year", horizon_years=5`)
+- `parent_goal_id`: `int | null`
+- `parent_goal_title`: `str | null`
+- `mini_goals`: `[{id, title, progress_pct, status, target_date, pace_status, pace_label, horizon_unit, horizon_years}]`
+
+### `GET /api/events?year=YYYY&month=MM&date=YYYY-MM-DD`
+Response `200`:
+```json
+{
+  "year": 2026,
+  "month": 11,
+  "today": "2026-11-19",
+  "date": null,
+  "items": [
+    {
+      "id": 1,
+      "event_date": "2026-11-21",
+      "event_time": "11:30",
+      "title": "Запись к стоматологу",
+      "category": "doctor",
+      "location": "Клиника на Патриарших",
+      "note": "Плановый осмотр и чистка",
+      "completed": false,
+      "completed_at": null,
+      "created_at": "..."
+    }
+  ],
+  "month_days_map": {"2026-11-21": []},
+  "upcoming": []
+}
+```
+`category`: `"doctor" | "beauty" | "meeting" | "event" | "personal" | "home"`.
+
+### `POST /api/events` (201) / `PATCH /api/events/{id}` / `POST /api/events/{id}/toggle` / `DELETE /api/events/{id}`
+Full CRUD + completion toggle for scheduled appointments and events.
 
 Response `200`:
 ```json
@@ -699,16 +766,19 @@ Response `200`: `{"deleted": true, "id": 1}`.
 Body: `{date?: "YYYY-MM-DD", completed?: boolean}`
 Response `200`: updated `ChoreItem`.
 
-### `GET /api/home/shopping`
+### `GET /api/home/shopping?list_type=groceries|household`
+`list_type` is optional (`"groceries"` for Питание food list, `"household"` for Дом household list; omitted returns all).
 Response `200`:
 ```json
 {
+  "list_type": "groceries",
   "items": [
     {
       "id": 1,
       "name": "Авокадо спелое",
       "category": "Овощи и фрукты",
       "quantity": "2 шт",
+      "list_type": "groceries",
       "bought": false,
       "bought_at": null,
       "created_at": "..."
@@ -718,23 +788,24 @@ Response `200`:
     "Овощи и фрукты": []
   },
   "summary": {
-    "remaining": 6,
-    "bought": 2,
-    "total": 8
+    "remaining": 5,
+    "bought": 1,
+    "total": 6
   }
 }
 ```
 
 ### `POST /api/home/shopping`
-Body: `{name, category?, quantity?}`
+Body: `{name, category?, quantity?, list_type?}` (`list_type` defaults to `"groceries"`).
 Response `201`: `ShoppingItem`.
 
 ### `PATCH /api/home/shopping/{id}`
-Body (all optional): `{name?, category?, quantity?, bought?}`
+Body (all optional): `{name?, category?, quantity?, list_type?, bought?}`
 Response `200`: `ShoppingItem`.
 
 ### `DELETE /api/home/shopping/{id}`
 Response `200`: `{"deleted": true, "id": 1}`.
 
-### `POST /api/home/shopping/clear-bought`
-Response `200`: `{"cleared": 2}`.
+### `POST /api/home/shopping/clear-bought?list_type=groceries|household`
+Accepts optional query `?list_type=` or JSON `{list_type}` so clearing one list never touches the other.
+Response `200`: `{"cleared": 2, "list_type": "groceries"}`.

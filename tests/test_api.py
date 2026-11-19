@@ -119,6 +119,11 @@ def test_seeded_copy_has_no_english_leaks(client: TestClient):
         corpus_parts.extend([ch["title"], ch.get("zone", "")])
     for sh in client.get("/api/home/shopping").json()["items"]:
         corpus_parts.extend([sh["name"], sh.get("category", "")])
+    for gr in client.get(f"/api/gratitudes?date={today}&days=60").json()["recent"]:
+        corpus_parts.append(gr["content"])
+    dt_today = date.fromisoformat(today)
+    for ev in client.get(f"/api/events?year={dt_today.year}&month={dt_today.month}").json()["upcoming"]:
+        corpus_parts.extend([ev["title"], ev.get("location", ""), ev.get("note", "")])
 
     corpus = "\n".join(corpus_parts)
     leaked = re.findall(r"\b(?:Q[1-4]|A[12]|B[12]|C[12]|CILS|PWA|Todo|Failed to fetch)\b", corpus)
@@ -827,3 +832,178 @@ def test_home_chores_and_shopping_crud_toggle_clear(client: TestClient):
     # Delete kept item
     assert client.delete(f"/api/home/shopping/{id_keep}").status_code == 200
     assert client.delete(f"/api/home/shopping/{id_keep}").status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# 10. Phase 4: Gratitudes, Events Calendar, 1m/1y/5y Mini-Goals & Shopping Split
+# ---------------------------------------------------------------------------
+
+
+def test_gratitudes_crud_and_today_summary(client: TestClient):
+    today = client.get("/api/health").json()["today"]
+
+    initial = client.get(f"/api/gratitudes?date={today}&days=30")
+    assert initial.status_code == 200
+    body = initial.json()
+    assert body["total_count"] >= 4
+    assert isinstance(body["items"], list)
+    assert isinstance(body["recent"], list)
+
+    create_res = client.post(
+        "/api/gratitudes",
+        json={"date": today, "content": "Спасибо за тёплое солнце и тихое утро", "category": "day"},
+    )
+    assert create_res.status_code == 201
+    gr = create_res.json()
+    gr_id = gr["id"]
+    assert gr["category"] == "day"
+
+    # Today summary exposes gratitudes_count and split shopping counts
+    today_summary = client.get(f"/api/today?date={today}").json()["summary"]
+    assert today_summary["gratitudes_count"] >= 1
+    assert "shopping" in today_summary
+    assert today_summary["shopping"]["groceries_remaining"] >= 1
+    assert today_summary["shopping"]["household_remaining"] >= 1
+
+    patch_res = client.patch(
+        f"/api/gratitudes/{gr_id}",
+        json={"content": "Спасибо за спокойное утро и вкусный завтрак", "category": "self"},
+    )
+    assert patch_res.status_code == 200
+    assert patch_res.json()["category"] == "self"
+
+    assert client.delete(f"/api/gratitudes/{gr_id}").status_code == 200
+    assert client.delete(f"/api/gratitudes/{gr_id}").status_code == 404
+
+
+def test_calendar_events_crud_toggle_and_month_map(client: TestClient):
+    today_str = client.get("/api/health").json()["today"]
+    today_dt = date.fromisoformat(today_str)
+
+    res = client.get(f"/api/events?year={today_dt.year}&month={today_dt.month}")
+    assert res.status_code == 200
+    data = res.json()
+    assert len(data["upcoming"]) >= 3
+    assert isinstance(data["month_days_map"], dict)
+
+    create_res = client.post(
+        "/api/events",
+        json={
+            "event_date": today_str,
+            "event_time": "15:30",
+            "title": "Приём у косметолога",
+            "category": "beauty",
+            "location": "Клиника на Патриарших",
+            "note": "Увлажняющий уход",
+        },
+    )
+    assert create_res.status_code == 201
+    ev = create_res.json()
+    ev_id = ev["id"]
+    assert ev["completed"] is False
+
+    patch_res = client.patch(
+        f"/api/events/{ev_id}",
+        json={"event_time": "16:00", "category": "doctor", "title": "Осмотр у врача"},
+    )
+    assert patch_res.status_code == 200
+    assert patch_res.json()["event_time"] == "16:00"
+
+    tog = client.post(f"/api/events/{ev_id}/toggle", json={"completed": True})
+    assert tog.status_code == 200
+    assert tog.json()["completed"] is True
+    assert tog.json()["completed_at"]
+
+    assert client.delete(f"/api/events/{ev_id}").status_code == 200
+    assert client.delete(f"/api/events/{ev_id}").status_code == 404
+
+
+def test_goals_horizons_month_1y_5y_and_parent_mini_goals(client: TestClient):
+    today_str = client.get("/api/health").json()["today"]
+    today_dt = date.fromisoformat(today_str)
+
+    # Seeded goals cover 1 месяц, 1 год, and 5 лет
+    month_goals = client.get("/api/goals?horizon=month").json()["items"]
+    year_goals = client.get("/api/goals?horizon=1y").json()["items"]
+    five_goals = client.get("/api/goals?horizon=5y").json()["items"]
+    assert len(month_goals) >= 2
+    assert len(year_goals) >= 1
+    assert len(five_goals) >= 1
+    assert any(g.get("parent_goal_id") and g.get("parent_goal_title") for g in month_goals)
+    assert any(len(g.get("mini_goals", [])) >= 1 for g in (year_goals + five_goals))
+
+    # Create a 5-year big goal + linked 1-month mini-goal
+    big = client.post(
+        "/api/goals",
+        json={
+            "title": "Собственная студия дизайна",
+            "category": "Карьера и проекты",
+            "horizon_unit": "year",
+            "horizon_years": 5,
+            "start_date": today_str,
+            "target_date": date(today_dt.year + 5, today_dt.month, min(today_dt.day, 28)).isoformat(),
+        },
+    )
+    assert big.status_code == 201
+    big_id = big.json()["id"]
+
+    mini = client.post(
+        "/api/goals",
+        json={
+            "title": "Собрать портфолио из 3 проектов",
+            "category": "Карьера и проекты",
+            "horizon_unit": "month",
+            "horizon_years": 1,
+            "parent_goal_id": big_id,
+            "start_date": today_str,
+            "target_date": (today_dt + timedelta(days=30)).isoformat(),
+        },
+    )
+    assert mini.status_code == 201
+    mini_data = mini.json()
+    assert mini_data["horizon_unit"] == "month"
+    assert mini_data["parent_goal_id"] == big_id
+    assert mini_data["parent_goal_title"] == "Собственная студия дизайна"
+
+    # Parent big goal now lists the mini-goal in mini_goals
+    all_5y = client.get("/api/goals?horizon=5y").json()["items"]
+    fetched_big = next(g for g in all_5y if g["id"] == big_id)
+    assert any(m["id"] == mini_data["id"] for m in fetched_big["mini_goals"])
+
+    assert client.delete(f"/api/goals/{mini_data['id']}").status_code == 200
+    assert client.delete(f"/api/goals/{big_id}").status_code == 200
+
+
+def test_shopping_groceries_vs_household_strict_isolation(client: TestClient):
+    groc = client.get("/api/home/shopping?list_type=groceries").json()
+    house = client.get("/api/home/shopping?list_type=household").json()
+    assert groc["summary"]["total"] >= 4
+    assert house["summary"]["total"] >= 4
+    assert {i["id"] for i in groc["items"]}.isdisjoint({i["id"] for i in house["items"]})
+
+    g_new = client.post(
+        "/api/home/shopping",
+        json={"name": "Спелый манго", "category": "Овощи и фрукты", "quantity": "2 шт", "list_type": "groceries"},
+    ).json()
+    h_new = client.post(
+        "/api/home/shopping",
+        json={"name": "Фильтр для пылесоса", "category": "Бытовая техника", "quantity": "1 шт", "list_type": "household"},
+    ).json()
+
+    # Mark both bought
+    client.patch(f"/api/home/shopping/{g_new['id']}", json={"bought": True})
+    client.patch(f"/api/home/shopping/{h_new['id']}", json={"bought": True})
+
+    # Clear ONLY groceries bought -> household bought item must stay untouched!
+    clr_g = client.post("/api/home/shopping/clear-bought?list_type=groceries")
+    assert clr_g.status_code == 200
+    g_ids_after = {i["id"] for i in client.get("/api/home/shopping?list_type=groceries").json()["items"]}
+    h_ids_after = {i["id"] for i in client.get("/api/home/shopping?list_type=household").json()["items"]}
+    assert g_new["id"] not in g_ids_after
+    assert h_new["id"] in h_ids_after
+
+    # Now clear household bought -> removes h_new cleanly
+    clr_h = client.post("/api/home/shopping/clear-bought", json={"list_type": "household"})
+    assert clr_h.status_code == 200
+    h_ids_final = {i["id"] for i in client.get("/api/home/shopping?list_type=household").json()["items"]}
+    assert h_new["id"] not in h_ids_final

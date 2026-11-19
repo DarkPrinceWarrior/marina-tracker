@@ -1,38 +1,58 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Plus, Target, Award } from "lucide-react";
 import api from "../api.js";
-import { PageHeader, Pill, EmptyState } from "../components/UiPrimitives.jsx";
+import {
+  PageHeader,
+  SegmentedControl,
+  Pill,
+  EmptyState,
+} from "../components/UiPrimitives.jsx";
 import GoalCard from "../components/goals/GoalCard.jsx";
 import GoalDetailSheet from "../components/goals/GoalDetailSheet.jsx";
 import GoalFormSheet from "../components/goals/GoalFormSheet.jsx";
 import GoalCheckinSheet from "../components/goals/GoalCheckinSheet.jsx";
+import EventsCalendarTab from "../components/goals/EventsCalendarTab.jsx";
 import { todayISO } from "../utils/date.js";
 
 const HORIZON_FILTERS = [
   { key: "all", label: "Все" },
-  { key: "1", label: "1 год" },
-  { key: "2-3", label: "2–3 года" },
-  { key: "5", label: "5 лет" },
+  { key: "month", label: "1 месяц" },
+  { key: "1y", label: "1 год" },
+  { key: "5y", label: "5 лет" },
   { key: "completed", label: "Готово" },
 ];
 
 export default function GoalsSection({
   todayDate,
+  initialSubTab,
   notify,
   onOpenYearReview,
   onDataChanged,
 }) {
   const activeToday = todayDate || todayISO();
+  const [subTab, setSubTab] = useState(
+    initialSubTab === "calendar" ? "calendar" : "goals",
+  );
+
   const [goals, setGoals] = useState([]);
   const [habits, setHabits] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
 
-  // Sheets
+  // Sheets & calendar create trigger
   const [detailGoalId, setDetailGoalId] = useState(null);
   const [formOpen, setFormOpen] = useState(false);
   const [editingGoal, setEditingGoal] = useState(null);
+  const [formDefaultHorizon, setFormDefaultHorizon] = useState("1y");
+  const [formDefaultParentId, setFormDefaultParentId] = useState(null);
   const [checkinGoalId, setCheckinGoalId] = useState(null);
+  const [eventCreateSignal, setEventCreateSignal] = useState(0);
+
+  useEffect(() => {
+    if (initialSubTab === "calendar" || initialSubTab === "goals") {
+      setSubTab(initialSubTab);
+    }
+  }, [initialSubTab]);
 
   const loadGoals = useCallback(async () => {
     try {
@@ -61,15 +81,24 @@ export default function GoalsSection({
     loadHabits();
   }, [loadGoals, loadHabits]);
 
+  const bigGoals = useMemo(
+    () =>
+      goals.filter(
+        (g) => g.horizon_unit !== "month" && g.status !== "completed",
+      ),
+    [goals],
+  );
+
   const filteredGoals = useMemo(() => {
     return goals.filter((goal) => {
       if (filter === "all") return true;
       if (filter === "completed") return goal.status === "completed";
       if (goal.status === "completed") return false;
+      if (filter === "month") return goal.horizon_unit === "month";
+      if (goal.horizon_unit === "month") return false;
       const years = Number(goal.horizon_years) || 1;
-      if (filter === "1") return years === 1;
-      if (filter === "2-3") return years >= 2 && years <= 3;
-      if (filter === "5") return years >= 4;
+      if (filter === "1y") return years === 1;
+      if (filter === "5y") return years >= 2;
       return true;
     });
   }, [goals, filter]);
@@ -84,59 +113,55 @@ export default function GoalsSection({
     [goals, checkinGoalId],
   );
 
-  function replaceGoalInState(updatedGoal) {
-    if (!updatedGoal?.id) return;
-    setGoals((prev) =>
-      prev.map((g) => (g.id === updatedGoal.id ? updatedGoal : g)),
-    );
+  function openNewGoalForm({ horizon = "1y", parentId = null } = {}) {
+    setEditingGoal(null);
+    setFormDefaultHorizon(horizon);
+    setFormDefaultParentId(parentId);
+    setFormOpen(true);
   }
 
   async function handleSaveGoal(payload) {
     if (payload.id) {
       const { id, milestones, ...patchBody } = payload;
-      const updated = await api.updateGoal(id, patchBody);
-      replaceGoalInState(updated);
+      await api.updateGoal(id, patchBody);
       notify?.("Цель обновлена", "success");
     } else {
       const { id, ...createBody } = payload;
-      const created = await api.createGoal(createBody);
-      setGoals((prev) => [created, ...prev]);
-      notify?.("Цель создана", "success");
+      await api.createGoal(createBody);
+      notify?.(
+        createBody.horizon_unit === "month"
+          ? "Мини-цель на месяц создана"
+          : "Цель создана",
+        "success",
+      );
     }
+    await loadGoals();
     onDataChanged?.();
   }
 
   async function handleDeleteGoal(goalId) {
     await api.deleteGoal(goalId);
-    setGoals((prev) => prev.filter((g) => g.id !== goalId));
     if (detailGoalId === goalId) setDetailGoalId(null);
     if (checkinGoalId === goalId) setCheckinGoalId(null);
     notify?.("Цель удалена", "info");
+    await loadGoals();
     onDataChanged?.();
   }
 
   async function handleSubmitCheckin(goalId, payload) {
-    const res = await api.createGoalCheckin(goalId, payload);
-    if (res?.goal) {
-      replaceGoalInState(res.goal);
-    } else {
-      await loadGoals();
-    }
+    await api.createGoalCheckin(goalId, payload);
     notify?.("Чек-ин сохранён", "success");
+    await loadGoals();
     onDataChanged?.();
   }
 
   async function handleToggleMilestone(goalId, milestone) {
     try {
-      const res = await api.updateMilestone(goalId, milestone.id, {
+      await api.updateMilestone(goalId, milestone.id, {
         completed: !milestone.completed,
         sync_progress: true,
       });
-      if (res?.goal) {
-        replaceGoalInState(res.goal);
-      } else {
-        await loadGoals();
-      }
+      await loadGoals();
       onDataChanged?.();
     } catch (err) {
       notify?.(err?.message || "Не удалось обновить веху", "error");
@@ -145,13 +170,9 @@ export default function GoalsSection({
 
   async function handleAddMilestone(goalId, payload) {
     try {
-      const res = await api.createMilestone(goalId, payload);
-      if (res?.goal) {
-        replaceGoalInState(res.goal);
-      } else {
-        await loadGoals();
-      }
+      await api.createMilestone(goalId, payload);
       notify?.("Веха добавлена", "success");
+      await loadGoals();
       onDataChanged?.();
     } catch (err) {
       notify?.(err?.message || "Не удалось добавить веху", "error");
@@ -161,13 +182,9 @@ export default function GoalsSection({
 
   async function handleDeleteMilestone(goalId, milestoneId) {
     try {
-      const res = await api.deleteMilestone(goalId, milestoneId);
-      if (res?.goal) {
-        replaceGoalInState(res.goal);
-      } else {
-        await loadGoals();
-      }
+      await api.deleteMilestone(goalId, milestoneId);
       notify?.("Веха удалена", "info");
+      await loadGoals();
       onDataChanged?.();
     } catch (err) {
       notify?.(err?.message || "Не удалось удалить веху", "error");
@@ -191,101 +208,157 @@ export default function GoalsSection({
           ) : null
         }
         action={
-          <button
-            type="button"
-            className="mt-btn mt-btn--primary mt-btn--sm"
-            aria-label="Новая цель"
-            onClick={() => {
-              setEditingGoal(null);
-              setFormOpen(true);
-            }}
-          >
-            <Plus size={16} />
-            <span>Цель</span>
-          </button>
+          subTab === "calendar" ? (
+            <button
+              type="button"
+              className="mt-btn mt-btn--primary mt-btn--sm"
+              aria-label="Новое событие"
+              onClick={() => setEventCreateSignal((n) => n + 1)}
+            >
+              <Plus size={16} />
+              <span>Событие</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="mt-btn mt-btn--primary mt-btn--sm"
+              aria-label="Новая цель"
+              onClick={() =>
+                openNewGoalForm({
+                  horizon:
+                    filter === "month"
+                      ? "month"
+                      : filter === "5y"
+                        ? "5y"
+                        : "1y",
+                })
+              }
+            >
+              <Plus size={16} />
+              <span>Цель</span>
+            </button>
+          )
         }
       />
 
-      {/* Horizon & Status Filter Row */}
-      <div
-        className="mt-chip-row"
-        role="group"
-        aria-label="Фильтр целей по горизонту"
-      >
-        {HORIZON_FILTERS.map((opt) => (
-          <Pill
-            key={opt.key}
-            tone="neutral"
-            active={filter === opt.key}
-            onClick={() => setFilter(opt.key)}
-          >
-            {opt.label}
-          </Pill>
-        ))}
-      </div>
+      <SegmentedControl
+        value={subTab}
+        onChange={setSubTab}
+        options={[
+          { value: "goals", label: "Цели" },
+          { value: "calendar", label: "Календарь" },
+        ]}
+      />
 
-      {/* Goals List */}
-      {loading ? (
-        <div className="mt-card mt-card--compact">
-          <p className="mt-card-sub">Загружаем цели...</p>
-        </div>
-      ) : filteredGoals.length === 0 ? (
-        <EmptyState
-          icon={<Target size={22} />}
-          title={
-            filter === "completed"
-              ? "Пока нет достигнутых целей"
-              : "В этом горизонте нет целей"
-          }
-          description={
-            filter === "completed"
-              ? "Завершённые цели появятся здесь."
-              : "Поставьте цель на 1–5 лет — она будет мягко следить за вашим темпом."
-          }
-          action={
-            filter !== "completed" ? (
-              <button
-                type="button"
-                className="mt-btn mt-btn--primary"
-                onClick={() => {
-                  setEditingGoal(null);
-                  setFormOpen(true);
-                }}
-              >
-                <Plus size={17} />
-                <span>Новая цель</span>
-              </button>
-            ) : (
-              <button
-                type="button"
-                className="mt-btn mt-btn--soft"
-                onClick={() => setFilter("all")}
-              >
-                Показать все
-              </button>
-            )
-          }
-        />
-      ) : (
+      {subTab === "goals" ? (
         <div className="mt-stack">
-          {filteredGoals.map((goal) => (
-            <GoalCard
-              key={goal.id}
-              goal={goal}
-              onOpenDetail={(g) => setDetailGoalId(g.id)}
-              onOpenCheckin={(g) => setCheckinGoalId(g.id)}
+          {/* Horizon & Status Filter Row */}
+          <div
+            className="mt-chip-row"
+            role="group"
+            aria-label="Фильтр целей по горизонту"
+          >
+            {HORIZON_FILTERS.map((opt) => (
+              <Pill
+                key={opt.key}
+                tone="neutral"
+                active={filter === opt.key}
+                onClick={() => setFilter(opt.key)}
+              >
+                {opt.label}
+              </Pill>
+            ))}
+          </div>
+
+          {/* Goals List */}
+          {loading ? (
+            <div className="mt-card mt-card--compact">
+              <p className="mt-card-sub">Загружаем цели...</p>
+            </div>
+          ) : filteredGoals.length === 0 ? (
+            <EmptyState
+              icon={<Target size={22} />}
+              title={
+                filter === "completed"
+                  ? "Пока нет достигнутых целей"
+                  : "В этом горизонте нет целей"
+              }
+              description={
+                filter === "completed"
+                  ? "Завершённые цели появятся здесь."
+                  : "Поставьте цель на месяц, год или 5 лет — она будет мягко следить за вашим темпом."
+              }
+              action={
+                filter !== "completed" ? (
+                  <button
+                    type="button"
+                    className="mt-btn mt-btn--primary"
+                    onClick={() =>
+                      openNewGoalForm({
+                        horizon:
+                          filter === "month"
+                            ? "month"
+                            : filter === "5y"
+                              ? "5y"
+                              : "1y",
+                      })
+                    }
+                  >
+                    <Plus size={17} />
+                    <span>Новая цель</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="mt-btn mt-btn--soft"
+                    onClick={() => setFilter("all")}
+                  >
+                    Показать все
+                  </button>
+                )
+              }
             />
-          ))}
+          ) : (
+            <div className="mt-stack">
+              {filteredGoals.map((goal) => (
+                <GoalCard
+                  key={goal.id}
+                  goal={goal}
+                  onOpenDetail={(g) => setDetailGoalId(g.id)}
+                  onOpenCheckin={(g) => setCheckinGoalId(g.id)}
+                />
+              ))}
+            </div>
+          )}
         </div>
+      ) : (
+        <EventsCalendarTab
+          todayDate={activeToday}
+          notify={notify}
+          onDataChanged={onDataChanged}
+          createSignal={eventCreateSignal}
+        />
       )}
 
       <GoalDetailSheet
         open={Boolean(detailGoal)}
         goal={detailGoal}
         onClose={() => setDetailGoalId(null)}
+        onSelectGoal={(goalId) => setDetailGoalId(goalId)}
+        onAddMiniGoal={(parentGoal) =>
+          openNewGoalForm({ horizon: "month", parentId: parentGoal.id })
+        }
         onOpenCheckin={(g) => setCheckinGoalId(g.id)}
         onEditGoal={(g) => {
           setEditingGoal(g);
+          setFormDefaultHorizon(
+            g.horizon_unit === "month"
+              ? "month"
+              : Number(g.horizon_years) >= 3
+                ? "5y"
+                : "1y",
+          );
+          setFormDefaultParentId(g.parent_goal_id || null);
           setFormOpen(true);
         }}
         onDeleteGoal={handleDeleteGoal}
@@ -297,6 +370,9 @@ export default function GoalsSection({
       <GoalFormSheet
         open={formOpen}
         goal={editingGoal}
+        defaultHorizon={formDefaultHorizon}
+        defaultParentGoalId={formDefaultParentId}
+        bigGoals={bigGoals}
         habits={habits}
         todayDate={activeToday}
         onClose={() => {

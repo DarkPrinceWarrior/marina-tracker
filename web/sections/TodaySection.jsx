@@ -5,9 +5,11 @@ import {
   DateStrip,
   MetricStrip,
   PageHeader,
+  SegmentedControl,
 } from "../components/UiPrimitives.jsx";
 import DailyTaskPlanner from "../components/today/DailyTaskPlanner.jsx";
 import DailyAccomplishments from "../components/today/DailyAccomplishments.jsx";
+import GratitudeTab from "../components/today/GratitudeTab.jsx";
 import TaskFormSheet from "../components/today/TaskFormSheet.jsx";
 import {
   WEEKDAY_SHORT_RU,
@@ -31,6 +33,7 @@ export default function TodaySection({
   todayDate = todayISO(),
   onSelectDate,
   onNavigate,
+  initialSubTab,
   notify,
   onOpenInstallGuide,
   onOpenYearReview,
@@ -38,6 +41,9 @@ export default function TodaySection({
 }) {
   const activeDate = selectedDate || todayDate;
 
+  const [subTab, setSubTab] = useState(
+    initialSubTab === "gratitude" ? "gratitude" : "day"
+  );
   const [data, setData] = useState(null);
   const [goals, setGoals] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -55,6 +61,12 @@ export default function TodaySection({
   const [reflectionSheetOpen, setReflectionSheetOpen] = useState(false);
 
   const reqSeqRef = useRef(0);
+
+  useEffect(() => {
+    if (initialSubTab === "gratitude" || initialSubTab === "day") {
+      setSubTab(initialSubTab);
+    }
+  }, [initialSubTab]);
 
   useEffect(() => {
     if (typeof window === "undefined" || !window.matchMedia) return undefined;
@@ -294,6 +306,19 @@ export default function TodaySection({
   const water = summary?.water || { total_ml: 0, goal_ml: 2000, percent: 0 };
   const cycle = summary?.cycle || null;
   const waterReached = water.total_ml >= water.goal_ml;
+  const gratitudesCount = summary?.gratitudes_count ?? 0;
+
+  const subTabOptions = useMemo(
+    () => [
+      { value: "day", label: "День" },
+      {
+        value: "gratitude",
+        label: "Благодарности",
+        count: gratitudesCount > 0 ? gratitudesCount : undefined,
+      },
+    ],
+    [gratitudesCount]
+  );
 
   const metricItems = [
     {
@@ -364,55 +389,75 @@ export default function TodaySection({
           onSelectDate={onSelectDate}
           markers={dateMarkers}
         />
+
+        <SegmentedControl
+          value={subTab}
+          onChange={setSubTab}
+          options={subTabOptions}
+        />
       </div>
 
-      {error ? (
-        <div className="mt-card mt-card--compact">
-          <p className="mt-form-error">{error}</p>
-          <button
-            type="button"
-            className="mt-btn mt-btn--secondary mt-btn--sm"
-            onClick={() => loadToday(activeDate)}
-          >
-            Повторить загрузку
-          </button>
-        </div>
-      ) : null}
-
-      {loading && !data ? (
-        <div className="mt-card mt-card--compact">
-          <p className="mt-card-sub">Загружаем сводку дня...</p>
-        </div>
+      {subTab === "gratitude" ? (
+        <GratitudeTab
+          selectedDate={activeDate}
+          todayDate={todayDate}
+          notify={notify}
+          onChanged={() => {
+            loadToday(activeDate, { silent: true });
+            onDataChanged?.();
+          }}
+        />
       ) : (
         <>
-          <MetricStrip items={metricItems} />
+          {error ? (
+            <div className="mt-card mt-card--compact">
+              <p className="mt-form-error">{error}</p>
+              <button
+                type="button"
+                className="mt-btn mt-btn--secondary mt-btn--sm"
+                onClick={() => loadToday(activeDate)}
+              >
+                Повторить загрузку
+              </button>
+            </div>
+          ) : null}
 
-          <DailyTaskPlanner
-            tasks={tasks}
-            onAddTask={() => {
-              setEditingTask(null);
-              setTaskSheetOpen(true);
-            }}
-            onEditTask={(task) => {
-              setEditingTask(task);
-              setTaskSheetOpen(true);
-            }}
-            onToggleTask={handleToggleTask}
-            busyTaskId={busyTaskId}
-          />
+          {loading && !data ? (
+            <div className="mt-card mt-card--compact">
+              <p className="mt-card-sub">Загружаем сводку дня...</p>
+            </div>
+          ) : (
+            <>
+              <MetricStrip items={metricItems} />
 
-          <DailyAccomplishments
-            feed={completedFeed}
-            reflection={reflection}
-            selectedDate={activeDate}
-            onSaveReflection={handleSaveReflection}
-            doneSheetOpen={doneSheetOpen}
-            onOpenDoneSheet={() => setDoneSheetOpen(true)}
-            onCloseDoneSheet={() => setDoneSheetOpen(false)}
-            reflectionSheetOpen={reflectionSheetOpen}
-            onOpenReflectionSheet={() => setReflectionSheetOpen(true)}
-            onCloseReflectionSheet={() => setReflectionSheetOpen(false)}
-          />
+              <DailyTaskPlanner
+                tasks={tasks}
+                onAddTask={() => {
+                  setEditingTask(null);
+                  setTaskSheetOpen(true);
+                }}
+                onEditTask={(task) => {
+                  setEditingTask(task);
+                  setTaskSheetOpen(true);
+                }}
+                onToggleTask={handleToggleTask}
+                busyTaskId={busyTaskId}
+              />
+
+              <DailyAccomplishments
+                feed={completedFeed}
+                reflection={reflection}
+                selectedDate={activeDate}
+                onSaveReflection={handleSaveReflection}
+                doneSheetOpen={doneSheetOpen}
+                onOpenDoneSheet={() => setDoneSheetOpen(true)}
+                onCloseDoneSheet={() => setDoneSheetOpen(false)}
+                reflectionSheetOpen={reflectionSheetOpen}
+                onOpenReflectionSheet={() => setReflectionSheetOpen(true)}
+                onCloseReflectionSheet={() => setReflectionSheetOpen(false)}
+              />
+            </>
+          )}
         </>
       )}
 

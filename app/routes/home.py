@@ -23,6 +23,7 @@ from ..db import (
 router = APIRouter(prefix="/api/home", tags=["home"])
 
 ChoreFrequency = Literal["daily", "weekly", "monthly", "once"]
+ShoppingListType = Literal["groceries", "household"]
 
 
 def _require_non_empty(value: str, field_name: str) -> str:
@@ -75,6 +76,7 @@ class ShoppingItemCreate(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     category: str = Field(default="Прочее", max_length=80)
     quantity: str = Field(default="1 шт", max_length=60)
+    list_type: ShoppingListType = "groceries"
 
     @field_validator("category", mode="before")
     @classmethod
@@ -86,12 +88,22 @@ class ShoppingItemCreate(BaseModel):
     def _coerce_qty(cls, v: Any) -> Any:
         return "1 шт" if v is None else v
 
+    @field_validator("list_type", mode="before")
+    @classmethod
+    def _coerce_list_type(cls, v: Any) -> Any:
+        return "groceries" if v is None or v == "" else v
+
 
 class ShoppingItemUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=200)
     category: str | None = Field(default=None, max_length=80)
     quantity: str | None = Field(default=None, max_length=60)
+    list_type: ShoppingListType | None = None
     bought: bool | None = None
+
+
+class ShoppingClearBought(BaseModel):
+    list_type: ShoppingListType | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -331,6 +343,7 @@ def _format_shopping_item(row: dict[str, Any]) -> dict[str, Any]:
         "name": row["name"],
         "category": row["category"],
         "quantity": row["quantity"],
+        "list_type": row.get("list_type") or "groceries",
         "bought": bool(row["bought"]),
         "bought_at": row["bought_at"],
         "created_at": row["created_at"],
@@ -338,11 +351,21 @@ def _format_shopping_item(row: dict[str, Any]) -> dict[str, Any]:
 
 
 @router.get("/shopping")
-def list_shopping(db: DB) -> dict[str, Any]:
-    rows = records(
-        db,
-        "SELECT * FROM shopping_items ORDER BY bought ASC, id DESC",
-    )
+def list_shopping(
+    db: DB,
+    list_type: Annotated[ShoppingListType | None, Query()] = None,
+) -> dict[str, Any]:
+    if list_type is not None:
+        rows = records(
+            db,
+            "SELECT * FROM shopping_items WHERE list_type = ? ORDER BY bought ASC, id DESC",
+            (list_type,),
+        )
+    else:
+        rows = records(
+            db,
+            "SELECT * FROM shopping_items ORDER BY bought ASC, id DESC",
+        )
     items = [_format_shopping_item(r) for r in rows]
     by_category: dict[str, list[dict[str, Any]]] = {}
     for item in items:
@@ -351,6 +374,7 @@ def list_shopping(db: DB) -> dict[str, Any]:
     bought = sum(1 for item in items if item["bought"])
     total = len(items)
     return {
+        "list_type": list_type,
         "items": items,
         "by_category": by_category,
         "summary": {
@@ -368,12 +392,13 @@ def create_shopping_item(db: DB, body: ShoppingItemCreate) -> dict[str, Any]:
 
     with transaction(db):
         cur = db.execute(
-            """INSERT INTO shopping_items(name, category, quantity, bought, bought_at, created_at)
-               VALUES(?,?,?,0,NULL,?)""",
+            """INSERT INTO shopping_items(name, category, quantity, list_type, bought, bought_at, created_at)
+               VALUES(?,?,?,?,0,NULL,?)""",
             (
                 name,
                 body.category.strip() or "Прочее",
                 body.quantity.strip() or "1 шт",
+                body.list_type,
                 created_at,
             ),
         )
@@ -402,6 +427,8 @@ def update_shopping_item(
         updates["category"] = body.category.strip() or "Прочее"
     if "quantity" in fields and body.quantity is not None:
         updates["quantity"] = body.quantity.strip() or "1 шт"
+    if "list_type" in fields and body.list_type is not None:
+        updates["list_type"] = body.list_type
     if "bought" in fields and body.bought is not None:
         updates["bought"] = 1 if body.bought else 0
         if body.bought:
@@ -434,7 +461,18 @@ def delete_shopping_item(
 
 
 @router.post("/shopping/clear-bought")
-def clear_bought_shopping(db: DB) -> dict[str, Any]:
+def clear_bought_shopping(
+    db: DB,
+    list_type: Annotated[ShoppingListType | None, Query()] = None,
+    body: ShoppingClearBought | None = None,
+) -> dict[str, Any]:
+    effective_type = list_type or (body.list_type if body is not None else None)
     with transaction(db):
-        cur = db.execute("DELETE FROM shopping_items WHERE bought = 1")
-    return {"cleared": cur.rowcount}
+        if effective_type is not None:
+            cur = db.execute(
+                "DELETE FROM shopping_items WHERE bought = 1 AND list_type = ?",
+                (effective_type,),
+            )
+        else:
+            cur = db.execute("DELETE FROM shopping_items WHERE bought = 1")
+    return {"cleared": cur.rowcount, "list_type": effective_type}

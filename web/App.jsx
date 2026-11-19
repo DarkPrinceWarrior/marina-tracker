@@ -118,10 +118,13 @@ export default function App() {
   const refreshBadges = useCallback(async () => {
     try {
       const data = await api.getToday(selectedDate);
-      const shoppingRemaining = data?.summary?.chores?.shopping_remaining ?? 0;
+      const householdRemaining =
+        data?.summary?.shopping?.household_remaining ??
+        data?.summary?.chores?.shopping_remaining ??
+        0;
       const goalsAttention = data?.summary?.goals?.needs_attention_count ?? 0;
       setBadges({
-        home: shoppingRemaining > 0 ? shoppingRemaining : 0,
+        home: householdRemaining > 0 ? householdRemaining : 0,
         goals: goalsAttention > 0 ? goalsAttention : 0,
       });
     } catch {

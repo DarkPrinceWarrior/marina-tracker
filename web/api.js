@@ -118,12 +118,21 @@ export const api = {
   // 0. Health
   health: () => request("/api/health"),
 
-  // 1. Today & Reflection
+  // 1. Today, Reflection & Gratitudes
   getToday: (date) => request(`/api/today${buildQuery({ date })}`),
   saveReflection: (payload) =>
     request("/api/today/reflection", { method: "PUT", body: payload }),
 
-  // 2. Tasks
+  getGratitudes: (date, days = 30) =>
+    request(`/api/gratitudes${buildQuery({ date, days })}`),
+  createGratitude: (payload) =>
+    request("/api/gratitudes", { method: "POST", body: payload }),
+  updateGratitude: (id, payload) =>
+    request(`/api/gratitudes/${id}`, { method: "PATCH", body: payload }),
+  deleteGratitude: (id) =>
+    request(`/api/gratitudes/${id}`, { method: "DELETE" }),
+
+  // 2. Tasks & Calendar Events
   getTasks: (date, status = "all") =>
     request(`/api/tasks${buildQuery({ date, status })}`),
   createTask: (payload) =>
@@ -138,6 +147,19 @@ export const api = {
   rescheduleTask: (id, payload = { days: 1 }) =>
     request(`/api/tasks/${id}/reschedule`, { method: "POST", body: payload }),
   deleteTask: (id) => request(`/api/tasks/${id}`, { method: "DELETE" }),
+
+  getEvents: ({ year, month, date } = {}) =>
+    request(`/api/events${buildQuery({ year, month, date })}`),
+  createEvent: (payload) =>
+    request("/api/events", { method: "POST", body: payload }),
+  updateEvent: (id, payload) =>
+    request(`/api/events/${id}`, { method: "PATCH", body: payload }),
+  toggleEvent: (id, completed) =>
+    request(`/api/events/${id}/toggle`, {
+      method: "POST",
+      body: completed === undefined ? {} : { completed },
+    }),
+  deleteEvent: (id) => request(`/api/events/${id}`, { method: "DELETE" }),
 
   // 3. Multi-Year Goals
   getGoals: ({ status = "all", horizon = "all" } = {}) =>
@@ -239,15 +261,19 @@ export const api = {
   toggleChore: (id, payload = {}) =>
     request(`/api/home/chores/${id}/toggle`, { method: "POST", body: payload }),
 
-  getShopping: () => request("/api/home/shopping"),
+  getShopping: (listType) =>
+    request(`/api/home/shopping${buildQuery({ list_type: listType })}`),
   createShoppingItem: (payload) =>
     request("/api/home/shopping", { method: "POST", body: payload }),
   updateShoppingItem: (id, payload) =>
     request(`/api/home/shopping/${id}`, { method: "PATCH", body: payload }),
   deleteShoppingItem: (id) =>
     request(`/api/home/shopping/${id}`, { method: "DELETE" }),
-  clearBoughtShopping: () =>
-    request("/api/home/shopping/clear-bought", { method: "POST", body: {} }),
+  clearBoughtShopping: (listType) =>
+    request(
+      `/api/home/shopping/clear-bought${buildQuery({ list_type: listType })}`,
+      { method: "POST", body: listType ? { list_type: listType } : {} }
+    ),
 };
 
 export default api;
