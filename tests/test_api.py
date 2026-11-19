@@ -1363,3 +1363,39 @@ def test_wishes_crud_toggle_and_year_filter(client: TestClient):
     # Delete wish
     assert client.delete(f"/api/wishes/{wid}").status_code == 200
     assert client.delete(f"/api/wishes/{wid}").status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# 13. Phase 7: Pure Russian Validation & 404 Error Responses
+# ---------------------------------------------------------------------------
+
+
+def test_validation_errors_are_pure_russian(client: TestClient):
+    import re
+
+    # Missing required fields -> 422 with pure Russian detail
+    r1 = client.post("/api/tasks", json={})
+    assert r1.status_code == 422
+    detail1 = str(r1.json().get("detail", ""))
+    assert detail1, "Empty 422 detail"
+    assert not re.search(
+        r"\b(Field required|String should|Input should|value is not|Not Found)\b",
+        detail1,
+        re.IGNORECASE,
+    ), f"English validation error leaked: {detail1}"
+
+    # Too-short string / invalid integer -> 422 Russian detail
+    r2 = client.post("/api/wishes", json={"title": "", "target_year": "not-a-year"})
+    assert r2.status_code == 422
+    detail2 = str(r2.json().get("detail", ""))
+    assert not re.search(
+        r"\b(Field required|String should|Input should|unable to parse)\b",
+        detail2,
+        re.IGNORECASE,
+    ), f"English validation error leaked: {detail2}"
+
+    # Invalid API 404 -> Russian detail
+    r3 = client.get("/api/nonexistent-endpoint-check")
+    assert r3.status_code == 404
+    detail3 = str(r3.json().get("detail", ""))
+    assert "Not Found" not in detail3, f"English 404 leaked: {detail3}"

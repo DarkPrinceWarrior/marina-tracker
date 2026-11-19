@@ -26,12 +26,19 @@ ChoreFrequency = Literal["daily", "weekly", "monthly", "once"]
 ShoppingListType = Literal["groceries", "household"]
 
 
+_HOME_FIELD_LABELS: dict[str, str] = {
+    "title": "Название дела",
+    "name": "Название",
+}
+
+
 def _require_non_empty(value: str, field_name: str) -> str:
     cleaned = value.strip()
     if not cleaned:
+        label = _HOME_FIELD_LABELS.get(field_name, field_name)
         raise HTTPException(
             status_code=422,
-            detail=f"Поле '{field_name}' не может быть пустым",
+            detail=f"Поле «{label}» не может быть пустым",
         )
     return cleaned
 

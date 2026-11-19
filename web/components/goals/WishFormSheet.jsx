@@ -115,7 +115,7 @@ export default function WishFormSheet({
             onClick={handleSubmit}
           >
             {saving
-              ? "Сохраняем..."
+              ? "Сохраняем…"
               : isEditing
                 ? "Сохранить изменения"
                 : "Добавить желание"}
@@ -152,7 +152,7 @@ export default function WishFormSheet({
               setTitle(e.target.value);
               if (error) setError("");
             }}
-            placeholder="Например: поездка к морю осенью"
+            placeholder="Например: поездка к морю"
             autoComplete="off"
           />
         </div>

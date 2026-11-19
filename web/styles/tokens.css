@@ -226,6 +226,17 @@
   }
 }
 
+@keyframes mt-toast-in-down {
+  from {
+    transform: translateY(-10px) scale(0.98);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
 /* Opacity-only section enter: NEVER creates a transform containing block */
 @keyframes mt-section-enter {
   from {

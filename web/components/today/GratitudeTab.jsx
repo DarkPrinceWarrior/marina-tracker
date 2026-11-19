@@ -86,7 +86,7 @@ export default function GratitudeTab({
         </div>
 
         <div
-          className="mt-chip-row"
+          className="mt-chip-row mt-chip-row--wrap"
           role="group"
           aria-label="Категория благодарности"
         >
@@ -112,7 +112,7 @@ export default function GratitudeTab({
             disabled={submitting || !draft.trim()}
           >
             <Plus size={15} />
-            <span>{submitting ? "Сохраняем..." : "Добавить"}</span>
+            <span>{submitting ? "Сохраняем…" : "Добавить"}</span>
           </button>
         </div>
       </form>
@@ -140,7 +140,7 @@ export default function GratitudeTab({
 
         {loading && items.length === 0 ? (
           <div className="mt-card mt-card--compact">
-            <p className="mt-card-sub">Загружаем записи...</p>
+            <p className="mt-card-sub">Загружаем записи…</p>
           </div>
         ) : items.length === 0 ? (
           <GroupList>

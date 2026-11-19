@@ -381,7 +381,6 @@ export default function CycleTrackerTab({
           <button
             type="button"
             className="mt-icon-btn"
-            style={{ width: "36px", height: "36px", minWidth: "36px", minHeight: "36px" }}
             aria-label="Настройки длительности цикла"
             onClick={openSettings}
           >
@@ -424,7 +423,7 @@ export default function CycleTrackerTab({
           <button
             type="button"
             className="mt-pill mt-pill--neutral"
-            style={{ minHeight: "36px", paddingInline: "12px", fontSize: "13.5px" }}
+            style={{ minHeight: "40px", paddingInline: "14px", fontSize: "13.5px" }}
             aria-label="Выбрать месяц и год"
             onClick={() => setMonthPickerOpen(true)}
           >

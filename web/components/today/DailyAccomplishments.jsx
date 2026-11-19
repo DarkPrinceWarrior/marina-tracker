@@ -389,7 +389,7 @@ export default function DailyAccomplishments({
             <button
               type="submit"
               className="mt-btn mt-btn--primary mt-btn--sm"
-              style={{ minWidth: 42, padding: "0 11px" }}
+              style={{ minWidth: 44, minHeight: 40, padding: "0 12px" }}
               disabled={submittingGratitude || !quickDraft.trim()}
               aria-label="Добавить благодарность"
             >
@@ -402,7 +402,14 @@ export default function DailyAccomplishments({
           <p className="gratitude-hint">Цель дня: 5–10 благодарностей</p>
         ) : gratitudeItems.length >= DAILY_GRATITUDE_MAX ? (
           <p className="gratitude-hint">
-            Записано {gratitudeItems.length} благодарностей за день — тёплый итог
+            Записано{" "}
+            {formatCountRu(
+              gratitudeItems.length,
+              "благодарность",
+              "благодарности",
+              "благодарностей"
+            )}{" "}
+            за день — тёплый итог
           </p>
         ) : null}
       </div>
@@ -474,7 +481,7 @@ export default function DailyAccomplishments({
             disabled={savingReflection}
             onClick={handleSaveNote}
           >
-            {savingReflection ? "Сохраняем..." : "Сохранить итог"}
+            {savingReflection ? "Сохраняем…" : "Сохранить итог"}
           </button>
         }
       >
@@ -555,7 +562,7 @@ export default function DailyAccomplishments({
 
       {/* Bottom Sheet: Full «Дневник благодарностей» */}
       <Sheet
-        open={gratitudeSheetOpen}
+        open={gratitudeSheetOpen && !editingGratitude}
         onClose={onCloseGratitudeSheet}
         title="Дневник благодарностей"
         subtitle={`${displayedGratitudeCount} из ${DAILY_GRATITUDE_MAX} за день`}
@@ -592,7 +599,7 @@ export default function DailyAccomplishments({
               disabled={savingEdit}
               onClick={handleSaveEditGratitude}
             >
-              {savingEdit ? "Сохраняем..." : "Сохранить изменения"}
+              {savingEdit ? "Сохраняем…" : "Сохранить изменения"}
             </button>
             <button
               type="button"

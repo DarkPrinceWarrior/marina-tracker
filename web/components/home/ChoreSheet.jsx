@@ -85,7 +85,7 @@ export default function ChoreSheet({
             onClick={handleSubmit}
           >
             {saving
-              ? "Сохраняем..."
+              ? "Сохраняем…"
               : isEditing
                 ? "Сохранить"
                 : "Добавить дело"}
@@ -122,7 +122,7 @@ export default function ChoreSheet({
               setTitle(e.target.value);
               if (error) setError("");
             }}
-            placeholder="Например: протереть зеркала"
+            placeholder="Например: протереть полки"
             autoComplete="off"
           />
         </div>

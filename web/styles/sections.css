@@ -706,6 +706,10 @@
   line-height: 18px;
 }
 
+.goal-habit-link > svg {
+  flex-shrink: 0;
+}
+
 .goal-checkin-item header {
   display: flex;
   align-items: center;
@@ -716,17 +720,29 @@
   font-variant-numeric: tabular-nums;
 }
 
+.goal-checkin-item header > span {
+  font-variant-numeric: tabular-nums;
+}
+
 /* --- Phase 4: Mini-Goal Links, Events Calendar & Gratitude --- */
 
-.goal-parent-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
+.goal-parent-link,
+.goal-parent-tag {
+  display: block;
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 100%;
   font-size: 12.5px;
   line-height: 17px;
   font-weight: 500;
   color: var(--cobalt);
-  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.goal-parent-link > span {
+  display: block;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1055,6 +1071,17 @@
   flex-shrink: 0;
 }
 
+.push-select-wrap {
+  width: 162px;
+  min-width: 158px;
+  flex-shrink: 0;
+}
+
+.push-schedule-disabled {
+  opacity: 0.55;
+  transition: opacity 150ms ease;
+}
+
 /* --- Phase 6: Inline Gratitude (5–10 items), Goals Category Filter & Wishes --- */
 
 .gratitude-inline-card {
@@ -1161,6 +1188,10 @@ button.gratitude-inline-row:active {
   background: var(--canvas);
   border-top: 1px solid var(--divider);
   min-width: 0;
+}
+
+.gratitude-quick-add .mt-btn {
+  min-height: 40px;
 }
 
 .gratitude-quick-input {

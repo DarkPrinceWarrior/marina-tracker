@@ -89,12 +89,23 @@ def _is_vapid_configured() -> bool:
     return bool(_vapid_public_key() and _vapid_private_key())
 
 
+_PUSH_TIME_LABELS: dict[str, str] = {
+    "morning_time": "Утреннее время",
+    "afternoon_time": "Дневное время",
+    "evening_time": "Вечернее время",
+    "goals_time": "Время напоминания о целях",
+    "quiet_start": "Начало тихих часов",
+    "quiet_end": "Окончание тихих часов",
+}
+
+
 def _validate_hhmm(value: str, field_name: str) -> str:
     cleaned = value.strip()
     if not _HHMM_RE.match(cleaned):
+        label = _PUSH_TIME_LABELS.get(field_name, field_name)
         raise HTTPException(
             status_code=422,
-            detail=f"Неверный формат времени в поле '{field_name}': '{value}', ожидается HH:MM",
+            detail=f"Неверный формат времени в поле «{label}»: «{value}», ожидается ЧЧ:ММ",
         )
     return cleaned
 
@@ -240,9 +251,9 @@ def _send_web_push(
 ) -> dict[str, Any]:
     """Send Web Push notification to all active subscriptions."""
     if not _is_vapid_configured():
-        return {"sent": 0, "failed": 0, "errors": ["VAPID не настроен"]}
+        return {"sent": 0, "failed": 0, "errors": ["Настройки уведомлений на сервере отсутствуют"]}
     if webpush is None:
-        return {"sent": 0, "failed": 0, "errors": ["pywebpush не установлен"]}
+        return {"sent": 0, "failed": 0, "errors": ["Модуль отправки уведомлений не установлен"]}
 
     subs = records(
         db,
@@ -370,12 +381,12 @@ def subscribe_push(db: DB, body: PushSubscribeRequest) -> dict[str, Any]:
     if not endpoint.startswith(("https://", "http://")):
         raise HTTPException(
             status_code=422,
-            detail="Некорректный адрес push-подписки (ожидается https://)",
+            detail="Некорректный адрес подписки на уведомления",
         )
     p256dh = body.keys.p256dh.strip()
     auth = body.keys.auth.strip()
     if not p256dh or not auth:
-        raise HTTPException(status_code=422, detail="Отсутствуют ключи шифрования push-подписки")
+        raise HTTPException(status_code=422, detail="Отсутствуют ключи шифрования подписки")
 
     device_label = body.device_label.strip() or "iPhone"
     user_agent = body.user_agent.strip()
@@ -442,7 +453,7 @@ def update_push_settings(db: DB, body: NotificationSettingsUpdate) -> dict[str, 
         except ZoneInfoNotFoundError as exc:
             raise HTTPException(
                 status_code=422,
-                detail=f"Неизвестный часовой пояс '{tz_name}'",
+                detail=f"Неизвестный часовой пояс «{tz_name}»",
             ) from exc
         merged["timezone"] = tz_name
 
@@ -548,7 +559,7 @@ def send_test_push(db: DB) -> dict[str, Any]:
     if not _is_vapid_configured():
         raise HTTPException(
             status_code=400,
-            detail="Push-уведомления на сервере ещё не настроены (отсутствуют VAPID-ключи).",
+            detail="Уведомления на сервере ещё не настроены.",
         )
     if _active_subscriptions_count(db) == 0:
         raise HTTPException(
@@ -568,7 +579,7 @@ def send_test_push(db: DB) -> dict[str, Any]:
     if result["sent"] == 0 and result["failed"] > 0:
         raise HTTPException(
             status_code=502,
-            detail=f"Не удалось отправить тестовое уведомление: {result['errors'][0]}",
+            detail="Не удалось доставить тестовое уведомление. Проверьте подключение или переподключите устройство.",
         )
     return {
         "ok": result["sent"] > 0,

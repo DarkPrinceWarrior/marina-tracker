@@ -289,7 +289,7 @@ export default function GoalFormSheet({
   ];
 
   const parentGoalOptions = [
-    { value: "", label: "Самостоятельная цель на месяц" },
+    { value: "", label: "Отдельная цель на месяц" },
     ...bigGoals
       .filter((bg) => bg.id !== goal?.id)
       .map((bg) => ({
@@ -319,7 +319,7 @@ export default function GoalFormSheet({
             onClick={handleSubmit}
           >
             {saving
-              ? "Сохраняем..."
+              ? "Сохраняем…"
               : isEditing
                 ? "Сохранить изменения"
                 : "Создать цель"}
@@ -390,7 +390,7 @@ export default function GoalFormSheet({
               value={parentGoalId}
               onChange={setParentGoalId}
               options={parentGoalOptions}
-              placeholder="Самостоятельная цель на месяц"
+              placeholder="Отдельная цель на месяц"
               ariaLabel="Для какой большой цели (1 год / 5 лет)"
             />
           </div>
@@ -412,8 +412,8 @@ export default function GoalFormSheet({
             }}
             placeholder={
               horizonKey === "month"
-                ? "Например: 12 тренировок за месяц"
-                : "Например: свободный английский"
+                ? "Например: 12 тренировок"
+                : "Свободный итальянский"
             }
             autoComplete="off"
           />
@@ -459,7 +459,7 @@ export default function GoalFormSheet({
           <input
             id="goal-target-date"
             type="date"
-            className="mt-input"
+            className="mt-input tabular"
             value={targetDate}
             onChange={(e) => setTargetDate(e.target.value)}
           />
@@ -552,7 +552,7 @@ export default function GoalFormSheet({
                 className="mt-input"
                 value={msTitle}
                 onChange={(e) => setMsTitle(e.target.value)}
-                placeholder="Этап, например: разговорный клуб"
+                placeholder="Например: разговорный клуб"
                 aria-label="Название вехи"
               />
               <div className="mt-input-row">

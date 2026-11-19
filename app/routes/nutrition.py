@@ -30,6 +30,12 @@ _VALID_MENU_QUERY_SLOTS = {"breakfast", "lunch", "dinner", "snack", "any", "all"
 _HHMM_RE = re.compile(r"^([01]\d|2[0-3]):([0-5]\d)$")
 
 
+_NUTRITION_FIELD_LABELS: dict[str, str] = {
+    "name": "Название блюда",
+    "dish_name": "Название блюда",
+}
+
+
 def _validate_hhmm(value: str | None, *, default_now: bool = False) -> str:
     if value is None:
         return now_hhmm() if default_now else ""
@@ -39,7 +45,7 @@ def _validate_hhmm(value: str | None, *, default_now: bool = False) -> str:
     if not _HHMM_RE.match(cleaned):
         raise HTTPException(
             status_code=422,
-            detail=f"Неверный формат времени '{value}', ожидается HH:MM",
+            detail=f"Неверный формат времени «{value}», ожидается ЧЧ:ММ",
         )
     return cleaned
 
@@ -47,9 +53,10 @@ def _validate_hhmm(value: str | None, *, default_now: bool = False) -> str:
 def _require_non_empty(value: str, field_name: str) -> str:
     cleaned = value.strip()
     if not cleaned:
+        label = _NUTRITION_FIELD_LABELS.get(field_name, field_name)
         raise HTTPException(
             status_code=422,
-            detail=f"Поле '{field_name}' не может быть пустым",
+            detail=f"Поле «{label}» не может быть пустым",
         )
     return cleaned
 
@@ -229,7 +236,7 @@ def list_menu(
         if slot_clean not in _VALID_MENU_QUERY_SLOTS:
             raise HTTPException(
                 status_code=422,
-                detail=f"Неверный слот меню '{slot}'",
+                detail=f"Неверный слот меню «{slot}»",
             )
         if slot_clean in _MEAL_SLOTS:
             conditions.append("(meal_slot = ? OR meal_slot = 'any')")

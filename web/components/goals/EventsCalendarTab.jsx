@@ -253,7 +253,7 @@ export default function EventsCalendarTab({
 
         {loading ? (
           <div className="mt-card mt-card--compact">
-            <p className="mt-card-sub">Загружаем события...</p>
+            <p className="mt-card-sub">Загружаем события…</p>
           </div>
         ) : selectedDayEvents.length > 0 ? (
           <GroupList>
@@ -286,7 +286,7 @@ export default function EventsCalendarTab({
                 setSheetOpen(true);
               }}
             >
-              <span>Нет записей на этот день — добавить событие</span>
+              <span>Добавить событие на этот день</span>
               <Plus size={16} aria-hidden="true" />
             </button>
           </GroupList>

@@ -762,8 +762,12 @@ export function SelectField({
     const gap = 6;
     const maxAllowedH = 240;
 
-    const width = Math.min(vw - margin * 2, Math.max(rect.width, 148));
-    const left = Math.min(Math.max(margin, rect.left), vw - margin - width);
+    const width = Math.min(vw - margin * 2, Math.max(rect.width, 184));
+    let left = rect.left;
+    if (left + width > vw - margin) {
+      left = rect.right - width;
+    }
+    left = Math.min(Math.max(margin, left), vw - margin - width);
 
     const spaceBelow = Math.max(0, vh - rect.bottom - margin - gap);
     const spaceAbove = Math.max(0, rect.top - margin - gap);
@@ -810,6 +814,22 @@ export function SelectField({
     if (!open) return undefined;
 
     const handleResize = () => closeMenu(false);
+    const handleScroll = (event) => {
+      if (menuRef.current && event.target && menuRef.current.contains(event.target)) {
+        return;
+      }
+      const triggerEl = triggerRef.current;
+      if (!triggerEl) {
+        closeMenu(false);
+        return;
+      }
+      const rect = triggerEl.getBoundingClientRect();
+      if (rect.bottom < 0 || rect.top > window.innerHeight) {
+        closeMenu(false);
+        return;
+      }
+      updatePosition();
+    };
     const handleKeyDown = (event) => {
       if (event.key === "Escape") {
         event.preventDefault();
@@ -858,12 +878,14 @@ export function SelectField({
     };
 
     window.addEventListener("resize", handleResize);
+    window.addEventListener("scroll", handleScroll, { capture: true, passive: true });
     window.addEventListener("keydown", handleKeyDown, true);
     return () => {
       window.removeEventListener("resize", handleResize);
+      window.removeEventListener("scroll", handleScroll, true);
       window.removeEventListener("keydown", handleKeyDown, true);
     };
-  }, [open, highlightedIndex, selectedIndex, normalizedOptions, onChange, closeMenu]);
+  }, [open, highlightedIndex, selectedIndex, normalizedOptions, onChange, closeMenu, updatePosition]);
 
   const handleTriggerKeyDown = (event) => {
     if (disabled || open) return;

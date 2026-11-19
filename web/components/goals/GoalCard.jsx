@@ -87,7 +87,9 @@ export default function GoalCard({ goal, onOpenDetail, onOpenCheckin }) {
       >
         <span className="goal-card-title">{goal.title}</span>
         {isMiniGoal && goal.parent_goal_title ? (
-          <span className="goal-parent-link">→ {goal.parent_goal_title}</span>
+          <span className="goal-parent-link">
+            <span>→ {goal.parent_goal_title}</span>
+          </span>
         ) : null}
         {subLine ? <span className="goal-card-sub">{subLine}</span> : null}
       </button>

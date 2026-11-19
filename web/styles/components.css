@@ -954,6 +954,7 @@ button.mt-metric-cell:active {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
 .mt-select-value.is-placeholder {
@@ -1069,8 +1070,10 @@ button.mt-metric-cell:active {
 }
 
 .mt-select-option-label {
-  overflow-wrap: anywhere;
-  line-height: 19px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 20px;
 }
 
 .mt-select-option-meta {
@@ -1197,6 +1200,28 @@ button.mt-metric-cell:active {
 .mt-time-compact:disabled {
   opacity: 0.5;
   background: var(--surface-subtle);
+}
+
+/* Reusable Search Input Wrapper */
+.mt-search-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  width: 100%;
+}
+
+.mt-search-icon {
+  position: absolute;
+  left: 12px;
+  color: var(--muted);
+  pointer-events: none;
+  display: inline-flex;
+  align-items: center;
+}
+
+.mt-search-wrap .mt-input {
+  padding-left: 36px;
 }
 
 .mt-form-grid {
@@ -2177,6 +2202,16 @@ button.mt-pill.is-active {
   pointer-events: none;
 }
 
+/* When a bottom Sheet is open, anchor toasts cleanly at the top so they NEVER cover .mt-sheet-footer */
+body.mt-sheet-open .mt-toast-stack {
+  top: calc(12px + var(--safe-top));
+  bottom: auto;
+}
+
+body.mt-sheet-open .mt-toast {
+  animation-name: mt-toast-in-down;
+}
+
 .mt-toast {
   pointer-events: auto;
   display: inline-flex;
@@ -2251,6 +2286,11 @@ button.mt-pill.is-active {
     right: auto;
     transform: translateX(-50%);
     width: calc(var(--app-max-width) - 32px);
+  }
+
+  body.mt-sheet-open .mt-toast-stack {
+    top: 28px;
+    bottom: auto;
   }
 
   .mt-sheet {

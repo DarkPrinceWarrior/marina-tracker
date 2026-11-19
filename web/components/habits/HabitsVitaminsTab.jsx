@@ -423,7 +423,6 @@ export default function HabitsVitaminsTab({
           <button
             type="button"
             className="mt-icon-btn"
-            style={{ width: "36px", height: "36px", minWidth: "36px", minHeight: "36px" }}
             aria-label="Цель и записи воды"
             onClick={openWaterSheet}
           >
@@ -460,7 +459,7 @@ export default function HabitsVitaminsTab({
           <button
             type="button"
             className="mt-icon-btn mt-icon-btn--bordered"
-            style={{ width: "38px", height: "36px", minWidth: "38px", minHeight: "36px", flexShrink: 0 }}
+            style={{ flexShrink: 0 }}
             aria-label={
               lastWaterLog
                 ? `Отменить последнюю запись воды ${lastWaterLog.amount_ml} мл`
@@ -662,7 +661,7 @@ export default function HabitsVitaminsTab({
               />
             </div>
 
-            <div className="mt-chip-row">
+            <div className="mt-chip-row mt-chip-row--wrap">
               {WATER_GOAL_PRESETS.map((ml) => (
                 <Pill
                   key={ml}
@@ -823,7 +822,7 @@ export default function HabitsVitaminsTab({
 
           <div className="mt-field">
             <span className="mt-label">Дней в неделю</span>
-            <div className="mt-chip-row">
+            <div className="mt-chip-row mt-chip-row--wrap">
               {[3, 4, 5, 6, 7].map((days) => (
                 <Pill
                   key={days}

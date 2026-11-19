@@ -361,7 +361,6 @@ export default function TodaySection({
                   <button
                     type="button"
                     className="mt-icon-btn"
-                    style={{ position: "relative" }}
                     aria-label="Уведомления"
                     title="Уведомления"
                     onClick={onOpenNotifications}
@@ -413,7 +412,7 @@ export default function TodaySection({
 
       {loading && !data ? (
         <div className="mt-card mt-card--compact">
-          <p className="mt-card-sub">Загружаем сводку дня...</p>
+          <p className="mt-card-sub">Загружаем сводку дня…</p>
         </div>
       ) : (
         <>

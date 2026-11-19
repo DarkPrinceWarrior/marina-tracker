@@ -322,7 +322,7 @@ export default function GoalsSection({
           {/* Goals List */}
           {loading ? (
             <div className="mt-card mt-card--compact">
-              <p className="mt-card-sub">Загружаем цели...</p>
+              <p className="mt-card-sub">Загружаем цели…</p>
             </div>
           ) : filteredGoals.length === 0 ? (
             <EmptyState

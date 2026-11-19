@@ -200,7 +200,7 @@ export default function ShoppingPanel({
             placeholder="Кол-во"
             aria-label="Количество"
             maxLength={40}
-            style={{ flex: "0 0 88px", width: 88, minWidth: 88 }}
+            style={{ flex: "0 0 84px", width: 84, minWidth: 84, paddingInline: 10 }}
           />
           <button
             type="submit"
@@ -288,9 +288,8 @@ export default function ShoppingPanel({
                           className="mt-icon-btn"
                           aria-label={`Удалить ${item.name}`}
                           onClick={() => handleDelete(item)}
-                          style={{ width: 34, height: 34, minWidth: 34, minHeight: 34 }}
                         >
-                          <X size={15} />
+                          <X size={16} />
                         </button>
                       </div>
                     }
@@ -339,9 +338,8 @@ export default function ShoppingPanel({
                         className="mt-icon-btn"
                         aria-label={`Удалить ${item.name}`}
                         onClick={() => handleDelete(item)}
-                        style={{ width: 34, height: 34, minWidth: 34, minHeight: 34 }}
                       >
-                        <X size={15} />
+                        <X size={16} />
                       </button>
                     </div>
                   }

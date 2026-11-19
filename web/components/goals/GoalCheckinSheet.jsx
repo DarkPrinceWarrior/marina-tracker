@@ -97,7 +97,7 @@ export default function GoalCheckinSheet({
           onClick={handleSave}
         >
           <Sparkles size={16} />
-          <span>{saving ? "Сохраняем..." : "Сохранить чек-ин"}</span>
+          <span>{saving ? "Сохраняем…" : "Сохранить чек-ин"}</span>
         </button>
       }
     >
@@ -214,7 +214,7 @@ export default function GoalCheckinSheet({
           <input
             id="checkin-date-input"
             type="date"
-            className="mt-input"
+            className="mt-input tabular"
             value={checkinDate}
             onChange={(e) => setCheckinDate(e.target.value)}
           />

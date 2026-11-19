@@ -242,7 +242,7 @@ export function MenuItemFormSheet({
             <Check size={18} />
             <span>
               {submitting
-                ? "Сохраняем..."
+                ? "Сохраняем…"
                 : isEditing
                   ? "Сохранить"
                   : "Добавить в меню"}
@@ -303,7 +303,7 @@ export function MenuItemFormSheet({
 
         <div className="mt-field">
           <span className="mt-label">Приём пищи</span>
-          <div className="mt-chip-row">
+          <div className="mt-chip-row mt-chip-row--wrap">
             {MEAL_SLOTS.map((slot) => (
               <Pill
                 key={slot.key}
@@ -336,7 +336,7 @@ export function MenuItemFormSheet({
             value={category}
             onChange={(e) => setCategory(e.target.value)}
           />
-          <div className="mt-chip-row">
+          <div className="mt-chip-row mt-chip-row--wrap">
             {MENU_CATEGORY_PRESETS.map((cat) => (
               <Pill
                 key={cat}
@@ -435,7 +435,7 @@ export function MenuItemFormSheet({
               step="0.5"
               min="0"
               className="mt-input tabular"
-              placeholder="Углеводы"
+              placeholder="Углев."
               aria-label="Углеводы (г)"
               value={carbsG}
               onChange={(e) => setCarbsG(e.target.value)}
@@ -573,24 +573,14 @@ export default function MenuCatalogView({
     <div className="mt-stack">
       {/* Clean Search + 1-line filter */}
       <div className="mt-stack mt-stack--sm">
-        <div style={{ position: "relative" }}>
-          <Search
-            size={16}
-            aria-hidden="true"
-            style={{
-              position: "absolute",
-              left: "13px",
-              top: "50%",
-              transform: "translateY(-50%)",
-              color: "var(--muted)",
-              pointerEvents: "none",
-            }}
-          />
+        <div className="mt-search-wrap">
+          <span className="mt-search-icon" aria-hidden="true">
+            <Search size={16} />
+          </span>
           <input
             type="search"
             className="mt-input"
-            style={{ paddingLeft: "38px" }}
-            placeholder="Поиск: лосось, сырники, суп..."
+            placeholder="Поиск блюд…"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />

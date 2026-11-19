@@ -334,7 +334,7 @@ export default function PracticeTimerSheet({
 
         {/* Guided preset selector when multiple presets exist */}
         {availablePresets.length > 1 ? (
-          <div className="mt-chip-row" aria-label="Выбор программы">
+          <div className="mt-chip-row mt-chip-row--wrap" aria-label="Выбор программы">
             {availablePresets.map((preset) => (
               <Pill
                 key={preset.id}

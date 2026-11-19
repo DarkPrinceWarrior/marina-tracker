@@ -579,13 +579,13 @@ def parse_iso_date(value: str | None, *, default_today: bool = False) -> date:
     if not value:
         if default_today:
             return now_dt().date()
-        raise HTTPException(status_code=422, detail="Не указана дата в формате YYYY-MM-DD")
+        raise HTTPException(status_code=422, detail="Не указана дата в формате ГГГГ-ММ-ДД")
     try:
         return date.fromisoformat(value)
     except ValueError as exc:
         raise HTTPException(
             status_code=422,
-            detail=f"Неверный формат даты '{value}', ожидается YYYY-MM-DD",
+            detail=f"Неверный формат даты «{value}», ожидается ГГГГ-ММ-ДД",
         ) from exc
 
 

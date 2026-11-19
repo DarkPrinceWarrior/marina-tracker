@@ -332,15 +332,15 @@ export default function WorkoutsTab({
               type="text"
               className="mt-input"
               aria-label="Название своей практики"
-              placeholder="Например: йога, прогулка, растяжка"
+              placeholder="Например: йога, прогулка"
               value={customLabel}
               onChange={(e) => setCustomLabel(e.target.value)}
             />
           ) : null}
 
-          {/* Single Row of Duration Pills */}
+          {/* Duration Pills */}
           <div
-            className="mt-chip-row"
+            className="mt-chip-row mt-chip-row--wrap"
             role="group"
             aria-label="Длительность тренировки"
           >
@@ -402,7 +402,7 @@ export default function WorkoutsTab({
               {presetsForType.length > 0 ? (
                 <div className="mt-field">
                   <span className="mt-label">Готовые сценарии</span>
-                  <div className="mt-chip-row">
+                  <div className="mt-chip-row mt-chip-row--wrap">
                     {presetsForType.map((preset) => (
                       <Pill
                         key={preset.id}
@@ -410,7 +410,7 @@ export default function WorkoutsTab({
                         active={note === preset.title}
                         onClick={() => applyPreset(preset)}
                       >
-                        {preset.title} · {preset.durationMin}м
+                        {preset.title} · {preset.durationMin} мин
                       </Pill>
                     ))}
                   </div>
@@ -435,7 +435,7 @@ export default function WorkoutsTab({
 
               <div className="mt-field">
                 <span className="mt-label">Самочувствие</span>
-                <div className="mt-chip-row">
+                <div className="mt-chip-row mt-chip-row--wrap">
                   {WORKOUT_MOODS.map((m) => (
                     <Pill
                       key={m.key}
@@ -470,7 +470,7 @@ export default function WorkoutsTab({
                     id="workout-note-input"
                     type="text"
                     className="mt-input"
-                    placeholder="Ощущения, фокус…"
+                    placeholder="Заметка…"
                     value={note}
                     onChange={(e) => setNote(e.target.value)}
                   />

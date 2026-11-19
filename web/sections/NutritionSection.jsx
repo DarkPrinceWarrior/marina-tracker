@@ -454,7 +454,7 @@ export default function NutritionSection({
       const dayLabel =
         activeDate === todayDate ? "сегодня" : formatDateShortRu(activeDate);
       notify?.(
-        `«${menuItem.name}» добавлено в ${slotName} (${dayLabel})`,
+        `«${menuItem.name}» добавлено в «${slotName}» (${dayLabel})`,
         "success",
       );
       await loadDay(activeDate, { silent: true });
@@ -648,17 +648,11 @@ export default function NutritionSection({
                       <button
                         type="button"
                         className="mt-icon-btn"
-                        style={{
-                          width: "34px",
-                          height: "34px",
-                          minWidth: "34px",
-                          minHeight: "34px",
-                          color: "var(--cobalt)",
-                        }}
+                        style={{ color: "var(--cobalt)" }}
                         aria-label={`Добавить в ${slot.label.toLowerCase()}`}
                         onClick={() => openPickerForSlot(slot.key)}
                       >
-                        <Plus size={17} />
+                        <Plus size={18} />
                       </button>
                     }
                   />
@@ -723,7 +717,7 @@ export default function NutritionSection({
         <ShoppingPanel
           listType="groceries"
           categories={GROCERY_CATEGORIES}
-          placeholder="Что купить из продуктов…"
+          placeholder="Продукт…"
           emptyTitle="Список продуктов пуст"
           emptyDescription="Добавьте продукты выше или отправьте блюдо в покупки из вкладки «Меню»."
           notify={notify}

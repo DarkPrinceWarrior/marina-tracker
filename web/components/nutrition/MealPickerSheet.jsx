@@ -565,7 +565,7 @@ export default function MealPickerSheet({
             <Check size={18} />
             <span>
               {submitting
-                ? "Сохраняем..."
+                ? "Сохраняем…"
                 : isEditing
                   ? "Сохранить"
                   : completed
@@ -578,7 +578,11 @@ export default function MealPickerSheet({
     >
       <form className="mt-stack" onSubmit={handleSubmit}>
         {/* 1. Meal slot selector */}
-        <div className="mt-chip-row" role="group" aria-label="Приём пищи">
+        <div
+          className="mt-chip-row mt-chip-row--wrap"
+          role="group"
+          aria-label="Приём пищи"
+        >
           {MEAL_SLOTS.map((slot) => (
             <Pill
               key={slot.key}
@@ -649,30 +653,20 @@ export default function MealPickerSheet({
               </GroupList>
             ) : (
               <div className="mt-stack mt-stack--sm">
-                <div style={{ position: "relative" }}>
-                  <Search
-                    size={16}
-                    aria-hidden="true"
-                    style={{
-                      position: "absolute",
-                      left: "13px",
-                      top: "50%",
-                      transform: "translateY(-50%)",
-                      color: "var(--muted)",
-                      pointerEvents: "none",
-                    }}
-                  />
+                <div className="mt-search-wrap">
+                  <span className="mt-search-icon" aria-hidden="true">
+                    <Search size={16} />
+                  </span>
                   <input
                     type="search"
                     className="mt-input"
-                    style={{ paddingLeft: "38px" }}
-                    placeholder="Поиск: овсянка, лосось, суп..."
+                    placeholder="Поиск: овсянка, лосось…"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                   />
                 </div>
 
-                <div className="mt-chip-row">
+                <div className="mt-chip-row mt-chip-row--wrap">
                   <Pill
                     tone="cobalt"
                     active={menuFilter === "slot"}
@@ -831,7 +825,7 @@ export default function MealPickerSheet({
                 />
               </div>
 
-              <div className="mt-chip-row">
+              <div className="mt-chip-row mt-chip-row--wrap">
                 {PORTION_PRESETS.map((preset) => (
                   <Pill
                     key={preset.key}
@@ -966,7 +960,7 @@ export default function MealPickerSheet({
                   <span>Сейчас</span>
                 </button>
               </div>
-              <div className="mt-chip-row">
+              <div className="mt-chip-row mt-chip-row--wrap">
                 {slotQuickTimes.map((t) => (
                   <Pill
                     key={t}
@@ -1002,11 +996,11 @@ export default function MealPickerSheet({
                 id="meal-note"
                 type="text"
                 className="mt-input"
-                placeholder="Например: без сахара, домашнее"
+                placeholder="Без сахара, домашнее"
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
               />
-              <div className="mt-chip-row">
+              <div className="mt-chip-row mt-chip-row--wrap">
                 {NUTRITION_QUICK_NOTES.map((chip) => {
                   const active = note
                     .toLowerCase()

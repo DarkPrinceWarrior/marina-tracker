@@ -1,6 +1,10 @@
-import React, { useEffect, useId } from "react";
+import React, { useEffect, useId, useRef } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
+
+let openSheetCount = 0;
+let savedBodyOverflow = "";
+const activeSheetStack = [];
 
 export default function Sheet({
   open = false,
@@ -11,25 +15,44 @@ export default function Sheet({
   children,
 }) {
   const titleId = useId();
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   useEffect(() => {
     if (!open) return undefined;
 
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const token = Symbol("sheet");
+    activeSheetStack.push(token);
+
+    if (openSheetCount === 0) {
+      savedBodyOverflow = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      document.body.classList.add("mt-sheet-open");
+    }
+    openSheetCount += 1;
 
     const handleKeyDown = (event) => {
-      if (event.key === "Escape") {
-        onClose?.();
+      if (
+        event.key === "Escape" &&
+        activeSheetStack[activeSheetStack.length - 1] === token
+      ) {
+        onCloseRef.current?.();
       }
     };
     window.addEventListener("keydown", handleKeyDown);
 
     return () => {
-      document.body.style.overflow = prevOverflow;
       window.removeEventListener("keydown", handleKeyDown);
+      const idx = activeSheetStack.lastIndexOf(token);
+      if (idx !== -1) activeSheetStack.splice(idx, 1);
+
+      openSheetCount = Math.max(0, openSheetCount - 1);
+      if (openSheetCount === 0) {
+        document.body.style.overflow = savedBodyOverflow;
+        document.body.classList.remove("mt-sheet-open");
+      }
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) return null;
 

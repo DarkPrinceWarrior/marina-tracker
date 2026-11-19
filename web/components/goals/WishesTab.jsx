@@ -235,7 +235,7 @@ export default function WishesTab({
             className="mt-input"
             value={quickTitle}
             onChange={(e) => setQuickTitle(e.target.value)}
-            placeholder={`Напишите желание на ${year} год…`}
+            placeholder="Новое желание…"
             aria-label="Новое желание на год"
             autoComplete="off"
           />
@@ -254,7 +254,7 @@ export default function WishesTab({
       {/* Wishes List */}
       {loading ? (
         <div className="mt-card mt-card--compact">
-          <p className="mt-card-sub">Загружаем список желаний...</p>
+          <p className="mt-card-sub">Загружаем список желаний…</p>
         </div>
       ) : filteredWishes.length === 0 ? (
         <EmptyState

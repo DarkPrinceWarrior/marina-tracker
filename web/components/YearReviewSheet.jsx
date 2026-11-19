@@ -15,6 +15,7 @@ import {
   GOAL_PACE_META,
   WORKOUT_TYPE_MAP,
   formatCountRu,
+  formatGoalHorizonRu,
 } from "../data/presets.js";
 
 const WORKOUT_ROW_ORDER = ["breathing", "pilates", "qigong", "other"];
@@ -314,11 +315,11 @@ export default function YearReviewSheet({
             </GroupList>
           </div>
 
-          {/* Multi-year goals */}
+          {/* Goals (monthly mini-goals & multi-year goals) */}
           {metrics.goalItems.length > 0 ? (
             <div className="mt-stack mt-stack--xs">
               <GroupHeader
-                title="Долгосрочные цели"
+                title="Цели"
                 meta={String(metrics.goalItems.length)}
                 action={
                   onNavigate ? (
@@ -341,7 +342,7 @@ export default function YearReviewSheet({
                   ).length;
                   const msTotal = (goal.milestones || []).length;
                   const metaParts = [
-                    formatCountRu(goal.horizon_years || 1, "год", "года", "лет"),
+                    formatGoalHorizonRu(goal),
                     msTotal > 0 ? `вехи ${msDone}/${msTotal}` : null,
                     pace.shortLabel || pace.label,
                   ].filter(Boolean);

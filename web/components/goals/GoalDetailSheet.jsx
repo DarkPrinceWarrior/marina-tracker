@@ -222,9 +222,13 @@ export default function GoalDetailSheet({
             onClick={() => onSelectGoal?.(goal.parent_goal_id)}
           >
             <span className="goal-parent-link">
-              Большая цель: {goal.parent_goal_title}
+              <span>Большая цель: {goal.parent_goal_title}</span>
             </span>
-            <ChevronRight size={15} aria-hidden="true" />
+            <ChevronRight
+              size={15}
+              style={{ flexShrink: 0 }}
+              aria-hidden="true"
+            />
           </button>
         ) : null}
 

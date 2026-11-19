@@ -556,14 +556,16 @@ export default function NotificationsSheet({
         </div>
 
         {/* Habits & Vitamins */}
-        <div className="mt-group-block" style={{ opacity: scheduleDisabled ? 0.55 : 1 }}>
+        <div
+          className={`mt-group-block${scheduleDisabled ? " push-schedule-disabled" : ""}`}
+        >
           <GroupHeader title="Привычки и витамины" />
           <GroupList>
             <ListRow
               title="Утро"
               meta="Утренние ритуалы"
               trailing={
-                <div className="mt-row" style={{ gap: "8px" }}>
+                <div className="push-schedule-controls">
                   <input
                     type="time"
                     className="mt-time-compact tabular"
@@ -585,7 +587,7 @@ export default function NotificationsSheet({
               title="Обед"
               meta="Дневные ритуалы"
               trailing={
-                <div className="mt-row" style={{ gap: "8px" }}>
+                <div className="push-schedule-controls">
                   <input
                     type="time"
                     className="mt-time-compact tabular"
@@ -607,7 +609,7 @@ export default function NotificationsSheet({
               title="Вечер"
               meta="Ритуалы и итог"
               trailing={
-                <div className="mt-row" style={{ gap: "8px" }}>
+                <div className="push-schedule-controls">
                   <input
                     type="time"
                     className="mt-time-compact tabular"
@@ -629,7 +631,9 @@ export default function NotificationsSheet({
         </div>
 
         {/* Water, Calendar Events, Cycle, Goals */}
-        <div className="mt-group-block" style={{ opacity: scheduleDisabled ? 0.55 : 1 }}>
+        <div
+          className={`mt-group-block${scheduleDisabled ? " push-schedule-disabled" : ""}`}
+        >
           <GroupHeader title="Вода, события, цикл и цели" />
           <GroupList>
             <ListRow
@@ -649,7 +653,7 @@ export default function NotificationsSheet({
                 title="Интервал воды"
                 meta="С 10:00 до 19:30"
                 trailing={
-                  <div style={{ width: "148px" }}>
+                  <div className="push-select-wrap">
                     <SelectField
                       compact
                       ariaLabel="Интервал напоминаний о воде"
@@ -681,7 +685,7 @@ export default function NotificationsSheet({
               <ListRow
                 title="Предупредить заранее"
                 trailing={
-                  <div style={{ width: "148px" }}>
+                  <div className="push-select-wrap">
                     <SelectField
                       compact
                       ariaLabel="За сколько напоминать о событиях"
@@ -713,7 +717,7 @@ export default function NotificationsSheet({
               <ListRow
                 title="За сколько дней"
                 trailing={
-                  <div style={{ width: "148px" }}>
+                  <div className="push-select-wrap">
                     <SelectField
                       compact
                       ariaLabel="За сколько дней предупреждать о цикле"
@@ -746,7 +750,7 @@ export default function NotificationsSheet({
                 <ListRow
                   title="День недели"
                   trailing={
-                    <div style={{ width: "148px" }}>
+                    <div className="push-select-wrap">
                       <SelectField
                         compact
                         ariaLabel="День недели для чек-ина по целям"
@@ -779,7 +783,9 @@ export default function NotificationsSheet({
         </div>
 
         {/* Quiet hours */}
-        <div className="mt-group-block" style={{ opacity: scheduleDisabled ? 0.55 : 1 }}>
+        <div
+          className={`mt-group-block${scheduleDisabled ? " push-schedule-disabled" : ""}`}
+        >
           <GroupHeader title="Тихие часы" meta="Без уведомлений" />
           <GroupList>
             <ListRow

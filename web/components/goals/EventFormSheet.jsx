@@ -112,7 +112,7 @@ export default function EventFormSheet({
             onClick={handleSubmit}
           >
             {saving
-              ? "Сохраняем..."
+              ? "Сохраняем…"
               : isEditing
                 ? "Сохранить изменения"
                 : "Добавить событие"}
@@ -149,7 +149,7 @@ export default function EventFormSheet({
               setTitle(e.target.value);
               if (error) setError("");
             }}
-            placeholder="Например: запись к стоматологу"
+            placeholder="Например: стоматолог"
             autoComplete="off"
           />
         </div>
@@ -178,7 +178,7 @@ export default function EventFormSheet({
             <input
               id="event-date-input"
               type="date"
-              className="mt-input"
+              className="mt-input tabular"
               value={eventDate}
               onChange={(e) => setEventDate(e.target.value)}
             />
@@ -191,7 +191,7 @@ export default function EventFormSheet({
             <input
               id="event-time-input"
               type="time"
-              className="mt-input"
+              className="mt-input tabular"
               value={eventTime}
               onChange={(e) => setEventTime(e.target.value)}
             />

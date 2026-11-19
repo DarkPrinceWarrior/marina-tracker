@@ -340,7 +340,7 @@ export default function HomeSection({
 
           {choresLoading ? (
             <div className="mt-card mt-card--compact">
-              <p className="mt-card-sub">Загружаем список дел...</p>
+              <p className="mt-card-sub">Загружаем список дел…</p>
             </div>
           ) : filteredChores.length === 0 ? (
             <EmptyState
@@ -400,7 +400,7 @@ export default function HomeSection({
         <ShoppingPanel
           listType="household"
           categories={HOUSEHOLD_CATEGORIES}
-          placeholder="Средства, техника, мебель…"
+          placeholder="Для дома…"
           emptyTitle="Покупок для дома пока нет"
           emptyDescription="Добавьте моющие средства, технику, текстиль или мебель."
           notify={notify}

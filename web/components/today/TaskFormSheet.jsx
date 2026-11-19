@@ -99,7 +99,7 @@ export default function TaskFormSheet({
             onClick={handleSubmit}
           >
             {saving
-              ? "Сохраняем..."
+              ? "Сохраняем…"
               : isEditing
                 ? "Сохранить изменения"
                 : "Добавить задачу"}
@@ -142,7 +142,7 @@ export default function TaskFormSheet({
             id="today-task-title"
             type="text"
             className="mt-input"
-            placeholder="Например: записаться к врачу"
+            placeholder="Например: запись к врачу"
             value={title}
             maxLength={160}
             onChange={(e) => {
@@ -175,7 +175,7 @@ export default function TaskFormSheet({
               </button>
             ) : null}
           </div>
-          <div className="mt-chip-row">
+          <div className="mt-chip-row mt-chip-row--wrap">
             {QUICK_TIMES.map((slot) => (
               <Pill
                 key={slot}
