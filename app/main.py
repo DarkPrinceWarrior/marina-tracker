@@ -24,6 +24,8 @@ _FIELD_LABELS_RU: dict[str, str] = {
     "note": "Заметка",
     "summary_note": "Итог дня",
     "description": "Описание",
+    "photo_url": "Фотография",
+    "data_url": "Изображение",
     "category": "Категория",
     "zone": "Зона",
     "quantity": "Количество",
@@ -227,7 +229,12 @@ def spa_fallback(full_path: str):
     if full_path:
         static_file = _resolve_static_file(full_path)
         if static_file is not None:
-            return FileResponse(static_file)
+            headers = (
+                {"Cache-Control": "public, max-age=604800"}
+                if full_path.startswith("dishes/")
+                else None
+            )
+            return FileResponse(static_file, headers=headers)
 
     index_html = DIST_DIR / "index.html"
     if index_html.is_file():

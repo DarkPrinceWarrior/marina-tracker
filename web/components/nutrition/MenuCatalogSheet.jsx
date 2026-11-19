@@ -11,6 +11,8 @@ import {
 } from "lucide-react";
 import Sheet from "../Sheet.jsx";
 import { EmptyState, GroupHeader, GroupList, Pill } from "../UiPrimitives.jsx";
+import DishPhotoCard from "./DishPhotoCard.jsx";
+import PhotoPickerField from "./PhotoPickerField.jsx";
 import { MEAL_SLOTS, MEAL_SLOT_MAP } from "../../data/presets.js";
 import { formatCountRu } from "../../utils/date.js";
 
@@ -68,6 +70,8 @@ export function MenuItemFormSheet({
   const isEditing = Boolean(editingItem?.id);
 
   const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [photoUrl, setPhotoUrl] = useState("");
   const [mealSlot, setMealSlot] = useState(defaultSlot || "breakfast");
   const [category, setCategory] = useState("Завтраки");
   const [defaultPortion, setDefaultPortion] = useState("1 порция");
@@ -94,6 +98,8 @@ export function MenuItemFormSheet({
 
     if (editingItem) {
       setName(editingItem.name || "");
+      setDescription(editingItem.description || "");
+      setPhotoUrl(editingItem.photo_url || "");
       setMealSlot(editingItem.meal_slot || "breakfast");
       setCategory(editingItem.category || "Свои блюда");
       setDefaultPortion(editingItem.default_portion || "1 порция");
@@ -124,6 +130,8 @@ export function MenuItemFormSheet({
 
     const slot = defaultSlot || "breakfast";
     setName("");
+    setDescription("");
+    setPhotoUrl("");
     setMealSlot(slot);
     setCategory(
       slot === "breakfast"
@@ -156,6 +164,8 @@ export function MenuItemFormSheet({
     try {
       const payload = {
         name: cleanName,
+        description: description.trim(),
+        photo_url: photoUrl,
         meal_slot: mealSlot || "any",
         category: category.trim() || "Свои блюда",
         default_portion: defaultPortion.trim() || "1 порция",
@@ -286,6 +296,13 @@ export function MenuItemFormSheet({
           </div>
         ) : null}
 
+        <PhotoPickerField
+          label="Фото блюда"
+          photoUrl={photoUrl}
+          onChange={setPhotoUrl}
+          disabled={submitting || deleting}
+        />
+
         <div className="mt-field">
           <label className="mt-label" htmlFor="menu-dish-name">
             Название блюда
@@ -298,6 +315,21 @@ export function MenuItemFormSheet({
             value={name}
             onChange={(e) => setName(e.target.value)}
             required
+          />
+        </div>
+
+        <div className="mt-field">
+          <label className="mt-label" htmlFor="menu-dish-description">
+            Короткое описание
+          </label>
+          <textarea
+            id="menu-dish-description"
+            rows={2}
+            maxLength={240}
+            className="mt-textarea"
+            placeholder="Состав или пара слов для карточки…"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
           />
         </div>
 
@@ -479,8 +511,10 @@ export function MenuItemFormSheet({
 export default function MenuCatalogView({
   menuItems = [],
   loading = false,
+  viewMode = "list",
   selectedDateLabel = "сегодня",
   createSignal = 0,
+  onConsumeCreateSignal,
   onQuickAddToDay,
   onCustomizeAndAdd,
   onAddToShopping,
@@ -497,8 +531,9 @@ export default function MenuCatalogView({
     if (createSignal > 0) {
       setEditingItem(null);
       setFormOpen(true);
+      onConsumeCreateSignal?.();
     }
-  }, [createSignal]);
+  }, [createSignal, onConsumeCreateSignal]);
 
   const filteredItems = useMemo(() => {
     const q = normalizeText(searchQuery);
@@ -513,7 +548,9 @@ export default function MenuCatalogView({
         return false;
       }
       if (q) {
-        const hay = normalizeText(`${item.name} ${item.category || ""}`);
+        const hay = normalizeText(
+          `${item.name} ${item.category || ""} ${item.description || ""}`,
+        );
         if (!hay.includes(q)) return false;
       }
       return true;
@@ -652,61 +689,92 @@ export default function MenuCatalogView({
               title={group.label}
               meta={formatCountRu(group.items.length, "блюдо", "блюда", "блюд")}
             />
-            <GroupList>
-              {group.items.map((item) => {
-                const isAdding = busyAddId === item.id;
-                const metaParts = [];
-                if (item.default_grams) metaParts.push(`${item.default_grams} г`);
-                else if (item.default_portion) metaParts.push(item.default_portion);
-                if (item.kcal > 0) metaParts.push(`${item.kcal} ккал`);
+            {viewMode === "cards" ? (
+              <div className="dish-grid">
+                {group.items.map((item) => {
+                  const isAdding = busyAddId === item.id;
+                  const weightParts = [];
+                  if (item.default_grams) {
+                    weightParts.push(`${item.default_grams} г`);
+                  }
+                  if (item.default_portion) {
+                    weightParts.push(item.default_portion);
+                  }
+                  return (
+                    <DishPhotoCard
+                      key={item.id}
+                      mode="menu"
+                      title={item.name}
+                      description={item.description || ""}
+                      photoUrl={item.photo_url || ""}
+                      weightText={weightParts.join(" · ")}
+                      kcalText={item.kcal > 0 ? `${item.kcal} ккал` : ""}
+                      isFavorite={Boolean(item.is_favorite)}
+                      busy={isAdding}
+                      onOpen={() => openEditForm(item)}
+                      onQuickAdd={() => handleQuickAdd(item)}
+                      quickAddLabel={`Добавить «${item.name}» на ${selectedDateLabel}`}
+                    />
+                  );
+                })}
+              </div>
+            ) : (
+              <GroupList>
+                {group.items.map((item) => {
+                  const isAdding = busyAddId === item.id;
+                  const metaParts = [];
+                  if (item.default_grams) metaParts.push(`${item.default_grams} г`);
+                  else if (item.default_portion) metaParts.push(item.default_portion);
+                  if (item.kcal > 0) metaParts.push(`${item.kcal} ккал`);
 
-                return (
-                  <div key={item.id} className="mt-list-row">
-                    <button
-                      type="button"
-                      className="mt-list-body mt-list-body--clickable"
-                      onClick={() => openEditForm(item)}
-                    >
-                      <span className="mt-list-title">
-                        {item.name}
-                        {item.is_favorite ? (
-                          <Star
-                            size={12}
-                            fill="var(--cobalt)"
-                            color="var(--cobalt)"
-                            aria-label="Избранное"
-                            style={{
-                              display: "inline-block",
-                              verticalAlign: "-1px",
-                              marginLeft: "5px",
-                            }}
-                          />
-                        ) : null}
-                      </span>
-                      {metaParts.length > 0 ? (
-                        <span className="mt-list-meta tabular">
-                          {metaParts.join(" · ")}
-                        </span>
-                      ) : null}
-                    </button>
-
-                    <div className="mt-list-trailing">
+                  return (
+                    <div key={item.id} className="mt-list-row">
                       <button
                         type="button"
-                        className="mt-icon-btn"
-                        disabled={isAdding}
-                        aria-label={`Добавить «${item.name}» на ${selectedDateLabel}`}
-                        title={`Добавить на ${selectedDateLabel}`}
-                        onClick={() => handleQuickAdd(item)}
-                        style={{ color: "var(--cobalt)" }}
+                        className="mt-list-body mt-list-body--clickable"
+                        onClick={() => openEditForm(item)}
                       >
-                        <Plus size={18} />
+                        <span className="mt-list-title">
+                          {item.name}
+                          {item.is_favorite ? (
+                            <Star
+                              size={12}
+                              fill="var(--cobalt)"
+                              color="var(--cobalt)"
+                              aria-label="Избранное"
+                              style={{
+                                display: "inline-block",
+                                verticalAlign: "-1px",
+                                marginLeft: "5px",
+                              }}
+                            />
+                          ) : null}
+                        </span>
+                        {metaParts.length > 0 ? (
+                          <span className="mt-list-meta tabular">
+                            {metaParts.join(" · ")}
+                          </span>
+                        ) : null}
                       </button>
+
+                      <div className="mt-list-trailing">
+                        <button
+                          type="button"
+                          className="mt-icon-btn"
+                          disabled={isAdding}
+                          aria-label={`Добавить «${item.name}» на ${selectedDateLabel}`}
+                          title={`Добавить на ${selectedDateLabel}`}
+                          onClick={() => handleQuickAdd(item)}
+                          style={{ color: "var(--cobalt)" }}
+                        >
+                          <Plus size={18} />
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-            </GroupList>
+                  );
+                })}
+              </GroupList>
+            )}
           </section>
         ))
       )}

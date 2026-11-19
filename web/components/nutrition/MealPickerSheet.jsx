@@ -8,6 +8,7 @@ import {
   UtensilsCrossed,
 } from "lucide-react";
 import Sheet from "../Sheet.jsx";
+import PhotoPickerField from "./PhotoPickerField.jsx";
 import {
   EmptyState,
   GroupList,
@@ -117,6 +118,7 @@ export default function MealPickerSheet({
   const [kcal, setKcal] = useState("");
   const [eatenAt, setEatenAt] = useState("08:30");
   const [note, setNote] = useState("");
+  const [photoUrl, setPhotoUrl] = useState("");
   const [completed, setCompleted] = useState(true);
   const [saveCustomToMenu, setSaveCustomToMenu] = useState(false);
 
@@ -169,6 +171,7 @@ export default function MealPickerSheet({
         editingMeal.eaten_at || MEAL_SLOT_MAP[slot]?.defaultTime || nowTimeHHMM(),
       );
       setNote(editingMeal.note || "");
+      setPhotoUrl(editingMeal.photo_url || "");
       setCompleted(editingMeal.completed !== false);
       setMenuFilter("slot");
       setBaseRef({
@@ -210,6 +213,7 @@ export default function MealPickerSheet({
       );
       setEatenAt(nowTimeHHMM());
       setNote("");
+      setPhotoUrl("");
       setCompleted(true);
       setBaseRef({
         amountValue: parsed.amountValue,
@@ -233,6 +237,7 @@ export default function MealPickerSheet({
     setKcal("");
     setEatenAt(MEAL_SLOT_MAP[slot]?.defaultTime || nowTimeHHMM());
     setNote("");
+    setPhotoUrl("");
     setCompleted(true);
     setBaseRef({
       amountValue: 1,
@@ -254,7 +259,9 @@ export default function MealPickerSheet({
     const q = normalizeSearch(searchQuery);
     return menuItems.filter((item) => {
       if (q) {
-        const hay = normalizeSearch(`${item.name} ${item.category || ""}`);
+        const hay = normalizeSearch(
+          `${item.name} ${item.category || ""} ${item.description || ""}`,
+        );
         if (!hay.includes(q)) return false;
       } else if (menuFilter === "favorites") {
         if (!item.is_favorite) return false;
@@ -464,6 +471,8 @@ export default function MealPickerSheet({
         try {
           const created = await onSaveToMenu({
             name: cleanName,
+            description: note.trim(),
+            photo_url: photoUrl,
             meal_slot: mealSlot,
             default_portion: `${formatAmountNumber(safeAmount)} ${amountUnit}`,
             default_grams: parsedGrams && parsedGrams > 0 ? parsedGrams : 200,
@@ -496,6 +505,7 @@ export default function MealPickerSheet({
             ? parsedKcal
             : null,
         note: note.trim(),
+        photo_url: photoUrl,
         completed,
       };
 
@@ -624,6 +634,13 @@ export default function MealPickerSheet({
             {selectedMenuItem && !showCatalogList ? (
               <GroupList>
                 <div className="mt-list-row">
+                  {selectedMenuItem.photo_url ? (
+                    <img
+                      src={selectedMenuItem.photo_url}
+                      alt={selectedMenuItem.name}
+                      className="nutrition-picker-thumb"
+                    />
+                  ) : null}
                   <div className="mt-list-body">
                     <span className="mt-list-title">{selectedMenuItem.name}</span>
                     <span className="mt-list-meta tabular">
@@ -748,6 +765,14 @@ export default function MealPickerSheet({
                             }}
                             onClick={() => handleSelectMenuDish(item)}
                           >
+                            {item.photo_url ? (
+                              <img
+                                src={item.photo_url}
+                                alt={item.name}
+                                className="nutrition-picker-thumb"
+                                loading="lazy"
+                              />
+                            ) : null}
                             <span className="mt-list-body">
                               <span className="mt-list-title">
                                 {item.name}
@@ -809,6 +834,19 @@ export default function MealPickerSheet({
                 required
               />
             </div>
+
+            <PhotoPickerField
+              label="Фото блюда"
+              photoUrl={photoUrl}
+              inheritedPhotoUrl={
+                selectedMenuItem?.photo_url ||
+                (!editingMeal?.photo_url
+                  ? editingMeal?.effective_photo_url || ""
+                  : "")
+              }
+              onChange={setPhotoUrl}
+              disabled={submitting || deleting}
+            />
 
             {/* Portion controls */}
             <div className="mt-stack mt-stack--sm">

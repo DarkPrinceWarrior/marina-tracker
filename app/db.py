@@ -63,6 +63,81 @@ HOUSEHOLD_MIGRATION_CATEGORIES: tuple[str, ...] = (
     "Ремонт и мелочи",
 )
 
+DEFAULT_DISH_MEDIA: dict[str, tuple[str, str]] = {
+    "Овсянка на миндальном молоке с ягодами": (
+        "/dishes/oatmeal-berries.jpg",
+        "Нежная овсянка на миндальном молоке со свежей голубикой и корицей",
+    ),
+    "Скрэмбл из 2 яиц с авокадо и тостом": (
+        "/dishes/scramble-avocado.jpg",
+        "Воздушный скрэмбл, спелое авокадо и хрустящий цельнозерновой тост",
+    ),
+    "Творожная запеканка с грушей": (
+        "/dishes/cottage-pear.jpg",
+        "Мягкая запеканка из творога с карамелизированными дольками груши",
+    ),
+    "Сырники из фермерского творога": (
+        "/dishes/syrniki.jpg",
+        "Румяные домашние сырники с нежной серединкой и лёгкой ванилью",
+    ),
+    "Греческий йогурт с гранолой и мёдом": (
+        "/dishes/yogurt-granola.jpg",
+        "Густой греческий йогурт, хрустящая гранола и цветочный мёд",
+    ),
+    "Киноа с запечённым лососем и брокколи": (
+        "/dishes/quinoa-salmon.jpg",
+        "Филе лосося из духовки, рассыпчатое киноа и сочные соцветия брокколи",
+    ),
+    "Крем-суп из тыквы с тыквенными семечками": (
+        "/dishes/pumpkin-soup.jpg",
+        "Бархатный пряный суп-пюре из сладкой тыквы с хрустящими семечками",
+    ),
+    "Индейка на гриле с гречкой и свежим салатом": (
+        "/dishes/turkey-buckwheat.jpg",
+        "Сочная индейка-гриль, рассыпчатая гречка и хрустящие свежие овощи",
+    ),
+    "Зелёный боул с нутом, шпинатом и тахини": (
+        "/dishes/green-bowl.jpg",
+        "Свежий шпинат, пряный нут, авокадо и нежный кунжутный соус тахини",
+    ),
+    "Куриный бульон с зеленью и перепелиным яйцом": (
+        "/dishes/chicken-broth.jpg",
+        "Прозрачный тёплый бульон с перепелиным яйцом и ароматной зеленью",
+    ),
+    "Запечённая дорадо с овощами гриль": (
+        "/dishes/dorado-veggies.jpg",
+        "Нежное филе дорадо с лимоном и ароматными овощами на гриле",
+    ),
+    "Тёплый салат с рукколой, креветками и манго": (
+        "/dishes/shrimp-mango-salad.jpg",
+        "Сочные тигровые креветки, спелое манго и свежая руккола с цитрусом",
+    ),
+    "Тушёные кабачки с индейкой и травами": (
+        "/dishes/zucchini-turkey.jpg",
+        "Лёгкое рагу из молодых кабачков и филе индейки с прованскими травами",
+    ),
+    "Омлет со шпинатом, томатами и фетой": (
+        "/dishes/omelette-spinach.jpg",
+        "Пышный омлет со свежим шпинатом, сладкими черри и рассыпчатой фетой",
+    ),
+    "Зелёное яблоко и горсть миндаля": (
+        "/dishes/apple-almonds.jpg",
+        "Хрустящие дольки зелёного яблока и отборный цельный миндаль",
+    ),
+    "Хумус с морковными и огуречными палочками": (
+        "/dishes/hummus-veggies.jpg",
+        "Кремовый нутовый хумус с оливковым маслом и свежими овощами",
+    ),
+    "Матча-латте на овсяном молоке": (
+        "/dishes/matcha-latte.jpg",
+        "Церемониальная матча с бархатной пенкой из овсяного молока",
+    ),
+    "Кефир 2,5% с семенами чиа": (
+        "/dishes/kefir-chia.jpg",
+        "Освежающий прохладный кефир с набухшими семенами чиа",
+    ),
+}
+
 ID_PK_TABLES: frozenset[str] = frozenset(
     {
         "habits",
@@ -72,6 +147,7 @@ ID_PK_TABLES: frozenset[str] = frozenset(
         "cycle_days",
         "menu_items",
         "meal_logs",
+        "nutrition_photos",
         "goals",
         "goal_milestones",
         "goal_checkins",
@@ -164,6 +240,8 @@ CREATE INDEX IF NOT EXISTS idx_cycle_days_period ON cycle_days(is_period, log_da
 CREATE TABLE IF NOT EXISTS menu_items (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    photo_url TEXT NOT NULL DEFAULT '',
     meal_slot TEXT NOT NULL DEFAULT 'any' CHECK(meal_slot IN ('breakfast','lunch','dinner','snack','any')),
     default_portion TEXT NOT NULL DEFAULT '1 порция',
     default_grams INTEGER NOT NULL DEFAULT 200 CHECK(default_grams >= 0),
@@ -187,10 +265,19 @@ CREATE TABLE IF NOT EXISTS meal_logs (
     eaten_at TEXT NOT NULL DEFAULT '',
     kcal INTEGER NOT NULL DEFAULT 0 CHECK(kcal >= 0),
     note TEXT NOT NULL DEFAULT '',
+    photo_url TEXT NOT NULL DEFAULT '',
     completed INTEGER NOT NULL DEFAULT 1 CHECK(completed IN (0,1)),
     created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_meal_logs_date ON meal_logs(log_date, meal_slot);
+
+CREATE TABLE IF NOT EXISTS nutrition_photos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    mime_type TEXT NOT NULL DEFAULT 'image/jpeg',
+    data_b64 TEXT NOT NULL,
+    byte_size INTEGER NOT NULL DEFAULT 0 CHECK(byte_size >= 0),
+    created_at TEXT NOT NULL
+);
 
 CREATE TABLE IF NOT EXISTS goals (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -679,6 +766,24 @@ def _init_postgres(conn: PgConnectionAdapter) -> None:
     conn.execute_raw(
         "CREATE INDEX IF NOT EXISTS idx_shopping_list_type ON shopping_items(list_type)"
     )
+    conn.execute_raw(
+        "ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS description TEXT NOT NULL DEFAULT ''"
+    )
+    conn.execute_raw(
+        "ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS photo_url TEXT NOT NULL DEFAULT ''"
+    )
+    conn.execute_raw(
+        "ALTER TABLE meal_logs ADD COLUMN IF NOT EXISTS photo_url TEXT NOT NULL DEFAULT ''"
+    )
+    for dish_name, (photo_url, description) in DEFAULT_DISH_MEDIA.items():
+        conn.execute_raw(
+            "UPDATE menu_items SET photo_url = %s WHERE name = %s AND photo_url = ''",
+            (photo_url, dish_name),
+        )
+        conn.execute_raw(
+            "UPDATE menu_items SET description = %s WHERE name = %s AND description = ''",
+            (description, dish_name),
+        )
 
     conn.execute_raw("INSERT INTO water_settings(id, daily_goal_ml) VALUES(1, 2000) ON CONFLICT(id) DO NOTHING")
     conn.execute_raw(
@@ -722,6 +827,26 @@ def init_db(db: Any = None) -> None:
                 HOUSEHOLD_MIGRATION_CATEGORIES,
             )
         conn.execute("CREATE INDEX IF NOT EXISTS idx_shopping_list_type ON shopping_items(list_type)")
+
+        menu_cols = _table_columns(conn, "menu_items")
+        if "description" not in menu_cols:
+            conn.execute("ALTER TABLE menu_items ADD COLUMN description TEXT NOT NULL DEFAULT ''")
+        if "photo_url" not in menu_cols:
+            conn.execute("ALTER TABLE menu_items ADD COLUMN photo_url TEXT NOT NULL DEFAULT ''")
+
+        meal_cols = _table_columns(conn, "meal_logs")
+        if "photo_url" not in meal_cols:
+            conn.execute("ALTER TABLE meal_logs ADD COLUMN photo_url TEXT NOT NULL DEFAULT ''")
+
+        for dish_name, (photo_url, description) in DEFAULT_DISH_MEDIA.items():
+            conn.execute(
+                "UPDATE menu_items SET photo_url = ? WHERE name = ? AND photo_url = ''",
+                (photo_url, dish_name),
+            )
+            conn.execute(
+                "UPDATE menu_items SET description = ? WHERE name = ? AND description = ''",
+                (description, dish_name),
+            )
 
         conn.execute(
             "INSERT OR IGNORE INTO water_settings(id, daily_goal_ml) VALUES(1, 2000)"

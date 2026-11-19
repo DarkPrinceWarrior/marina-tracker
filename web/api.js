@@ -252,6 +252,11 @@ export const api = {
     request(`/api/nutrition/menu/${id}`, { method: "PATCH", body: payload }),
   deleteMenuItem: (id) =>
     request(`/api/nutrition/menu/${id}`, { method: "DELETE" }),
+  uploadNutritionPhoto: (dataUrl) =>
+    request("/api/nutrition/photos", {
+      method: "POST",
+      body: { data_url: dataUrl },
+    }),
 
   getNutritionDay: (date) =>
     request(`/api/nutrition/day${buildQuery({ date })}`),

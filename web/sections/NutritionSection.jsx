@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { ChevronRight, Plus } from "lucide-react";
+import { ChevronRight, LayoutGrid, List, Plus } from "lucide-react";
 import api, { withOptimistic } from "../api.js";
 import {
   DateStrip,
@@ -11,6 +11,7 @@ import {
   SegmentedControl,
 } from "../components/UiPrimitives.jsx";
 import ShoppingPanel from "../components/ShoppingPanel.jsx";
+import DishPhotoCard from "../components/nutrition/DishPhotoCard.jsx";
 import MealPickerSheet, {
   formatAmountNumber,
   parseDefaultPortion,
@@ -30,6 +31,25 @@ import {
 } from "../utils/date.js";
 
 const MAIN_SLOTS = ["breakfast", "lunch", "dinner"];
+const VIEW_MODE_KEY = "ritm_nutrition_view_mode";
+
+function readInitialViewMode() {
+  try {
+    const saved = window.localStorage.getItem(VIEW_MODE_KEY);
+    return saved === "cards" ? "cards" : "list";
+  } catch {
+    return "list";
+  }
+}
+
+function formatMealWeightShort(meal) {
+  const grams = Number(meal?.grams) || 0;
+  const val = Number(meal?.amount_value) || 0;
+  const unit = String(meal?.amount_unit || "").trim();
+  if (grams > 0) return `${Math.round(grams)} г`;
+  if (val > 0) return `${formatAmountNumber(val)} ${unit || "порция"}`;
+  return "";
+}
 
 function round1(n) {
   return Math.round((Number(n) || 0) * 10) / 10;
@@ -113,6 +133,15 @@ export default function NutritionSection({
         ? "shopping"
         : "ration",
   );
+  const [viewMode, setViewMode] = useState(readInitialViewMode);
+  const handleChangeViewMode = useCallback((nextMode) => {
+    setViewMode(nextMode);
+    try {
+      window.localStorage.setItem(VIEW_MODE_KEY, nextMode);
+    } catch {
+      // Ignore storage restrictions
+    }
+  }, []);
   const [dayData, setDayData] = useState(() =>
     normalizeDayResponse(null, activeDate),
   );
@@ -491,7 +520,10 @@ export default function NutritionSection({
       saved = await api.createMenuItem(payload);
       notify?.(`«${payload.name}» добавлено в меню`, "success");
     }
-    await loadMenu({ silent: true });
+    await Promise.all([
+      loadMenu({ silent: true }),
+      loadDay(activeDate, { silent: true }),
+    ]);
     return saved;
   };
 
@@ -577,6 +609,36 @@ export default function NutritionSection({
         ]}
       />
 
+      {activeSubTab !== "shopping" ? (
+        <div
+          className="nutrition-view-bar"
+          role="group"
+          aria-label="Режим отображения блюд"
+        >
+          <span className="nutrition-view-label">Отображение</span>
+          <div className="nutrition-view-switch">
+            <button
+              type="button"
+              className={`nutrition-view-btn${viewMode === "list" ? " is-active" : ""}`}
+              aria-pressed={viewMode === "list"}
+              onClick={() => handleChangeViewMode("list")}
+            >
+              <List size={14} aria-hidden="true" />
+              <span>Список</span>
+            </button>
+            <button
+              type="button"
+              className={`nutrition-view-btn${viewMode === "cards" ? " is-active" : ""}`}
+              aria-pressed={viewMode === "cards"}
+              onClick={() => handleChangeViewMode("cards")}
+            >
+              <LayoutGrid size={14} aria-hidden="true" />
+              <span>Карточки</span>
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       {errorMsg ? <div className="mt-form-error">{errorMsg}</div> : null}
 
       {/* SUB-TAB 1: РАЦИОН */}
@@ -657,43 +719,85 @@ export default function NutritionSection({
                     }
                   />
 
-                  <GroupList>
-                    {slotItems.length > 0 ? (
-                      slotItems.map((meal) => {
+                  {slotItems.length > 0 && viewMode === "cards" ? (
+                    <div className="dish-grid">
+                      {slotItems.map((meal) => {
                         const isEaten = meal.completed !== false;
+                        const menuRef = meal.menu_item_id
+                          ? menuById[meal.menu_item_id]
+                          : null;
+                        const cardPhoto =
+                          meal.effective_photo_url ||
+                          meal.photo_url ||
+                          menuRef?.photo_url ||
+                          "";
+                        const cardDesc =
+                          meal.note ||
+                          meal.description ||
+                          menuRef?.description ||
+                          "";
                         return (
-                          <ListRow
+                          <DishPhotoCard
                             key={meal.id}
-                            checked={isEaten}
-                            onToggle={() => handleToggleMealCompleted(meal)}
+                            mode="meal"
                             title={meal.dish_name}
-                            meta={buildMealMetaLine(meal, isEaten)}
-                            onClick={() => openPickerForEdit(meal)}
-                            trailing={
-                              <ChevronRight
-                                size={15}
-                                className="mt-list-row-chevron"
-                                aria-hidden="true"
-                              />
+                            description={cardDesc}
+                            photoUrl={cardPhoto}
+                            weightText={formatMealWeightShort(meal)}
+                            kcalText={
+                              meal.kcal > 0
+                                ? `${Math.round(meal.kcal)} ккал`
+                                : ""
+                            }
+                            timeText={meal.eaten_at || ""}
+                            isCompleted={isEaten}
+                            onOpen={() => openPickerForEdit(meal)}
+                            onToggleComplete={() =>
+                              handleToggleMealCompleted(meal)
                             }
                           />
                         );
-                      })
-                    ) : (
-                      <button
-                        type="button"
-                        className="nutrition-empty-row"
-                        onClick={() => openPickerForSlot(slot.key)}
-                      >
-                        <span>Добавить блюдо</span>
-                        <Plus
-                          size={16}
-                          style={{ color: "var(--cobalt)", flexShrink: 0 }}
-                          aria-hidden="true"
-                        />
-                      </button>
-                    )}
-                  </GroupList>
+                      })}
+                    </div>
+                  ) : (
+                    <GroupList>
+                      {slotItems.length > 0 ? (
+                        slotItems.map((meal) => {
+                          const isEaten = meal.completed !== false;
+                          return (
+                            <ListRow
+                              key={meal.id}
+                              checked={isEaten}
+                              onToggle={() => handleToggleMealCompleted(meal)}
+                              title={meal.dish_name}
+                              meta={buildMealMetaLine(meal, isEaten)}
+                              onClick={() => openPickerForEdit(meal)}
+                              trailing={
+                                <ChevronRight
+                                  size={15}
+                                  className="mt-list-row-chevron"
+                                  aria-hidden="true"
+                                />
+                              }
+                            />
+                          );
+                        })
+                      ) : (
+                        <button
+                          type="button"
+                          className="nutrition-empty-row"
+                          onClick={() => openPickerForSlot(slot.key)}
+                        >
+                          <span>Добавить блюдо</span>
+                          <Plus
+                            size={16}
+                            style={{ color: "var(--cobalt)", flexShrink: 0 }}
+                            aria-hidden="true"
+                          />
+                        </button>
+                      )}
+                    </GroupList>
+                  )}
                 </section>
               );
             })
@@ -704,8 +808,10 @@ export default function NutritionSection({
         <MenuCatalogView
           menuItems={menuItems}
           loading={loadingMenu}
+          viewMode={viewMode}
           selectedDateLabel={selectedDateShortLabel}
           createSignal={createMenuSignal}
+          onConsumeCreateSignal={() => setCreateMenuSignal(0)}
           onQuickAddToDay={handleQuickAddFromMenu}
           onCustomizeAndAdd={openPickerForMenuItem}
           onAddToShopping={handleAddMenuItemToShopping}

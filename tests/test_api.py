@@ -1399,3 +1399,128 @@ def test_validation_errors_are_pure_russian(client: TestClient):
     assert r3.status_code == 404
     detail3 = str(r3.json().get("detail", ""))
     assert "Not Found" not in detail3, f"English 404 leaked: {detail3}"
+
+
+# ---------------------------------------------------------------------------
+# 14. Nutrition Dish Photos, Descriptions & Samokat Card Media
+# ---------------------------------------------------------------------------
+
+
+def test_nutrition_photos_descriptions_and_inheritance(client: TestClient):
+    import base64
+    from app.db import translate_sql_for_postgres
+
+    # Postgres SQL translation must append RETURNING id for nutrition_photos
+    pg_sql, appends_ret = translate_sql_for_postgres(
+        "INSERT INTO nutrition_photos(mime_type, data_b64, byte_size, created_at) VALUES(?,?,?,?)"
+    )
+    assert appends_ret is True
+    assert "RETURNING id" in pg_sql
+
+    # Seeded dishes must carry short Russian descriptions and /dishes/*.jpg photo URLs
+    menu_res = client.get("/api/nutrition/menu")
+    assert menu_res.status_code == 200
+    menu_items = menu_res.json()["items"]
+    assert len(menu_items) >= 18
+    assert all(m["photo_url"].startswith("/dishes/") for m in menu_items[:18])
+    assert all(len(m["description"]) >= 15 for m in menu_items[:18])
+
+    # Upload a valid 1x1 PNG via POST /api/nutrition/photos
+    png_1x1 = base64.b64decode(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=="
+    )
+    data_url = "data:image/png;base64," + base64.b64encode(png_1x1).decode("ascii")
+    up_res = client.post("/api/nutrition/photos", json={"data_url": data_url})
+    assert up_res.status_code == 201
+    uploaded = up_res.json()
+    assert uploaded["url"].startswith("/api/nutrition/photos/")
+    assert uploaded["mime_type"] == "image/png"
+    assert uploaded["byte_size"] == len(png_1x1)
+
+    # Fetch uploaded photo back as binary image with immutable cache header
+    get_res = client.get(uploaded["url"])
+    assert get_res.status_code == 200
+    assert get_res.headers["content-type"].startswith("image/png")
+    assert "immutable" in get_res.headers.get("cache-control", "")
+    assert get_res.content == png_1x1
+
+    # Invalid uploads & unsafe photo URLs rejected with Russian 422
+    bad_mime = client.post("/api/nutrition/photos", json={"data_url": "data:text/plain;base64,aGVsbG8gd29ybGQgMTIzNDU2Nzg5MA=="})
+    assert bad_mime.status_code == 422
+    bad_magic = client.post("/api/nutrition/photos", json={"data_url": "data:image/jpeg;base64,aGVsbG8gd29ybGQgMTIzNDU2Nzg5MA=="})
+    assert bad_magic.status_code == 422
+    bad_url = client.post(
+        "/api/nutrition/menu",
+        json={"name": "Тест", "photo_url": "javascript:alert(1)"},
+    )
+    assert bad_url.status_code == 422
+    assert client.get("/api/nutrition/photos/999999").status_code == 404
+
+    # Create menu dish with custom photo + description, searchable by description
+    dish_res = client.post(
+        "/api/nutrition/menu",
+        json={
+            "name": "Боул с манго и тунцом",
+            "description": "Сочный тунец, спелое манго и хрустящие бобы эдамаме",
+            "photo_url": uploaded["url"],
+            "meal_slot": "lunch",
+            "default_grams": 310,
+            "kcal": 440,
+        },
+    )
+    assert dish_res.status_code == 201
+    dish = dish_res.json()
+    assert dish["description"] == "Сочный тунец, спелое манго и хрустящие бобы эдамаме"
+    assert dish["photo_url"] == uploaded["url"]
+
+    search_res = client.get("/api/nutrition/menu?q=эдамаме")
+    assert search_res.status_code == 200
+    assert any(it["id"] == dish["id"] for it in search_res.json()["items"])
+
+    # Create meal linked to menu dish -> inherits effective_photo_url & description
+    today_str = client.get("/api/health").json()["today"]
+    meal_res = client.post(
+        "/api/nutrition/meals",
+        json={
+            "log_date": today_str,
+            "meal_slot": "lunch",
+            "menu_item_id": dish["id"],
+            "dish_name": dish["name"],
+            "amount_value": 1,
+            "amount_unit": "боул",
+            "grams": 310,
+            "kcal": 440,
+        },
+    )
+    assert meal_res.status_code == 201
+    meal = meal_res.json()
+    assert meal["photo_url"] == ""
+    assert meal["effective_photo_url"] == uploaded["url"]
+    assert meal["description"] == dish["description"]
+
+    # Override meal with its own photo, verify GET /api/nutrition/day returns it
+    up2 = client.post("/api/nutrition/photos", json={"data_url": data_url}).json()
+    patch_meal = client.patch(
+        f"/api/nutrition/meals/{meal['id']}",
+        json={"photo_url": up2["url"]},
+    )
+    assert patch_meal.status_code == 200
+    assert patch_meal.json()["photo_url"] == up2["url"]
+    assert patch_meal.json()["effective_photo_url"] == up2["url"]
+
+    day_res = client.get(f"/api/nutrition/day?date={today_str}").json()
+    found = next(m for m in day_res["items"] if m["id"] == meal["id"])
+    assert found["effective_photo_url"] == up2["url"]
+
+    # Clear meal's own photo -> cleanly falls back to menu item photo
+    clear_meal = client.patch(
+        f"/api/nutrition/meals/{meal['id']}",
+        json={"photo_url": ""},
+    )
+    assert clear_meal.status_code == 200
+    assert clear_meal.json()["photo_url"] == ""
+    assert clear_meal.json()["effective_photo_url"] == uploaded["url"]
+
+    # Clean up
+    assert client.delete(f"/api/nutrition/meals/{meal['id']}").status_code == 200
+    assert client.delete(f"/api/nutrition/menu/{dish['id']}").status_code == 200

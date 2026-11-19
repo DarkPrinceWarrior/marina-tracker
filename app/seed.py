@@ -6,7 +6,7 @@ from datetime import date, timedelta
 import json
 import sqlite3
 
-from .db import now_dt, now_iso, today_iso, transaction
+from .db import DEFAULT_DISH_MEDIA, now_dt, now_iso, today_iso, transaction
 
 
 def _seed_phase4_if_missing(db: sqlite3.Connection, today: date, created_ts: str) -> bool:
@@ -373,12 +373,13 @@ def seed_if_empty(db: sqlite3.Connection) -> bool:
         ]
         menu_ids: list[int] = []
         for row in menu_spec:
+            photo_url, description = DEFAULT_DISH_MEDIA.get(row[0], ("", ""))
             cur = db.execute(
                 """INSERT INTO menu_items(
-                    name, meal_slot, default_portion, default_grams, kcal,
-                    protein_g, fat_g, carbs_g, category, is_favorite
-                ) VALUES(?,?,?,?,?,?,?,?,?,?)""",
-                row,
+                    name, description, photo_url, meal_slot, default_portion,
+                    default_grams, kcal, protein_g, fat_g, carbs_g, category, is_favorite
+                ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (row[0], description, photo_url, *row[1:]),
             )
             menu_ids.append(int(cur.lastrowid))
 

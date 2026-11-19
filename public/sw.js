@@ -1,4 +1,4 @@
-const CACHE_NAME = "ritm-pwa-v3";
+const CACHE_NAME = "ritm-pwa-v4";
 const SHELL_ASSETS = [
   "/",
   "/manifest.webmanifest",
@@ -52,6 +52,24 @@ self.addEventListener("fetch", (event) => {
     url.pathname.startsWith("/node_modules/") ||
     url.pathname.startsWith("/web/")
   ) {
+    return;
+  }
+
+  // Immutable uploaded nutrition photos: cache-first
+  if (url.pathname.startsWith("/api/nutrition/photos/")) {
+    event.respondWith(
+      caches.match(request).then(
+        (cached) =>
+          cached ||
+          fetch(request).then((response) => {
+            if (response && response.ok && response.type === "basic") {
+              const copy = response.clone();
+              caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+            }
+            return response;
+          })
+      )
+    );
     return;
   }
 
