@@ -1007,3 +1007,247 @@ def test_shopping_groceries_vs_household_strict_isolation(client: TestClient):
     assert clr_h.status_code == 200
     h_ids_final = {i["id"] for i in client.get("/api/home/shopping?list_type=household").json()["items"]}
     assert h_new["id"] not in h_ids_final
+
+
+# ---------------------------------------------------------------------------
+# 11. Phase 5: Dual Postgres/SQLite Layer & Native Web Push Notifications
+# ---------------------------------------------------------------------------
+
+
+def test_postgres_sql_translation_and_schema(client: TestClient):
+    from app.db import PG_SCHEMA, translate_sql_for_postgres
+
+    # Health exposes active db_backend
+    health = client.get("/api/health").json()
+    assert health["db_backend"] == "sqlite"
+
+    # ? outside quotes -> %s, while ? inside single-quoted string literals is preserved
+    sql1, ret1 = translate_sql_for_postgres(
+        "SELECT * FROM tasks WHERE title = 'Что купить?' AND id = ? AND note LIKE '%50%%'"
+    )
+    assert "'Что купить?'" in sql1
+    assert "AND id = %s" in sql1
+    assert ret1 is False
+
+    # INSERT OR IGNORE -> INSERT INTO ... ON CONFLICT DO NOTHING
+    sql2, ret2 = translate_sql_for_postgres(
+        "INSERT OR IGNORE INTO water_settings (id, daily_goal_ml) VALUES (1, ?)"
+    )
+    assert "INSERT OR IGNORE" not in sql2
+    assert "ON CONFLICT DO NOTHING" in sql2
+    assert "%s" in sql2
+    assert ret2 is False
+
+    # INSERT into ID_PK_TABLES appends RETURNING id
+    sql3, ret3 = translate_sql_for_postgres(
+        "INSERT INTO tasks (task_date, title, created_at) VALUES (?, ?, ?)"
+    )
+    assert sql3.rstrip().endswith("RETURNING id")
+    assert ret3 is True
+
+    # Non-id PK table (day_reflections) does NOT append RETURNING id
+    sql4, ret4 = translate_sql_for_postgres(
+        "INSERT INTO day_reflections (log_date, summary_note, updated_at) VALUES (?, ?, ?)"
+    )
+    assert "RETURNING id" not in sql4
+    assert ret4 is False
+
+    # PG_SCHEMA defines all core + Phase 4 + Phase 5 tables
+    for table in (
+        "habits",
+        "habit_logs",
+        "water_settings",
+        "water_logs",
+        "workouts",
+        "cycle_settings",
+        "cycle_days",
+        "menu_items",
+        "meal_logs",
+        "tasks",
+        "goals",
+        "goal_milestones",
+        "goal_checkins",
+        "chores",
+        "chore_logs",
+        "shopping_items",
+        "day_reflections",
+        "gratitudes",
+        "calendar_events",
+        "push_subscriptions",
+        "notification_settings",
+        "push_deliveries",
+    ):
+        assert f"CREATE TABLE IF NOT EXISTS {table}" in PG_SCHEMA, f"Missing {table} in PG_SCHEMA"
+
+
+def test_push_config_subscribe_settings_and_mocked_test_push(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+):
+    import json
+    from unittest.mock import MagicMock
+    import app.routes.push as push_mod
+
+    # Unconfigured by default
+    monkeypatch.delenv("VAPID_PUBLIC_KEY", raising=False)
+    monkeypatch.delenv("VAPID_PRIVATE_KEY", raising=False)
+    monkeypatch.delenv("PUSH_CRON_SECRET", raising=False)
+
+    cfg0 = client.get("/api/push/config")
+    assert cfg0.status_code == 200
+    assert cfg0.json()["configured"] is False
+    assert "vapid_private_key" not in cfg0.text.lower()
+    assert "push_cron_secret" not in cfg0.text.lower()
+
+    # Test push returns clear Russian 400 when VAPID is not configured
+    assert client.post("/api/push/test").status_code == 400
+
+    # Configure VAPID env vars (never leaked by /api/push/config)
+    monkeypatch.setenv("VAPID_PUBLIC_KEY", "BTestPublicKeyBase64UrlExample1234567890")
+    monkeypatch.setenv("VAPID_PRIVATE_KEY", "SECRET-PRIVATE-KEY-DO-NOT-LEAK")
+    monkeypatch.setenv("PUSH_CRON_SECRET", "SECRET-CRON-TOKEN-DO-NOT-LEAK")
+
+    cfg1 = client.get("/api/push/config")
+    assert cfg1.status_code == 200
+    assert cfg1.json()["configured"] is True
+    assert "SECRET-PRIVATE-KEY" not in cfg1.text
+    assert "SECRET-CRON-TOKEN" not in cfg1.text
+
+    # Subscribe (idempotent upsert on endpoint)
+    ep = "https://web.push.apple.com/QTestEndpoint123"
+    sub1 = client.post(
+        "/api/push/subscribe",
+        json={
+            "endpoint": ep,
+            "keys": {"p256dh": "p256dh-key-1", "auth": "auth-key-1"},
+            "device_label": "iPhone 13",
+            "user_agent": "Safari",
+        },
+    )
+    assert sub1.status_code == 200
+    assert sub1.json()["ok"] is True
+    assert sub1.json()["subscriptions_count"] == 1
+
+    # Re-subscribe same endpoint updates label without creating duplicate
+    sub2 = client.post(
+        "/api/push/subscribe",
+        json={
+            "endpoint": ep,
+            "keys": {"p256dh": "p256dh-key-2", "auth": "auth-key-2"},
+            "device_label": "iPhone 13 Марины",
+        },
+    )
+    assert sub2.status_code == 200
+    assert sub2.json()["subscriptions_count"] == 1
+
+    # Update & validate notification settings
+    put_set = client.put(
+        "/api/push/settings",
+        json={
+            "enabled": True,
+            "morning_time": "08:15",
+            "water_interval_hours": 2,
+            "events_lead_minutes": 30,
+            "cycle_days_before": 3,
+            "goals_weekday": 5,
+            "quiet_start": "23:00",
+            "quiet_end": "07:00",
+        },
+    )
+    assert put_set.status_code == 200
+    saved_s = put_set.json()
+    assert saved_s["morning_time"] == "08:15"
+    assert saved_s["water_interval_hours"] == 2
+    assert saved_s["events_lead_minutes"] == 30
+    assert saved_s["cycle_days_before"] == 3
+    assert saved_s["goals_weekday"] == 5
+
+    # Invalid settings rejected with 422
+    assert client.put("/api/push/settings", json={"morning_time": "25:99"}).status_code == 422
+    assert client.put("/api/push/settings", json={"water_interval_hours": 7}).status_code == 422
+
+    # Mock pywebpush.webpush -> verify /api/push/test sends Russian payload
+    mock_webpush = MagicMock()
+    monkeypatch.setattr(push_mod, "webpush", mock_webpush)
+    test_res = client.post("/api/push/test")
+    assert test_res.status_code == 200
+    assert test_res.json()["sent"] == 1
+    assert mock_webpush.call_count == 1
+    sent_payload = json.loads(mock_webpush.call_args.kwargs["data"])
+    assert "Уведомления работают" in sent_payload["title"]
+
+    # Unsubscribe deactivates device
+    unsub = client.post("/api/push/unsubscribe", json={"endpoint": ep})
+    assert unsub.status_code == 200
+    assert unsub.json()["subscriptions_count"] == 0
+
+
+def test_push_dispatch_auth_quiet_hours_and_deduplication(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+):
+    from datetime import datetime
+    from unittest.mock import MagicMock
+    from zoneinfo import ZoneInfo
+    import app.routes.push as push_mod
+
+    monkeypatch.setenv("VAPID_PUBLIC_KEY", "BTestPublicKeyBase64UrlExample1234567890")
+    monkeypatch.setenv("VAPID_PRIVATE_KEY", "TEST-PRIVATE-KEY")
+    monkeypatch.setenv("PUSH_CRON_SECRET", "cron-secret-xyz")
+
+    # Add an active subscription
+    client.post(
+        "/api/push/subscribe",
+        json={
+            "endpoint": "https://web.push.apple.com/QDispatchEndpoint",
+            "keys": {"p256dh": "k1", "auth": "a1"},
+            "device_label": "iPhone",
+        },
+    )
+
+    # Missing or wrong secret -> 401
+    assert client.post("/api/push/dispatch").status_code == 401
+    assert (
+        client.post("/api/push/dispatch", headers={"Authorization": "Bearer wrong"}).status_code
+        == 401
+    )
+
+    mock_webpush = MagicMock()
+    monkeypatch.setattr(push_mod, "webpush", mock_webpush)
+
+    # Ensure an incomplete morning habit exists so morning reminder fires at 08:35
+    today_str = client.get("/api/health").json()["today"]
+    client.post(
+        "/api/habits",
+        json={"title": "Утренний тест-ритуал", "period_of_day": "morning", "category": "habit"},
+    )
+    y, m, d = (int(x) for x in today_str.split("-"))
+    moscow = ZoneInfo("Europe/Moscow")
+
+    # 1. Quiet hours (23:15) -> 200 OK, 0 dispatched
+    monkeypatch.setattr(push_mod, "now_dt", lambda: datetime(y, m, d, 23, 15, tzinfo=moscow))
+    quiet_res = client.post(
+        "/api/push/dispatch", headers={"Authorization": "Bearer cron-secret-xyz"}
+    )
+    assert quiet_res.status_code == 200
+    assert quiet_res.json()["dispatched"] == []
+    assert mock_webpush.call_count == 0
+
+    # 2. Morning window (08:35, after 08:30 default) -> dispatches morning reminder ONCE
+    monkeypatch.setattr(push_mod, "now_dt", lambda: datetime(y, m, d, 8, 35, tzinfo=moscow))
+    first_res = client.post(
+        "/api/push/dispatch", headers={"X-Cron-Secret": "cron-secret-xyz"}
+    )
+    assert first_res.status_code == 200
+    body1 = first_res.json()
+    assert len(body1["dispatched"]) >= 1
+    assert any(item["kind"] == "morning_habits" for item in body1["dispatched"])
+    calls_after_first = mock_webpush.call_count
+    assert calls_after_first >= 1
+
+    # 3. Second dispatch 5 min later (08:40) -> deduplicated via push_deliveries!
+    monkeypatch.setattr(push_mod, "now_dt", lambda: datetime(y, m, d, 8, 40, tzinfo=moscow))
+    second_res = client.post(
+        "/api/push/dispatch", headers={"Authorization": "Bearer cron-secret-xyz"}
+    )
+    assert second_res.status_code == 200
+    assert not any(item["kind"] == "morning_habits" for item in second_res.json()["dispatched"])
+    assert mock_webpush.call_count == calls_after_first

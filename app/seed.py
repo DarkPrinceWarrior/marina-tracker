@@ -117,9 +117,15 @@ def seed_if_empty(db: sqlite3.Connection) -> bool:
 
     with transaction(db):
         # 1. Settings
-        db.execute("INSERT OR REPLACE INTO water_settings(id, daily_goal_ml) VALUES(1, 2000)")
         db.execute(
-            "INSERT OR REPLACE INTO cycle_settings(id, avg_cycle_length, avg_period_length) VALUES(1, 28, 5)"
+            """INSERT INTO water_settings(id, daily_goal_ml) VALUES(1, 2000)
+               ON CONFLICT(id) DO UPDATE SET daily_goal_ml = excluded.daily_goal_ml"""
+        )
+        db.execute(
+            """INSERT INTO cycle_settings(id, avg_cycle_length, avg_period_length) VALUES(1, 28, 5)
+               ON CONFLICT(id) DO UPDATE SET
+                   avg_cycle_length = excluded.avg_cycle_length,
+                   avg_period_length = excluded.avg_period_length"""
         )
 
         # 2. Habits & Vitamins (Morning, Afternoon, Evening)
@@ -283,9 +289,16 @@ def seed_if_empty(db: sqlite3.Connection) -> bool:
                     mood = "balanced"
                     note = ""
                 db.execute(
-                    """INSERT OR REPLACE INTO cycle_days(
+                    """INSERT INTO cycle_days(
                         log_date, is_period, flow, symptoms_json, mood, note, updated_at
-                    ) VALUES(?,1,?,?,?,?,?)""",
+                    ) VALUES(?,1,?,?,?,?,?)
+                    ON CONFLICT(log_date) DO UPDATE SET
+                        is_period = excluded.is_period,
+                        flow = excluded.flow,
+                        symptoms_json = excluded.symptoms_json,
+                        mood = excluded.mood,
+                        note = excluded.note,
+                        updated_at = excluded.updated_at""",
                     (
                         log_d.isoformat(),
                         flow,

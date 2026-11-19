@@ -11,8 +11,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from .db import ROOT, connect, init_db, today_iso
-from .routes import cycle, habits, home, nutrition, tasks_goals, today
+from .db import ROOT, connect, init_db, is_postgres, today_iso
+from .routes import cycle, habits, home, nutrition, push, tasks_goals, today
 from .seed import seed_if_empty
 
 
@@ -45,6 +45,7 @@ def health_check() -> dict[str, Any]:
         "status": "ok",
         "service": "marina-tracker",
         "today": today_iso(),
+        "db_backend": "postgres" if is_postgres() else "sqlite",
     }
 
 
@@ -55,6 +56,7 @@ app.include_router(habits.router)
 app.include_router(cycle.router)
 app.include_router(nutrition.router)
 app.include_router(home.router)
+app.include_router(push.router)
 
 
 # ---------------------------------------------------------------------------

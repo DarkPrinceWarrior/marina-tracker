@@ -274,6 +274,23 @@ export const api = {
       `/api/home/shopping/clear-bought${buildQuery({ list_type: listType })}`,
       { method: "POST", body: listType ? { list_type: listType } : {} }
     ),
+
+  // 8. Web Push Notifications
+  getPushConfig: () => request("/api/push/config"),
+  subscribePush: (payload) =>
+    request("/api/push/subscribe", { method: "POST", body: payload }),
+  unsubscribePush: (endpointOrPayload) => {
+    const body =
+      typeof endpointOrPayload === "string"
+        ? { endpoint: endpointOrPayload }
+        : endpointOrPayload;
+    return request("/api/push/unsubscribe", { method: "POST", body });
+  },
+  getPushSettings: () => request("/api/push/settings"),
+  updatePushSettings: (payload) =>
+    request("/api/push/settings", { method: "PUT", body: payload }),
+  sendTestPush: () =>
+    request("/api/push/test", { method: "POST", body: {} }),
 };
 
 export default api;

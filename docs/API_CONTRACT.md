@@ -809,3 +809,86 @@ Response `200`: `{"deleted": true, "id": 1}`.
 ### `POST /api/home/shopping/clear-bought?list_type=groceries|household`
 Accepts optional query `?list_type=` or JSON `{list_type}` so clearing one list never touches the other.
 Response `200`: `{"cleared": 2, "list_type": "groceries"}`.
+
+---
+
+## 8. Web Push Notifications (`app/routes/push.py`)
+
+Environment variables:
+- `VAPID_PUBLIC_KEY` (base64url public key exposed via `/api/push/config`)
+- `VAPID_PRIVATE_KEY` (PEM or raw base64url private key; escaped `\n` is unescaped automatically; never exposed)
+- `VAPID_SUBJECT` (optional, default `mailto:ritm@marina-tracker.app`)
+- `PUSH_CRON_SECRET` (optional bearer / `X-Cron-Secret` token protecting `/api/push/dispatch`; never exposed)
+
+### `GET /api/push/config`
+Response `200`:
+```json
+{
+  "configured": true,
+  "vapid_public_key": "BEl...",
+  "subscriptions_count": 1,
+  "devices": [
+    {
+      "id": 1,
+      "device_label": "iPhone",
+      "updated_at": "2026-11-19T14:00:00+03:00",
+      "last_success_at": "2026-11-19T14:05:00+03:00"
+    }
+  ],
+  "settings": {
+    "enabled": true,
+    "timezone": "Europe/Moscow",
+    "morning_enabled": true,
+    "morning_time": "08:30",
+    "afternoon_enabled": true,
+    "afternoon_time": "13:30",
+    "evening_enabled": true,
+    "evening_time": "20:30",
+    "water_enabled": true,
+    "water_interval_hours": 3,
+    "events_enabled": true,
+    "events_lead_minutes": 60,
+    "cycle_enabled": true,
+    "cycle_days_before": 2,
+    "goals_enabled": true,
+    "goals_weekday": 6,
+    "goals_time": "11:00",
+    "quiet_start": "22:30",
+    "quiet_end": "07:30",
+    "updated_at": ""
+  },
+  "recent_deliveries": []
+}
+```
+
+### `POST /api/push/subscribe`
+Body: `{endpoint, keys: {p256dh, auth}, device_label?, user_agent?}`
+Upserts subscription by `endpoint` and activates it.
+Response `200`: `{"ok": true, "id": 1, "subscriptions_count": 1}`.
+
+### `POST /api/push/unsubscribe`
+Body: `{endpoint}`
+Deactivates subscription by `endpoint`.
+Response `200`: `{"ok": true, "subscriptions_count": 0}`.
+
+### `GET /api/push/settings`
+Response `200`: `NotificationSettings`.
+
+### `PUT /api/push/settings`
+Body (all optional, merged over existing settings): `{enabled?, timezone?, morning_enabled?, morning_time?, afternoon_enabled?, afternoon_time?, evening_enabled?, evening_time?, water_enabled?, water_interval_hours? (2|3|4), events_enabled?, events_lead_minutes? (30|60|120), cycle_enabled?, cycle_days_before? (1|2|3), goals_enabled?, goals_weekday? (0..6), goals_time?, quiet_start?, quiet_end?}`
+Response `200`: updated `NotificationSettings`.
+
+### `POST /api/push/test`
+Requires configured VAPID keys and at least 1 active subscription (`400` otherwise). Sends immediate test push banner to all active devices.
+Response `200`: `{"ok": true, "sent": 1, "failed": 0, "errors": []}`.
+
+### `POST /api/push/dispatch`
+Cron endpoint (called every 10 min by GitHub Actions `.github/workflows/push-dispatch.yml`).
+Auth: `Authorization: Bearer <PUSH_CRON_SECRET>` or `X-Cron-Secret: <PUSH_CRON_SECRET>` (`401` if `PUSH_CRON_SECRET` is configured and header does not match).
+Respects quiet hours and deduplicates via `push_deliveries.dedupe_key` across all 5 rules:
+1. Morning / Afternoon / Evening incomplete habits & vitamins (+ evening gratitude/reflection nudge).
+2. Water reminders (`10:00..19:30` by `water_interval_hours`) while `total_ml < daily_goal_ml`.
+3. Upcoming incomplete today's calendar events within `[now, now + events_lead_minutes + 15m]`.
+4. Upcoming female cycle warning (`10:00..10:30`) when `1 <= days_until_period <= cycle_days_before`.
+5. Weekly goals check-in on `goals_weekday` within 25 min after `goals_time`.
+Response `200`: `{"ok": true, "active_subscriptions": 1, "dispatched": [...], "skipped": [...]}`.

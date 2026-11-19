@@ -1,12 +1,13 @@
-"""SQLite database schema, connection, transaction, and shared domain helpers."""
+"""Dual SQLite / PostgreSQL database layer, schema, migrations, and shared helpers."""
 
 from __future__ import annotations
 
-from collections.abc import Generator
+from collections.abc import Generator, Iterator
 from contextlib import closing, contextmanager
 from datetime import date, datetime, timedelta
 import os
 from pathlib import Path
+import re
 import sqlite3
 from typing import Annotated, Any
 import unicodedata
@@ -30,6 +31,40 @@ CYCLE_PHASE_LABELS: dict[str, str] = {
     "ovulation": "Овуляция",
     "luteal": "Лютеиновая фаза",
 }
+
+HOUSEHOLD_MIGRATION_CATEGORIES: tuple[str, ...] = (
+    "Для уборки и дома",
+    "Для дома и быта",
+    "Моющие и уборка",
+    "Бытовая техника",
+    "Мебель и интерьер",
+    "Текстиль и уют",
+    "Хозтовары",
+    "Ремонт и мелочи",
+)
+
+ID_PK_TABLES: frozenset[str] = frozenset(
+    {
+        "habits",
+        "habit_logs",
+        "water_logs",
+        "workouts",
+        "cycle_days",
+        "menu_items",
+        "meal_logs",
+        "goals",
+        "goal_milestones",
+        "goal_checkins",
+        "tasks",
+        "chores",
+        "chore_logs",
+        "shopping_items",
+        "gratitudes",
+        "calendar_events",
+        "push_subscriptions",
+        "push_deliveries",
+    }
+)
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS habits (
@@ -254,7 +289,240 @@ CREATE TABLE IF NOT EXISTS calendar_events (
     created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_calendar_events_date ON calendar_events(event_date);
+
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    endpoint TEXT UNIQUE NOT NULL,
+    p256dh TEXT NOT NULL,
+    auth TEXT NOT NULL,
+    user_agent TEXT NOT NULL DEFAULT '',
+    device_label TEXT NOT NULL DEFAULT 'iPhone',
+    active INTEGER NOT NULL DEFAULT 1 CHECK(active IN (0,1)),
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    last_success_at TEXT,
+    last_error TEXT NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS idx_push_subs_active ON push_subscriptions(active);
+
+CREATE TABLE IF NOT EXISTS notification_settings (
+    id INTEGER PRIMARY KEY CHECK(id = 1),
+    enabled INTEGER NOT NULL DEFAULT 1 CHECK(enabled IN (0,1)),
+    timezone TEXT NOT NULL DEFAULT 'Europe/Moscow',
+    morning_enabled INTEGER NOT NULL DEFAULT 1 CHECK(morning_enabled IN (0,1)),
+    morning_time TEXT NOT NULL DEFAULT '08:30',
+    afternoon_enabled INTEGER NOT NULL DEFAULT 1 CHECK(afternoon_enabled IN (0,1)),
+    afternoon_time TEXT NOT NULL DEFAULT '13:30',
+    evening_enabled INTEGER NOT NULL DEFAULT 1 CHECK(evening_enabled IN (0,1)),
+    evening_time TEXT NOT NULL DEFAULT '20:30',
+    water_enabled INTEGER NOT NULL DEFAULT 1 CHECK(water_enabled IN (0,1)),
+    water_interval_hours INTEGER NOT NULL DEFAULT 3 CHECK(water_interval_hours BETWEEN 1 AND 8),
+    events_enabled INTEGER NOT NULL DEFAULT 1 CHECK(events_enabled IN (0,1)),
+    events_lead_minutes INTEGER NOT NULL DEFAULT 60 CHECK(events_lead_minutes BETWEEN 5 AND 1440),
+    cycle_enabled INTEGER NOT NULL DEFAULT 1 CHECK(cycle_enabled IN (0,1)),
+    cycle_days_before INTEGER NOT NULL DEFAULT 2 CHECK(cycle_days_before BETWEEN 1 AND 7),
+    goals_enabled INTEGER NOT NULL DEFAULT 1 CHECK(goals_enabled IN (0,1)),
+    goals_weekday INTEGER NOT NULL DEFAULT 6 CHECK(goals_weekday BETWEEN 0 AND 6),
+    goals_time TEXT NOT NULL DEFAULT '11:00',
+    quiet_start TEXT NOT NULL DEFAULT '22:30',
+    quiet_end TEXT NOT NULL DEFAULT '07:30',
+    updated_at TEXT NOT NULL DEFAULT ''
+);
+
+CREATE TABLE IF NOT EXISTS push_deliveries (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    dedupe_key TEXT UNIQUE NOT NULL,
+    kind TEXT NOT NULL,
+    title TEXT NOT NULL,
+    body TEXT NOT NULL,
+    sent_count INTEGER NOT NULL DEFAULT 0,
+    failed_count INTEGER NOT NULL DEFAULT 0,
+    sent_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_push_deliveries_sent_at ON push_deliveries(sent_at);
 """
+
+PG_SCHEMA = (
+    SCHEMA.replace("INTEGER PRIMARY KEY AUTOINCREMENT", "SERIAL PRIMARY KEY").replace(
+        " REAL ", " DOUBLE PRECISION "
+    )
+)
+
+PG_SEARCH_TEXT_FN = """
+CREATE OR REPLACE FUNCTION search_text(val TEXT)
+RETURNS TEXT
+LANGUAGE SQL
+IMMUTABLE
+AS $$
+    SELECT replace(lower(coalesce(val, '')), 'ё', 'е')
+$$
+"""
+
+
+# ---------------------------------------------------------------------------
+# PostgreSQL Compatibility Layer
+# ---------------------------------------------------------------------------
+
+_INSERT_OR_IGNORE_RE = re.compile(r"^\s*INSERT\s+OR\s+IGNORE\s+INTO\s+", re.IGNORECASE)
+_INSERT_TABLE_RE = re.compile(r"^\s*INSERT\s+INTO\s+([a-zA-Z_][a-zA-Z0-9_]*)", re.IGNORECASE)
+
+
+def get_database_url() -> str:
+    return os.environ.get("DATABASE_URL", "").strip()
+
+
+def is_postgres() -> bool:
+    url = get_database_url()
+    return url.startswith("postgres://") or url.startswith("postgresql://")
+
+
+def _replace_qmarks_outside_quotes(sql: str) -> str:
+    """Convert SQLite `?` placeholders outside single-quoted literals to psycopg `%s`."""
+    out: list[str] = []
+    in_single = False
+    i = 0
+    length = len(sql)
+    while i < length:
+        ch = sql[i]
+        if ch == "'":
+            out.append(ch)
+            if in_single and i + 1 < length and sql[i + 1] == "'":
+                # Escaped single quote '' inside literal
+                out.append("'")
+                i += 2
+                continue
+            in_single = not in_single
+        elif ch == "%":
+            out.append("%%")
+        elif ch == "?" and not in_single:
+            out.append("%s")
+        else:
+            out.append(ch)
+        i += 1
+    return "".join(out)
+
+
+def translate_sql_for_postgres(sql: str) -> tuple[str, bool]:
+    """Translate SQLite-style SQL to PostgreSQL SQL.
+
+    Returns `(translated_sql, appends_returning_id)`.
+    """
+    translated = _replace_qmarks_outside_quotes(sql).strip()
+    trailing_semi = translated.endswith(";")
+    if trailing_semi:
+        translated = translated[:-1].rstrip()
+
+    if _INSERT_OR_IGNORE_RE.match(translated):
+        translated = _INSERT_OR_IGNORE_RE.sub("INSERT INTO ", translated, count=1)
+        if not re.search(r"\bON\s+CONFLICT\b", translated, re.IGNORECASE):
+            translated = f"{translated} ON CONFLICT DO NOTHING"
+
+    appends_returning = False
+    insert_match = _INSERT_TABLE_RE.match(translated)
+    if insert_match:
+        table_name = insert_match.group(1).lower()
+        if table_name in ID_PK_TABLES and not re.search(r"\bRETURNING\b", translated, re.IGNORECASE):
+            translated = f"{translated} RETURNING id"
+            appends_returning = True
+
+    return translated, appends_returning
+
+
+class PgRow(dict):
+    """Dict row that also supports integer indexing `row[0]` like `sqlite3.Row`."""
+
+    def __getitem__(self, key: Any) -> Any:
+        if isinstance(key, int):
+            return list(self.values())[key]
+        return super().__getitem__(key)
+
+
+class PgCursorAdapter:
+    """Lightweight cursor wrapper providing sqlite3-compatible `.lastrowid`, `.rowcount`, fetch & iter."""
+
+    def __init__(
+        self,
+        rows: list[PgRow],
+        rowcount: int,
+        lastrowid: int | None = None,
+    ) -> None:
+        self._rows = rows
+        self._index = 0
+        self.rowcount = rowcount
+        self.lastrowid = lastrowid
+
+    def fetchone(self) -> PgRow | None:
+        if self._index >= len(self._rows):
+            return None
+        row = self._rows[self._index]
+        self._index += 1
+        return row
+
+    def fetchall(self) -> list[PgRow]:
+        remaining = self._rows[self._index :]
+        self._index = len(self._rows)
+        return remaining
+
+    def __iter__(self) -> Iterator[PgRow]:
+        return iter(self.fetchall())
+
+
+class PgConnectionAdapter:
+    """Thin adapter around psycopg3 connection matching the sqlite3 interface used by app routes."""
+
+    def __init__(self, conn: Any) -> None:
+        self._conn = conn
+        self._in_tx = False
+
+    def execute(self, sql: str, params: tuple[Any, ...] | list[Any] = ()) -> PgCursorAdapter:
+        pg_sql, appends_returning = translate_sql_for_postgres(sql)
+        exec_params = tuple(params) if params else None
+        with self._conn.cursor() as cur:
+            cur.execute(pg_sql, exec_params)
+            rowcount = cur.rowcount if cur.rowcount is not None else -1
+            if appends_returning:
+                row = cur.fetchone()
+                last_id = int(row["id"]) if row is not None and "id" in row else None
+                return PgCursorAdapter([], rowcount=rowcount, lastrowid=last_id)
+            if cur.description is not None:
+                raw_rows = cur.fetchall()
+                rows = [PgRow(r) for r in raw_rows]
+                return PgCursorAdapter(rows, rowcount=rowcount, lastrowid=None)
+            return PgCursorAdapter([], rowcount=rowcount, lastrowid=None)
+
+    def execute_raw(self, sql: str, params: tuple[Any, ...] | list[Any] | None = None) -> None:
+        with self._conn.cursor() as cur:
+            cur.execute(sql, params)
+
+    def begin(self) -> None:
+        if not self._in_tx:
+            self.execute_raw("BEGIN")
+            self._in_tx = True
+
+    def commit(self) -> None:
+        if self._in_tx:
+            self.execute_raw("COMMIT")
+            self._in_tx = False
+
+    def rollback(self) -> None:
+        if self._in_tx:
+            try:
+                self.execute_raw("ROLLBACK")
+            finally:
+                self._in_tx = False
+
+    def close(self) -> None:
+        if self._in_tx:
+            try:
+                self.rollback()
+            except Exception:
+                pass
+        self._conn.close()
+
+
+# ---------------------------------------------------------------------------
+# Dates, Text & Connection Primitives
+# ---------------------------------------------------------------------------
 
 
 def now_dt() -> datetime:
@@ -304,7 +572,15 @@ def get_db_path(path: str | Path | None = None) -> Path:
     return ROOT / "data" / "marina_tracker.sqlite3"
 
 
-def connect(path: str | Path | None = None) -> sqlite3.Connection:
+def connect(path: str | Path | None = None) -> sqlite3.Connection | PgConnectionAdapter:
+    if path is None and is_postgres():
+        import psycopg
+        from psycopg.rows import dict_row
+
+        url = get_database_url()
+        raw_conn = psycopg.connect(url, row_factory=dict_row, autocommit=True)
+        return PgConnectionAdapter(raw_conn)
+
     file = get_db_path(path)
     file.parent.mkdir(parents=True, exist_ok=True)
     db = sqlite3.connect(file, timeout=12, check_same_thread=False)
@@ -317,8 +593,11 @@ def connect(path: str | Path | None = None) -> sqlite3.Connection:
 
 
 @contextmanager
-def transaction(db: sqlite3.Connection) -> Generator[None, None, None]:
-    db.execute("BEGIN IMMEDIATE")
+def transaction(db: Any) -> Generator[None, None, None]:
+    if isinstance(db, PgConnectionAdapter):
+        db.begin()
+    else:
+        db.execute("BEGIN IMMEDIATE")
     try:
         yield
         db.commit()
@@ -327,35 +606,58 @@ def transaction(db: sqlite3.Connection) -> Generator[None, None, None]:
         raise
 
 
-def records(db: sqlite3.Connection, sql: str, args: tuple[Any, ...] = ()) -> list[dict[str, Any]]:
+def records(db: Any, sql: str, args: tuple[Any, ...] = ()) -> list[dict[str, Any]]:
     return [dict(row) for row in db.execute(sql, args)]
 
 
-def record(db: sqlite3.Connection, sql: str, args: tuple[Any, ...] = ()) -> dict[str, Any] | None:
+def record(db: Any, sql: str, args: tuple[Any, ...] = ()) -> dict[str, Any] | None:
     row = db.execute(sql, args).fetchone()
     return dict(row) if row is not None else None
-
-
-HOUSEHOLD_MIGRATION_CATEGORIES: tuple[str, ...] = (
-    "Для уборки и дома",
-    "Для дома и быта",
-    "Моющие и уборка",
-    "Бытовая техника",
-    "Мебель и интерьер",
-    "Текстиль и уют",
-    "Хозтовары",
-    "Ремонт и мелочи",
-)
 
 
 def _table_columns(conn: sqlite3.Connection, table_name: str) -> set[str]:
     return {row["name"] for row in conn.execute(f"PRAGMA table_info({table_name})")}
 
 
-def init_db(db: sqlite3.Connection | None = None) -> None:
+def _init_postgres(conn: PgConnectionAdapter) -> None:
+    conn.execute_raw(PG_SEARCH_TEXT_FN)
+    for stmt in PG_SCHEMA.split(";"):
+        cleaned = stmt.strip()
+        if cleaned:
+            conn.execute_raw(cleaned)
+
+    # Safe incremental migrations for existing PostgreSQL databases
+    conn.execute_raw(
+        "ALTER TABLE goals ADD COLUMN IF NOT EXISTS horizon_unit TEXT NOT NULL DEFAULT 'year'"
+    )
+    conn.execute_raw(
+        "ALTER TABLE goals ADD COLUMN IF NOT EXISTS parent_goal_id INTEGER REFERENCES goals(id) ON DELETE SET NULL"
+    )
+    conn.execute_raw("CREATE INDEX IF NOT EXISTS idx_goals_parent ON goals(parent_goal_id)")
+    conn.execute_raw(
+        "ALTER TABLE shopping_items ADD COLUMN IF NOT EXISTS list_type TEXT NOT NULL DEFAULT 'groceries'"
+    )
+    conn.execute_raw(
+        "CREATE INDEX IF NOT EXISTS idx_shopping_list_type ON shopping_items(list_type)"
+    )
+
+    conn.execute_raw("INSERT INTO water_settings(id, daily_goal_ml) VALUES(1, 2000) ON CONFLICT(id) DO NOTHING")
+    conn.execute_raw(
+        "INSERT INTO cycle_settings(id, avg_cycle_length, avg_period_length) VALUES(1, 28, 5) ON CONFLICT(id) DO NOTHING"
+    )
+    conn.execute_raw(
+        "INSERT INTO notification_settings(id) VALUES(1) ON CONFLICT(id) DO NOTHING"
+    )
+
+
+def init_db(db: Any = None) -> None:
     own = db is None
     conn = connect() if own else db
     try:
+        if isinstance(conn, PgConnectionAdapter):
+            _init_postgres(conn)
+            return
+
         conn.execute("PRAGMA journal_mode = WAL")
         conn.executescript(SCHEMA)
 
@@ -383,18 +685,21 @@ def init_db(db: sqlite3.Connection | None = None) -> None:
         conn.execute(
             "INSERT OR IGNORE INTO cycle_settings(id, avg_cycle_length, avg_period_length) VALUES(1, 28, 5)"
         )
+        conn.execute(
+            "INSERT OR IGNORE INTO notification_settings(id) VALUES(1)"
+        )
         conn.commit()
     finally:
         if own:
             conn.close()
 
 
-def get_db() -> Generator[sqlite3.Connection, None, None]:
+def get_db() -> Generator[Any, None, None]:
     with closing(connect()) as db:
         yield db
 
 
-DB = Annotated[sqlite3.Connection, Depends(get_db)]
+DB = Annotated[Any, Depends(get_db)]
 
 
 def workout_label(workout_type: str, custom_label: str = "") -> str:
@@ -438,7 +743,7 @@ def extract_period_episodes(period_dates: list[str], gap_days: int = 2) -> list[
     return result
 
 
-def compute_cycle_snapshot(db: sqlite3.Connection, ref_date_str: str) -> dict[str, Any]:
+def compute_cycle_snapshot(db: Any, ref_date_str: str) -> dict[str, Any]:
     """Compute cycle day, phase, and next predicted period relative to ref_date_str."""
     ref_date = date.fromisoformat(ref_date_str)
     settings = record(db, "SELECT avg_cycle_length, avg_period_length FROM cycle_settings WHERE id = 1") or {
@@ -455,13 +760,11 @@ def compute_cycle_snapshot(db: sqlite3.Connection, ref_date_str: str) -> dict[st
     period_dates = [r["log_date"] for r in rows]
     episodes = extract_period_episodes(period_dates)
 
-    # Compute empirical averages from last 12 cycles if available
     valid_cycle_lens = [e["cycle_length"] for e in episodes if e["cycle_length"] is not None]
     computed_cycle = round(sum(valid_cycle_lens[-12:]) / len(valid_cycle_lens[-12:])) if valid_cycle_lens else default_cycle
     valid_period_lens = [e["period_length"] for e in episodes if 2 <= e["period_length"] <= 10]
     computed_period = round(sum(valid_period_lens[-12:]) / len(valid_period_lens[-12:])) if valid_period_lens else default_period
 
-    # Find latest episode starting on or before ref_date
     past_episodes = [e for e in episodes if e["start_date"] <= ref_date_str]
     is_period_today = ref_date_str in set(period_dates)
 

@@ -1005,3 +1005,52 @@
 .year-review-row + .year-review-row {
   border-top: 1px solid var(--divider);
 }
+
+/* --- Phase 5: Web Push Notifications Sheet --- */
+
+.push-status-card {
+  background: var(--canvas);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.push-status-card.is-enabled {
+  background: var(--cobalt-soft);
+  border-color: var(--cobalt-border);
+}
+
+.push-status-card.is-warning {
+  background: var(--warning-soft);
+  border-color: var(--warning-border);
+}
+
+.push-schedule-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 11px 14px;
+  min-height: 52px;
+  min-width: 0;
+}
+
+.push-schedule-subrow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0 14px 12px;
+  min-width: 0;
+}
+
+.push-schedule-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}

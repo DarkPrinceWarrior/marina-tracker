@@ -755,6 +755,7 @@ button.mt-metric-cell:active {
 }
 
 .mt-icon-btn {
+  position: relative;
   width: 40px;
   height: 40px;
   min-width: 40px;
@@ -769,6 +770,18 @@ button.mt-metric-cell:active {
   justify-content: center;
   flex-shrink: 0;
   transition: background-color 120ms ease, color 120ms ease, transform 90ms ease;
+}
+
+.mt-bell-dot {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--cobalt);
+  border: 1.5px solid var(--canvas);
+  pointer-events: none;
 }
 
 .mt-icon-btn:hover:not(:disabled) {
@@ -1080,6 +1093,110 @@ button.mt-metric-cell:active {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+}
+
+/* ---------- 2026 iOS Toggle Switch & Compact 16px Time Input ---------- */
+
+.mt-switch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: 46px;
+  min-width: 46px;
+  height: 26px;
+  padding: 2px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--border-strong);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background-color 160ms ease;
+}
+
+/* Invisible 44×44 touch expansion for iPhone ergonomics */
+.mt-switch::before {
+  content: "";
+  position: absolute;
+  inset: -9px -4px;
+}
+
+/* Automatic thumb when <button className="mt-switch" /> has no child thumb span */
+.mt-switch:empty::after {
+  content: "";
+  display: block;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #FFFFFF;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.22);
+  transition: transform 180ms var(--ease-spring);
+}
+
+.mt-switch-thumb {
+  display: block;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #FFFFFF;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.22);
+  pointer-events: none;
+  transition: transform 180ms var(--ease-spring);
+}
+
+.mt-switch[aria-checked="true"],
+.mt-switch.is-on,
+.mt-switch.is-checked {
+  background: var(--cobalt);
+}
+
+.mt-switch[aria-checked="true"]:empty::after,
+.mt-switch.is-on:empty::after,
+.mt-switch.is-checked:empty::after,
+.mt-switch[aria-checked="true"] .mt-switch-thumb,
+.mt-switch.is-on .mt-switch-thumb,
+.mt-switch.is-checked .mt-switch-thumb {
+  transform: translateX(20px);
+}
+
+.mt-switch:disabled {
+  opacity: 0.48;
+  cursor: not-allowed;
+}
+
+.mt-time-compact {
+  display: inline-block;
+  width: auto;
+  min-width: 112px;
+  max-width: 100%;
+  min-height: 38px;
+  padding: 6px 8px;
+  font-family: inherit;
+  font-size: 16px;
+  line-height: 22px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  flex-shrink: 0;
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.mt-time-compact:hover:not(:disabled) {
+  border-color: var(--border-strong);
+}
+
+.mt-time-compact:focus {
+  outline: none;
+  border-color: var(--cobalt);
+  box-shadow: 0 0 0 3px var(--brand-ring);
+}
+
+.mt-time-compact:disabled {
+  opacity: 0.5;
+  background: var(--surface-subtle);
 }
 
 .mt-form-grid {

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Award, Smartphone } from "lucide-react";
+import { Award, Bell, Smartphone } from "lucide-react";
 import api, { withOptimistic } from "../api.js";
 import {
   DateStrip,
@@ -37,6 +37,8 @@ export default function TodaySection({
   notify,
   onOpenInstallGuide,
   onOpenYearReview,
+  onOpenNotifications,
+  pushEnabled = false,
   onDataChanged,
 }) {
   const activeDate = selectedDate || todayDate;
@@ -356,16 +358,35 @@ export default function TodaySection({
           title="Сегодня"
           subtitle={compactDateLabel}
           secondaryAction={
-            onOpenYearReview ? (
-              <button
-                type="button"
-                className="mt-icon-btn"
-                aria-label="Итоги года"
-                title="Итоги года"
-                onClick={onOpenYearReview}
-              >
-                <Award size={19} />
-              </button>
+            onOpenYearReview || onOpenNotifications ? (
+              <>
+                {onOpenYearReview ? (
+                  <button
+                    type="button"
+                    className="mt-icon-btn"
+                    aria-label="Итоги года"
+                    title="Итоги года"
+                    onClick={onOpenYearReview}
+                  >
+                    <Award size={19} />
+                  </button>
+                ) : null}
+                {onOpenNotifications ? (
+                  <button
+                    type="button"
+                    className="mt-icon-btn"
+                    style={{ position: "relative" }}
+                    aria-label="Уведомления"
+                    title="Уведомления"
+                    onClick={onOpenNotifications}
+                  >
+                    <Bell size={19} />
+                    {pushEnabled ? (
+                      <span className="mt-bell-dot" aria-hidden="true" />
+                    ) : null}
+                  </button>
+                ) : null}
+              </>
             ) : null
           }
           action={

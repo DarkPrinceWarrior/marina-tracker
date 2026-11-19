@@ -518,6 +518,43 @@ async function runIPhone13FullAudit(browser, todayIso) {
     await closeOpenSheet(page);
   }
 
+  // 1c-bis. Phase 5 NotificationsSheet (Bell icon in Today PageHeader)
+  const bellBtn = page.locator('button[aria-label="Уведомления"]').first();
+  await bellBtn.waitFor({ state: "visible", timeout: 5000 });
+  await bellBtn.click();
+  await page.waitForTimeout(400);
+  await auditScreen(page, "iPhone13 Sheet: NotificationsSheet", {
+    isSheet: true,
+    allowBrandNames: true,
+  });
+  await snap(page, "ip13_sheet_notifications.png", false);
+
+  // Toggle a switch, edit morning time to 08:15, open a SelectField inside NotificationsSheet, save!
+  const notifSheet = page.locator(".mt-sheet");
+  const firstTimeInp = notifSheet.locator('input[type="time"]').first();
+  await firstTimeInp.fill("08:15");
+  const notifSelects = notifSheet.locator('.mt-select-trigger[role="combobox"]');
+  const nsCount = await notifSelects.count();
+  assert.ok(nsCount >= 3, `Expected >=3 custom SelectFields in NotificationsSheet, got ${nsCount}`);
+  await notifSelects.first().scrollIntoViewIfNeeded();
+  await notifSelects.first().click();
+  await page.waitForTimeout(250);
+  await auditScreen(page, "iPhone13 Dropdown: NotificationsSheet SelectField", {
+    isSheet: true,
+    allowBrandNames: true,
+  });
+  await page.locator('.mt-select-menu [role="option"]').first().click();
+  await page.waitForTimeout(150);
+  const switchBtns = notifSheet.locator('.mt-switch[role="switch"]');
+  assert.ok((await switchBtns.count()) >= 4, "Expected >=4 iOS switches in NotificationsSheet");
+  await switchBtns.nth(2).click();
+  await page.waitForTimeout(150);
+  await switchBtns.nth(2).click();
+  await page.waitForTimeout(150);
+  await notifSheet.locator(".mt-sheet-footer .mt-btn--primary").first().click();
+  await page.waitForTimeout(450);
+  pass("Today: NotificationsSheet switches, SelectField, time=08:15 saved");
+
   // 1d. TaskFormSheet: create with custom SelectField goal picker, toggle
   await page.locator(".mt-group-header button", { hasText: /Задача/i }).first().click();
   await page.waitForTimeout(300);
@@ -1006,10 +1043,15 @@ async function runIPhone13FullAudit(browser, todayIso) {
   ).trim();
   pass("30-day SQLite stress verified", `streak=${streak}d, rows=${countsJson}`);
 
-  // Reload & verify FULL Phase 4 persistence (Today task + Gratitude, Health 30d streak, Nutrition groceries, Home household, Goals mini-goal + Calendar event)
+  // Reload & verify FULL Phase 4+5 persistence (Today task + Notifications 08:15 + Gratitude, Health 30d streak, Nutrition groceries, Home household, Goals mini-goal + Calendar event)
   await page.reload({ waitUntil: "networkidle" });
   await page.waitForTimeout(400);
   assert.ok((await page.locator("main").innerText()).includes("Новая задача 2026"), "Task did not persist");
+  await page.locator('button[aria-label="Уведомления"]').first().click();
+  await page.waitForTimeout(350);
+  const persistedMorningTime = await page.locator('.mt-sheet input[type="time"]').first().inputValue();
+  assert.equal(persistedMorningTime, "08:15", `Expected morning_time '08:15' after reload, got '${persistedMorningTime}'`);
+  await closeOpenSheet(page);
   await clickSegment(page, "Благодарности");
   await page.waitForTimeout(300);
   assert.ok((await page.locator("main").innerText()).includes(gratText), "Gratitude did not persist");

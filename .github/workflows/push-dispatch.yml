@@ -1,0 +1,41 @@
+name: Push Notifications Dispatch
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: marina-push-dispatch
+  cancel-in-progress: false
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Trigger Marina Tracker push reminder dispatcher
+        env:
+          PUSH_CRON_SECRET: ${{ secrets.PUSH_CRON_SECRET }}
+          PUSH_DISPATCH_URL: ${{ secrets.PUSH_DISPATCH_URL || 'https://marina-tracker.onrender.com/api/push/dispatch' }}
+        run: |
+          set -euo pipefail
+          if [ -z "${PUSH_CRON_SECRET:-}" ]; then
+            echo "Error: PUSH_CRON_SECRET repository secret is not configured." >&2
+            exit 1
+          fi
+
+          curl \
+            --fail \
+            --silent \
+            --show-error \
+            --retry 3 \
+            --retry-delay 10 \
+            --retry-all-errors \
+            --max-time 60 \
+            -X POST \
+            -H "Authorization: Bearer ${PUSH_CRON_SECRET}" \
+            -H "Content-Type: application/json" \
+            -d '{}' \
+            "${PUSH_DISPATCH_URL}"
+          echo ""

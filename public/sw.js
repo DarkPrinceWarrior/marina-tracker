@@ -1,4 +1,4 @@
-const CACHE_NAME = "marina-ritm-shell-v1";
+const CACHE_NAME = "ritm-pwa-v3";
 const SHELL_ASSETS = [
   "/",
   "/manifest.webmanifest",
@@ -108,5 +108,74 @@ self.addEventListener("fetch", (event) => {
 
       return cached || networkFetch;
     })
+  );
+});
+
+// Native Web Push notifications (iOS Notification Center & Desktop)
+self.addEventListener("push", (event) => {
+  let payload = {};
+  if (event.data) {
+    try {
+      payload = event.data.json();
+    } catch {
+      payload = { body: event.data.text() };
+    }
+  }
+
+  const title = payload.title || "Ритм";
+  const body =
+    payload.body || "Пора заглянуть в «Ритм» и отметить сегодняшний шаг.";
+  const tab = payload.tab || "today";
+  const sub = payload.sub || "";
+  const url =
+    payload.url ||
+    (sub
+      ? `/?tab=${encodeURIComponent(tab)}&sub=${encodeURIComponent(sub)}`
+      : `/?tab=${encodeURIComponent(tab)}`);
+  const tag = payload.tag || "ritm-notification";
+
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body,
+      icon: "/icons/icon-192.png",
+      badge: "/icons/icon-192.png",
+      tag,
+      renotify: true,
+      data: { url, tab, sub },
+    })
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const data = event.notification.data || {};
+  const tab = data.tab || "today";
+  const sub = data.sub || "";
+  const targetUrl =
+    data.url ||
+    (sub
+      ? `/?tab=${encodeURIComponent(tab)}&sub=${encodeURIComponent(sub)}`
+      : `/?tab=${encodeURIComponent(tab)}`);
+
+  event.waitUntil(
+    self.clients
+      .matchAll({ type: "window", includeUncontrolled: true })
+      .then((clientList) => {
+        for (const client of clientList) {
+          if (client.url.startsWith(self.location.origin) && "focus" in client) {
+            client.postMessage({
+              type: "NAVIGATE",
+              tab,
+              sub,
+              url: targetUrl,
+            });
+            return client.focus();
+          }
+        }
+        if (self.clients.openWindow) {
+          return self.clients.openWindow(targetUrl);
+        }
+        return undefined;
+      })
   );
 });

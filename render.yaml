@@ -1,3 +1,9 @@
+databases:
+  - name: marina-tracker-db
+    plan: free
+    region: frankfurt
+    postgresMajorVersion: "17"
+
 services:
   - type: web
     name: marina-tracker
@@ -9,5 +15,17 @@ services:
     dockerContext: .
     healthCheckPath: /api/health
     envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: marina-tracker-db
+          property: connectionString
       - key: MARINA_DB_PATH
         value: /tmp/marina-tracker/marina_tracker.sqlite3
+      - key: VAPID_PUBLIC_KEY
+        sync: false
+      - key: VAPID_PRIVATE_KEY
+        sync: false
+      - key: VAPID_SUBJECT
+        value: mailto:ritm@marina-tracker.app
+      - key: PUSH_CRON_SECRET
+        sync: false
