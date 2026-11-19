@@ -5,13 +5,16 @@ import {
   PageHeader,
   SegmentedControl,
   Pill,
+  SelectField,
   EmptyState,
 } from "../components/UiPrimitives.jsx";
 import GoalCard from "../components/goals/GoalCard.jsx";
 import GoalDetailSheet from "../components/goals/GoalDetailSheet.jsx";
 import GoalFormSheet from "../components/goals/GoalFormSheet.jsx";
 import GoalCheckinSheet from "../components/goals/GoalCheckinSheet.jsx";
+import WishesTab from "../components/goals/WishesTab.jsx";
 import EventsCalendarTab from "../components/goals/EventsCalendarTab.jsx";
+import { GOAL_SPHERES } from "../data/presets.js";
 import { todayISO } from "../utils/date.js";
 
 const HORIZON_FILTERS = [
@@ -22,6 +25,12 @@ const HORIZON_FILTERS = [
   { key: "completed", label: "Готово" },
 ];
 
+function resolveInitialSubTab(initialSubTab) {
+  if (initialSubTab === "wishes") return "wishes";
+  if (initialSubTab === "calendar") return "calendar";
+  return "goals";
+}
+
 export default function GoalsSection({
   todayDate,
   initialSubTab,
@@ -30,26 +39,33 @@ export default function GoalsSection({
   onDataChanged,
 }) {
   const activeToday = todayDate || todayISO();
-  const [subTab, setSubTab] = useState(
-    initialSubTab === "calendar" ? "calendar" : "goals",
+  const [subTab, setSubTab] = useState(() =>
+    resolveInitialSubTab(initialSubTab),
   );
 
   const [goals, setGoals] = useState([]);
   const [habits, setHabits] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
+  const [categoryFilter, setCategoryFilter] = useState("");
 
-  // Sheets & calendar create trigger
+  // Sheets & sub-tab create triggers
   const [detailGoalId, setDetailGoalId] = useState(null);
   const [formOpen, setFormOpen] = useState(false);
   const [editingGoal, setEditingGoal] = useState(null);
   const [formDefaultHorizon, setFormDefaultHorizon] = useState("1y");
   const [formDefaultParentId, setFormDefaultParentId] = useState(null);
+  const [formDefaultCategory, setFormDefaultCategory] = useState("");
   const [checkinGoalId, setCheckinGoalId] = useState(null);
+  const [wishCreateSignal, setWishCreateSignal] = useState(0);
   const [eventCreateSignal, setEventCreateSignal] = useState(0);
 
   useEffect(() => {
-    if (initialSubTab === "calendar" || initialSubTab === "goals") {
+    if (
+      initialSubTab === "calendar" ||
+      initialSubTab === "wishes" ||
+      initialSubTab === "goals"
+    ) {
       setSubTab(initialSubTab);
     }
   }, [initialSubTab]);
@@ -81,6 +97,14 @@ export default function GoalsSection({
     loadHabits();
   }, [loadGoals, loadHabits]);
 
+  const categoryFilterOptions = useMemo(
+    () => [
+      { value: "", label: "Все категории" },
+      ...GOAL_SPHERES.map((s) => ({ value: s.key, label: s.label })),
+    ],
+    [],
+  );
+
   const bigGoals = useMemo(
     () =>
       goals.filter(
@@ -91,6 +115,7 @@ export default function GoalsSection({
 
   const filteredGoals = useMemo(() => {
     return goals.filter((goal) => {
+      if (categoryFilter && goal.category !== categoryFilter) return false;
       if (filter === "all") return true;
       if (filter === "completed") return goal.status === "completed";
       if (goal.status === "completed") return false;
@@ -101,7 +126,7 @@ export default function GoalsSection({
       if (filter === "5y") return years >= 2;
       return true;
     });
-  }, [goals, filter]);
+  }, [goals, filter, categoryFilter]);
 
   const detailGoal = useMemo(
     () => goals.find((g) => g.id === detailGoalId) || null,
@@ -113,10 +138,15 @@ export default function GoalsSection({
     [goals, checkinGoalId],
   );
 
-  function openNewGoalForm({ horizon = "1y", parentId = null } = {}) {
+  function openNewGoalForm({
+    horizon = "1y",
+    parentId = null,
+    category = "",
+  } = {}) {
     setEditingGoal(null);
     setFormDefaultHorizon(horizon);
     setFormDefaultParentId(parentId);
+    setFormDefaultCategory(category || categoryFilter || "");
     setFormOpen(true);
   }
 
@@ -191,6 +221,44 @@ export default function GoalsSection({
     }
   }
 
+  const headerAction =
+    subTab === "calendar" ? (
+      <button
+        type="button"
+        className="mt-btn mt-btn--primary mt-btn--sm"
+        aria-label="Новое событие"
+        onClick={() => setEventCreateSignal((n) => n + 1)}
+      >
+        <Plus size={16} />
+        <span>Событие</span>
+      </button>
+    ) : subTab === "wishes" ? (
+      <button
+        type="button"
+        className="mt-btn mt-btn--primary mt-btn--sm"
+        aria-label="Новое желание"
+        onClick={() => setWishCreateSignal((n) => n + 1)}
+      >
+        <Plus size={16} />
+        <span>Желание</span>
+      </button>
+    ) : (
+      <button
+        type="button"
+        className="mt-btn mt-btn--primary mt-btn--sm"
+        aria-label="Новая цель"
+        onClick={() =>
+          openNewGoalForm({
+            horizon:
+              filter === "month" ? "month" : filter === "5y" ? "5y" : "1y",
+          })
+        }
+      >
+        <Plus size={16} />
+        <span>Цель</span>
+      </button>
+    );
+
   return (
     <section className="mt-section" aria-label="Цели">
       <PageHeader
@@ -207,38 +275,7 @@ export default function GoalsSection({
             </button>
           ) : null
         }
-        action={
-          subTab === "calendar" ? (
-            <button
-              type="button"
-              className="mt-btn mt-btn--primary mt-btn--sm"
-              aria-label="Новое событие"
-              onClick={() => setEventCreateSignal((n) => n + 1)}
-            >
-              <Plus size={16} />
-              <span>Событие</span>
-            </button>
-          ) : (
-            <button
-              type="button"
-              className="mt-btn mt-btn--primary mt-btn--sm"
-              aria-label="Новая цель"
-              onClick={() =>
-                openNewGoalForm({
-                  horizon:
-                    filter === "month"
-                      ? "month"
-                      : filter === "5y"
-                        ? "5y"
-                        : "1y",
-                })
-              }
-            >
-              <Plus size={16} />
-              <span>Цель</span>
-            </button>
-          )
-        }
+        action={headerAction}
       />
 
       <SegmentedControl
@@ -246,6 +283,7 @@ export default function GoalsSection({
         onChange={setSubTab}
         options={[
           { value: "goals", label: "Цели" },
+          { value: "wishes", label: "Желания" },
           { value: "calendar", label: "Календарь" },
         ]}
       />
@@ -270,6 +308,17 @@ export default function GoalsSection({
             ))}
           </div>
 
+          {/* 7-Category Filter SelectField */}
+          <div className="goals-filter-bar">
+            <SelectField
+              value={categoryFilter}
+              onChange={setCategoryFilter}
+              options={categoryFilterOptions}
+              ariaLabel="Фильтр целей по категории"
+              compact
+            />
+          </div>
+
           {/* Goals List */}
           {loading ? (
             <div className="mt-card mt-card--compact">
@@ -281,7 +330,9 @@ export default function GoalsSection({
               title={
                 filter === "completed"
                   ? "Пока нет достигнутых целей"
-                  : "В этом горизонте нет целей"
+                  : categoryFilter
+                    ? "В этой категории пока нет целей"
+                    : "В этом горизонте нет целей"
               }
               description={
                 filter === "completed"
@@ -311,7 +362,10 @@ export default function GoalsSection({
                   <button
                     type="button"
                     className="mt-btn mt-btn--soft"
-                    onClick={() => setFilter("all")}
+                    onClick={() => {
+                      setFilter("all");
+                      setCategoryFilter("");
+                    }}
                   >
                     Показать все
                   </button>
@@ -331,6 +385,13 @@ export default function GoalsSection({
             </div>
           )}
         </div>
+      ) : subTab === "wishes" ? (
+        <WishesTab
+          todayDate={activeToday}
+          notify={notify}
+          onDataChanged={onDataChanged}
+          createSignal={wishCreateSignal}
+        />
       ) : (
         <EventsCalendarTab
           todayDate={activeToday}
@@ -346,7 +407,11 @@ export default function GoalsSection({
         onClose={() => setDetailGoalId(null)}
         onSelectGoal={(goalId) => setDetailGoalId(goalId)}
         onAddMiniGoal={(parentGoal) =>
-          openNewGoalForm({ horizon: "month", parentId: parentGoal.id })
+          openNewGoalForm({
+            horizon: "month",
+            parentId: parentGoal.id,
+            category: parentGoal.category || "",
+          })
         }
         onOpenCheckin={(g) => setCheckinGoalId(g.id)}
         onEditGoal={(g) => {
@@ -359,6 +424,7 @@ export default function GoalsSection({
                 : "1y",
           );
           setFormDefaultParentId(g.parent_goal_id || null);
+          setFormDefaultCategory(g.category || "");
           setFormOpen(true);
         }}
         onDeleteGoal={handleDeleteGoal}
@@ -372,6 +438,7 @@ export default function GoalsSection({
         goal={editingGoal}
         defaultHorizon={formDefaultHorizon}
         defaultParentGoalId={formDefaultParentId}
+        defaultCategory={formDefaultCategory}
         bigGoals={bigGoals}
         habits={habits}
         todayDate={activeToday}

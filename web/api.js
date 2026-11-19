@@ -161,9 +161,9 @@ export const api = {
     }),
   deleteEvent: (id) => request(`/api/events/${id}`, { method: "DELETE" }),
 
-  // 3. Multi-Year Goals
-  getGoals: ({ status = "all", horizon = "all" } = {}) =>
-    request(`/api/goals${buildQuery({ status, horizon })}`),
+  // 3. Multi-Year Goals & Yearly Wishes
+  getGoals: ({ status = "all", horizon = "all", category } = {}) =>
+    request(`/api/goals${buildQuery({ status, horizon, category })}`),
   createGoal: (payload) =>
     request("/api/goals", { method: "POST", body: payload }),
   updateGoal: (id, payload) =>
@@ -188,6 +188,18 @@ export const api = {
       method: "POST",
       body: payload,
     }),
+
+  getWishes: (year) => request(`/api/wishes${buildQuery({ year })}`),
+  createWish: (payload) =>
+    request("/api/wishes", { method: "POST", body: payload }),
+  updateWish: (id, payload) =>
+    request(`/api/wishes/${id}`, { method: "PATCH", body: payload }),
+  toggleWish: (id, fulfilled) =>
+    request(`/api/wishes/${id}/toggle`, {
+      method: "POST",
+      body: fulfilled === undefined ? {} : { fulfilled },
+    }),
+  deleteWish: (id) => request(`/api/wishes/${id}`, { method: "DELETE" }),
 
   // 4. Habits, Vitamins, Water & Workouts
   getHabits: (date) => request(`/api/habits${buildQuery({ date })}`),

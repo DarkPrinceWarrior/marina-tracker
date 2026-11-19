@@ -1054,3 +1054,191 @@
   gap: 8px;
   flex-shrink: 0;
 }
+
+/* --- Phase 6: Inline Gratitude (5–10 items), Goals Category Filter & Wishes --- */
+
+.gratitude-inline-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.gratitude-inline-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--divider);
+  min-width: 0;
+}
+
+.gratitude-inline-title {
+  font-family: var(--font-heading);
+  font-size: 14.5px;
+  line-height: 20px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.gratitude-progress-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--cobalt-soft);
+  color: var(--cobalt-ink);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.gratitude-progress-pill.is-reached {
+  background: var(--success-soft);
+  color: var(--success-ink);
+}
+
+.gratitude-inline-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 46px;
+  padding: 10px 14px;
+  border: 0;
+  background: var(--surface);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 14.5px;
+  line-height: 20px;
+  text-align: left;
+  min-width: 0;
+  transition: background-color 120ms ease;
+}
+
+.gratitude-inline-row + .gratitude-inline-row {
+  border-top: 1px solid var(--divider);
+}
+
+button.gratitude-inline-row:active {
+  background: var(--surface-hover);
+}
+
+.gratitude-num {
+  width: 24px;
+  min-width: 24px;
+  font-family: var(--font-heading);
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--cobalt);
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.gratitude-inline-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-weight: 450;
+  color: var(--ink);
+}
+
+.gratitude-quick-add {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px 8px 14px;
+  background: var(--canvas);
+  border-top: 1px solid var(--divider);
+  min-width: 0;
+}
+
+.gratitude-quick-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 40px;
+  padding: 8px 11px;
+  font-family: inherit;
+  font-size: 16px;
+  line-height: 22px;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.gratitude-quick-input::placeholder {
+  color: var(--subtle);
+}
+
+.gratitude-quick-input:focus {
+  outline: none;
+  border-color: var(--cobalt);
+  box-shadow: 0 0 0 3px var(--brand-ring);
+}
+
+.gratitude-hint {
+  padding: 8px 14px 10px;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--muted);
+  border-top: 1px solid var(--divider);
+}
+
+.goals-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.goals-filter-bar > .mt-select-trigger {
+  flex: 1 1 auto;
+}
+
+.wish-year-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  min-width: 0;
+}
+
+.wish-year-label {
+  font-family: var(--font-heading);
+  font-size: 16px;
+  line-height: 20px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+  text-align: center;
+  flex: 1 1 auto;
+}
+
+.wish-quick-add {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  padding: 10px 12px;
+  box-shadow: var(--shadow-card);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}

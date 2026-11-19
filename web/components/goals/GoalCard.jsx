@@ -53,9 +53,14 @@ export default function GoalCard({ goal, onOpenDetail, onOpenCheckin }) {
     Math.min(100, Math.round(Number(goal.progress_pct) || 0)),
   );
 
-  const subLine = goal.linked_habit
-    ? `Привычка: ${goal.linked_habit.title} · ${goal.linked_habit.completions_30d}/30`
-    : goal.category || "";
+  const subParts = [];
+  if (goal.category) subParts.push(goal.category);
+  if (goal.linked_habit) {
+    subParts.push(
+      `Привычка: ${goal.linked_habit.title} · ${goal.linked_habit.completions_30d}/30`,
+    );
+  }
+  const subLine = subParts.join(" · ");
 
   const fillColor = isCompleted
     ? "var(--success)"

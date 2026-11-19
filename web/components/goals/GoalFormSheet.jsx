@@ -66,6 +66,7 @@ export default function GoalFormSheet({
   goal = null,
   defaultHorizon = "1y",
   defaultParentGoalId = null,
+  defaultCategory = "",
   bigGoals = [],
   habits = [],
   todayDate,
@@ -118,7 +119,7 @@ export default function GoalFormSheet({
     } else {
       setTitle("");
       setDescription("");
-      setCategory(GOAL_SPHERES[0].key);
+      setCategory(defaultCategory || GOAL_SPHERES[0].key);
       setHorizonKey(hKey);
       setParentGoalId(defaultParentGoalId ? String(defaultParentGoalId) : "");
       setStartDate(baseDate);
@@ -134,7 +135,7 @@ export default function GoalFormSheet({
     setSaving(false);
     setConfirmDelete(false);
     setError("");
-  }, [open, goal, defaultHorizon, defaultParentGoalId, baseDate, currentYear]);
+  }, [open, goal, defaultHorizon, defaultParentGoalId, defaultCategory, baseDate, currentYear]);
 
   function handleSelectHorizon(nextKey) {
     setHorizonKey(nextKey);
@@ -433,21 +434,21 @@ export default function GoalFormSheet({
           />
         </div>
 
-        {/* Sphere / Category */}
+        {/* Sphere / Category (7 canonical categories via custom SelectField) */}
         <div className="mt-field">
-          <span className="mt-label">Сфера</span>
-          <div className="mt-chip-row mt-chip-row--wrap">
-            {GOAL_SPHERES.map((sphere) => (
-              <Pill
-                key={sphere.key}
-                tone="neutral"
-                active={category === sphere.key}
-                onClick={() => setCategory(sphere.key)}
-              >
-                {sphere.label}
-              </Pill>
-            ))}
-          </div>
+          <label className="mt-label" htmlFor="goal-category-select">
+            Категория
+          </label>
+          <SelectField
+            id="goal-category-select"
+            value={category}
+            onChange={setCategory}
+            options={GOAL_SPHERES.map((s) => ({
+              value: s.key,
+              label: s.label,
+            }))}
+            ariaLabel="Категория цели"
+          />
         </div>
 
         {/* Target Date */}

@@ -1,7 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ChevronRight, Heart, Plus, Trash2 } from "lucide-react";
-import api from "../../api.js";
-import Sheet from "../Sheet.jsx";
+import React, { useMemo, useState } from "react";
+import { ChevronRight, Heart, Plus } from "lucide-react";
 import {
   EmptyState,
   GroupHeader,
@@ -19,134 +17,43 @@ import {
   todayISO,
 } from "../../utils/date.js";
 
+/**
+ * Full Gratitude Journal panel rendered inside the «Дневник благодарностей» Sheet.
+ * Supports category-tagged creation, viewing all entries for the selected day,
+ * browsing recent entries across past days, and opening the shared edit/delete sheet.
+ */
 export default function GratitudeTab({
+  items = [],
+  recent = [],
   selectedDate,
   todayDate = todayISO(),
-  notify,
-  onChanged,
+  loading = false,
+  error = "",
+  submitting = false,
+  onRetry,
+  onCreate,
+  onSelectEdit,
 }) {
   const activeDate = selectedDate || todayDate;
-
-  const [items, setItems] = useState([]);
-  const [recent, setRecent] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-
   const [draft, setDraft] = useState("");
   const [category, setCategory] = useState("day");
-  const [submitting, setSubmitting] = useState(false);
-
-  const [editing, setEditing] = useState(null);
-  const [editContent, setEditContent] = useState("");
-  const [editCategory, setEditCategory] = useState("day");
-  const [editError, setEditError] = useState("");
-  const [savingEdit, setSavingEdit] = useState(false);
-
-  const reqSeqRef = useRef(0);
-
-  const loadGratitudes = useCallback(
-    async (dateStr = activeDate, { silent = false } = {}) => {
-      const seq = ++reqSeqRef.current;
-      if (!silent) setError("");
-      try {
-        const res = await api.getGratitudes(dateStr, 30);
-        if (seq !== reqSeqRef.current) return;
-        setItems(Array.isArray(res?.items) ? res.items : []);
-        setRecent(Array.isArray(res?.recent) ? res.recent : []);
-      } catch (err) {
-        if (seq !== reqSeqRef.current) return;
-        setError(err?.message || "Не удалось загрузить благодарности.");
-      } finally {
-        if (seq === reqSeqRef.current) {
-          setLoading(false);
-        }
-      }
-    },
-    [activeDate]
-  );
-
-  useEffect(() => {
-    loadGratitudes(activeDate);
-  }, [activeDate, loadGratitudes]);
 
   const recentOtherDays = useMemo(
     () => recent.filter((item) => item.log_date !== activeDate),
     [recent, activeDate]
   );
 
-  const handleAdd = async (event) => {
+  const handleSubmit = async (event) => {
     event?.preventDefault();
     const trimmed = draft.trim();
     if (!trimmed || submitting) return;
-    setSubmitting(true);
-    try {
-      await api.createGratitude({
-        date: activeDate,
-        content: trimmed,
-        category,
-      });
+    const ok = await onCreate?.({
+      date: activeDate,
+      content: trimmed,
+      category,
+    });
+    if (ok !== false) {
       setDraft("");
-      await loadGratitudes(activeDate, { silent: true });
-      onChanged?.();
-      notify?.("Благодарность добавлена", "success");
-    } catch (err) {
-      notify?.(err?.message || "Не удалось сохранить запись", "error");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const openEditSheet = (item) => {
-    setEditing(item);
-    setEditContent(item.content || "");
-    setEditCategory(item.category || "day");
-    setEditError("");
-  };
-
-  const closeEditSheet = () => {
-    setEditing(null);
-    setEditError("");
-  };
-
-  const handleSaveEdit = async (event) => {
-    event?.preventDefault();
-    if (!editing?.id || savingEdit) return;
-    const trimmed = editContent.trim();
-    if (!trimmed) {
-      setEditError("Запись не может быть пустой.");
-      return;
-    }
-    setSavingEdit(true);
-    setEditError("");
-    try {
-      await api.updateGratitude(editing.id, {
-        content: trimmed,
-        category: editCategory,
-      });
-      closeEditSheet();
-      await loadGratitudes(activeDate, { silent: true });
-      onChanged?.();
-      notify?.("Запись обновлена", "success");
-    } catch (err) {
-      setEditError(err?.message || "Не удалось обновить запись.");
-    } finally {
-      setSavingEdit(false);
-    }
-  };
-
-  const handleDeleteEdit = async () => {
-    if (!editing?.id || savingEdit) return;
-    setSavingEdit(true);
-    try {
-      await api.deleteGratitude(editing.id);
-      closeEditSheet();
-      await loadGratitudes(activeDate, { silent: true });
-      onChanged?.();
-      notify?.("Запись удалена", "info");
-    } catch (err) {
-      notify?.(err?.message || "Не удалось удалить запись", "error");
-    } finally {
-      setSavingEdit(false);
     }
   };
 
@@ -159,15 +66,15 @@ export default function GratitudeTab({
     <div className="mt-stack">
       <form
         className="gratitude-composer"
-        onSubmit={handleAdd}
-        aria-label="Добавить благодарность"
+        onSubmit={handleSubmit}
+        aria-label="Добавить благодарность в дневник"
       >
         <div className="mt-field">
-          <label className="mt-label" htmlFor="gratitude-new-input">
-            Дневник благодарностей
+          <label className="mt-label" htmlFor="gratitude-sheet-input">
+            Новая запись
           </label>
           <textarea
-            id="gratitude-new-input"
+            id="gratitude-sheet-input"
             className="mt-textarea"
             rows={2}
             style={{ minHeight: 74 }}
@@ -181,7 +88,7 @@ export default function GratitudeTab({
         <div
           className="mt-chip-row"
           role="group"
-          aria-label="Кому или чему благодарность"
+          aria-label="Категория благодарности"
         >
           {GRATITUDE_CATEGORIES.map((cat) => (
             <Pill
@@ -197,7 +104,7 @@ export default function GratitudeTab({
 
         <div className="mt-row mt-row--between">
           <span className="muted" style={{ fontSize: 12.5 }}>
-            {formatRelativeDayRu(activeDate)}
+            {formatRelativeDayRu(activeDate)} · {items.length} / 10
           </span>
           <button
             type="submit"
@@ -213,20 +120,22 @@ export default function GratitudeTab({
       {error ? (
         <div className="mt-card mt-card--compact">
           <p className="mt-form-error">{error}</p>
-          <button
-            type="button"
-            className="mt-btn mt-btn--secondary mt-btn--sm"
-            onClick={() => loadGratitudes(activeDate)}
-          >
-            Повторить загрузку
-          </button>
+          {onRetry ? (
+            <button
+              type="button"
+              className="mt-btn mt-btn--secondary mt-btn--sm"
+              onClick={onRetry}
+            >
+              Повторить загрузку
+            </button>
+          ) : null}
         </div>
       ) : null}
 
       <section className="mt-group-block" aria-label={dayHeaderTitle}>
         <GroupHeader
           title={dayHeaderTitle}
-          meta={items.length > 0 ? String(items.length) : ""}
+          meta={items.length > 0 ? `${items.length} / 10` : ""}
         />
 
         {loading && items.length === 0 ? (
@@ -238,15 +147,15 @@ export default function GratitudeTab({
             <EmptyState
               icon={<Heart size={20} />}
               title="Пока нет записей за этот день"
-              description="Запишите даже одну тёплую мелочь — это помогает замечать хорошее."
+              description="Запишите 5–10 тёплых мелочей — это бережно меняет фокус дня."
             />
           </GroupList>
         ) : (
           <GroupList>
-            {items.map((item) => (
+            {items.map((item, idx) => (
               <ListRow
                 key={item.id}
-                title={item.content}
+                title={`${idx + 1}. ${item.content}`}
                 meta={GRATITUDE_CATEGORY_MAP[item.category]?.label || "Дню"}
                 trailing={
                   <ChevronRight
@@ -255,7 +164,7 @@ export default function GratitudeTab({
                     aria-hidden="true"
                   />
                 }
-                onClick={() => openEditSheet(item)}
+                onClick={() => onSelectEdit?.(item)}
               />
             ))}
           </GroupList>
@@ -284,80 +193,13 @@ export default function GratitudeTab({
                       aria-hidden="true"
                     />
                   }
-                  onClick={() => openEditSheet(item)}
+                  onClick={() => onSelectEdit?.(item)}
                 />
               );
             })}
           </GroupList>
         </section>
       ) : null}
-
-      <Sheet
-        open={Boolean(editing)}
-        onClose={closeEditSheet}
-        title="Редактировать запись"
-        subtitle={
-          editing?.log_date ? formatRelativeDayRu(editing.log_date) : ""
-        }
-        footer={
-          <div className="mt-stack mt-stack--sm">
-            <button
-              type="button"
-              className="mt-btn mt-btn--primary mt-btn--wide"
-              disabled={savingEdit}
-              onClick={handleSaveEdit}
-            >
-              {savingEdit ? "Сохраняем..." : "Сохранить изменения"}
-            </button>
-            <button
-              type="button"
-              className="mt-btn mt-btn--danger mt-btn--wide"
-              disabled={savingEdit}
-              onClick={handleDeleteEdit}
-            >
-              <Trash2 size={15} />
-              <span>Удалить запись</span>
-            </button>
-          </div>
-        }
-      >
-        <form className="mt-stack" onSubmit={handleSaveEdit}>
-          <div className="mt-field">
-            <label className="mt-label" htmlFor="gratitude-edit-input">
-              Текст благодарности
-            </label>
-            <textarea
-              id="gratitude-edit-input"
-              className="mt-textarea"
-              rows={4}
-              style={{ minHeight: 108 }}
-              value={editContent}
-              maxLength={500}
-              onChange={(e) => {
-                setEditContent(e.target.value);
-                if (editError) setEditError("");
-              }}
-            />
-            {editError ? <p className="mt-form-error">{editError}</p> : null}
-          </div>
-
-          <div className="mt-field">
-            <span className="mt-label">Категория</span>
-            <div className="mt-chip-row mt-chip-row--wrap">
-              {GRATITUDE_CATEGORIES.map((cat) => (
-                <Pill
-                  key={cat.key}
-                  tone="cobalt"
-                  active={editCategory === cat.key}
-                  onClick={() => setEditCategory(cat.key)}
-                >
-                  {cat.label}
-                </Pill>
-              ))}
-            </div>
-          </div>
-        </form>
-      </Sheet>
     </div>
   );
 }

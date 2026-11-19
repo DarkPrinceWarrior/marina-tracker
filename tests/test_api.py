@@ -124,6 +124,8 @@ def test_seeded_copy_has_no_english_leaks(client: TestClient):
     dt_today = date.fromisoformat(today)
     for ev in client.get(f"/api/events?year={dt_today.year}&month={dt_today.month}").json()["upcoming"]:
         corpus_parts.extend([ev["title"], ev.get("location", ""), ev.get("note", "")])
+    for w in client.get(f"/api/wishes?year={dt_today.year}").json()["items"]:
+        corpus_parts.extend([w["title"], w.get("category", ""), w.get("note", "")])
 
     corpus = "\n".join(corpus_parts)
     leaked = re.findall(r"\b(?:Q[1-4]|A[12]|B[12]|C[12]|CILS|PWA|Todo|Failed to fetch)\b", corpus)
@@ -1251,3 +1253,113 @@ def test_push_dispatch_auth_quiet_hours_and_deduplication(
     assert second_res.status_code == 200
     assert not any(item["kind"] == "morning_habits" for item in second_res.json()["dispatched"])
     assert mock_webpush.call_count == calls_after_first
+
+
+# ---------------------------------------------------------------------------
+# 12. Phase 6: 7 Canonical Goal Categories & Yearly Wishes («Список желаний»)
+# ---------------------------------------------------------------------------
+
+
+def test_goals_7_canonical_categories_filter(client: TestClient):
+    canonical_7 = {
+        "Здоровье и спорт",
+        "Семья и отношения",
+        "Друзья и социум",
+        "Развлечения и отдых",
+        "Хобби и увлечения",
+        "Деньги и благосостояние",
+        "Работа и бизнес",
+    }
+
+    all_goals = client.get("/api/goals").json()["items"]
+    assert len(all_goals) >= 5
+    for g in all_goals:
+        assert g["category"] in canonical_7, f"Non-canonical goal category: {g['category']}"
+
+    today_str = client.get("/api/health").json()["today"]
+    today_dt = date.fromisoformat(today_str)
+
+    created = client.post(
+        "/api/goals",
+        json={
+            "title": "Провести 4 тёплых ужина с друзьями",
+            "category": "Друзья и социум",
+            "horizon_unit": "month",
+            "horizon_years": 1,
+            "start_date": today_str,
+            "target_date": (today_dt + timedelta(days=30)).isoformat(),
+        },
+    )
+    assert created.status_code == 201
+    gid = created.json()["id"]
+
+    filtered = client.get("/api/goals", params={"category": "Друзья и социум"}).json()["items"]
+    assert any(g["id"] == gid for g in filtered)
+    assert all(g["category"] == "Друзья и социум" for g in filtered)
+
+    assert client.delete(f"/api/goals/{gid}").status_code == 200
+
+
+def test_wishes_crud_toggle_and_year_filter(client: TestClient):
+    from app.db import PG_SCHEMA, translate_sql_for_postgres
+
+    assert "CREATE TABLE IF NOT EXISTS wishes" in PG_SCHEMA
+    pg_sql, returns_id = translate_sql_for_postgres(
+        "INSERT INTO wishes (target_year, title, category, created_at) VALUES (?, ?, ?, ?)"
+    )
+    assert returns_id is True and pg_sql.rstrip().endswith("RETURNING id")
+
+    today_dt = date.fromisoformat(client.get("/api/health").json()["today"])
+    year = today_dt.year
+
+    # Seeded wishes for current year (6 total: 2 fulfilled + 4 active)
+    initial = client.get(f"/api/wishes?year={year}")
+    assert initial.status_code == 200
+    body = initial.json()
+    assert body["year"] == year
+    assert body["summary"]["total"] >= 6
+    assert body["summary"]["fulfilled"] >= 2
+    assert isinstance(body["by_category"], dict)
+
+    # Create wish
+    c_res = client.post(
+        "/api/wishes",
+        json={
+            "title": "Съездить на термальные источники осенью",
+            "target_year": year,
+            "category": "Развлечения и отдых",
+            "note": "С баней и прогулкой в горах",
+        },
+    )
+    assert c_res.status_code == 201
+    wish = c_res.json()
+    wid = wish["id"]
+    assert wish["fulfilled"] is False
+
+    # Patch wish
+    p_res = client.patch(
+        f"/api/wishes/{wid}",
+        json={"category": "Здоровье и спорт", "title": "Выходные на термальных источниках"},
+    )
+    assert p_res.status_code == 200
+    assert p_res.json()["category"] == "Здоровье и спорт"
+
+    # Toggle fulfilled ON -> sets fulfilled_at
+    t_on = client.post(f"/api/wishes/{wid}/toggle", json={"fulfilled": True})
+    assert t_on.status_code == 200
+    assert t_on.json()["fulfilled"] is True
+    assert t_on.json()["fulfilled_at"] == today_dt.isoformat()
+
+    # Toggle fulfilled OFF -> clears fulfilled_at
+    t_off = client.post(f"/api/wishes/{wid}/toggle", json={"fulfilled": False})
+    assert t_off.status_code == 200
+    assert t_off.json()["fulfilled"] is False
+    assert t_off.json()["fulfilled_at"] is None
+
+    # Different year filter isolates cleanly
+    next_yr = client.get(f"/api/wishes?year={year + 2}").json()
+    assert all(w["id"] != wid for w in next_yr["items"])
+
+    # Delete wish
+    assert client.delete(f"/api/wishes/{wid}").status_code == 200
+    assert client.delete(f"/api/wishes/{wid}").status_code == 404

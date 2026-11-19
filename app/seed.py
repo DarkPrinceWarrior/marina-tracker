@@ -15,11 +15,12 @@ def _seed_phase4_if_missing(db: sqlite3.Connection, today: date, created_ts: str
     today_str = today.isoformat()
 
     with transaction(db):
-        # Gratitudes
+        # Gratitudes (3 today + 2 recent = 5 warm Russian entries)
         if db.execute("SELECT COUNT(*) FROM gratitudes").fetchone()[0] == 0:
             gratitudes_spec = [
                 (today_str, "Благодарна себе за спокойное утро и 30 минут пилатеса без спешки", "self"),
                 (today_str, "Спасибо телу за лёгкость в спине и бодрую энергию с самого утра", "body"),
+                (today_str, "Благодарна за уют дома, тёплый ароматный завтрак и ясную голову", "day"),
                 ((today - timedelta(days=1)).isoformat(), "Тёплый звонок с мамой и искренний смех вечером", "people"),
                 ((today - timedelta(days=2)).isoformat(), "Солнечная прогулка в парке и вкусный тыквенный суп на обед", "day"),
             ]
@@ -75,9 +76,9 @@ def _seed_phase4_if_missing(db: sqlite3.Connection, today: date, created_ts: str
             ).fetchall()
             if big_goals:
                 mini_templates = [
-                    ("20 практик пилатеса и дыхания за месяц", "Держать регулярный ритм 5 раз в неделю без пропусков.", "Здоровье и тело", 60, 12, 18),
-                    ("Прочитать первые 4 главы книги на итальянском", "По 20 минут каждый вечер с выписыванием любимых фраз.", "Личностный рост", 35, 8, 22),
-                    ("Разобрать кухню и обновить хранение специй", "Навести порядок в шкафах и подписать баночки.", "Дом и уют", 75, 16, 14),
+                    ("20 практик пилатеса и дыхания за месяц", "Держать регулярный ритм 5 раз в неделю без пропусков.", "Здоровье и спорт", 60, 12, 18),
+                    ("Прочитать первые 4 главы книги на итальянском", "По 20 минут каждый вечер с выписыванием любимых фраз.", "Хобби и увлечения", 35, 8, 22),
+                    ("Разобрать кухню и обновить хранение специй", "Навести порядок в шкафах и подписать баночки.", "Семья и отношения", 75, 16, 14),
                 ]
                 for idx, big in enumerate(big_goals):
                     title, desc, cat, pct, started_ago, left_days = mini_templates[idx % len(mini_templates)]
@@ -101,6 +102,25 @@ def _seed_phase4_if_missing(db: sqlite3.Connection, today: date, created_ts: str
                         ),
                     )
                 changed = True
+
+        # Yearly wishes («Список желаний на год» — 2 fulfilled + 4 active across canonical categories)
+        if db.execute("SELECT COUNT(*) FROM wishes").fetchone()[0] == 0:
+            wishes_spec = [
+                ("Съездить на выходные к морю без рабочего ноутбука", "Развлечения и отдых", "Три дня у воды и долгие прогулки", 1, (today - timedelta(days=40)).isoformat(), 1),
+                ("Собрать тёплый семейный ужин со всеми близкими", "Семья и отношения", "Домашняя паста, свечи и настольные игры", 1, (today - timedelta(days=18)).isoformat(), 2),
+                ("Попробовать гончарную мастерскую и слепить свою чашку", "Хобби и увлечения", "Выбрать студию с утренним занятием", 0, None, 3),
+                ("Собрать финансовую подушку спокойствия на полгода", "Деньги и благосостояние", "Откладывать комфортный процент каждый месяц", 0, None, 4),
+                ("Сходить на живой концерт при свечах с подругами", "Друзья и социум", "Забронировать места заранее", 0, None, 5),
+                ("Запустить собственный творческий проект", "Работа и бизнес", "Собрать первые идеи и план на весну", 0, None, 6),
+            ]
+            for title, cat, note, fulfilled, f_at, s_order in wishes_spec:
+                db.execute(
+                    """INSERT INTO wishes(
+                        target_year, title, category, note, fulfilled, fulfilled_at, sort_order, created_at
+                    ) VALUES(?,?,?,?,?,?,?,?)""",
+                    (today.year, title, cat, note, fulfilled, f_at, s_order, created_ts),
+                )
+            changed = True
 
     return changed
 
@@ -393,12 +413,12 @@ def seed_if_empty(db: sqlite3.Connection) -> bool:
                     (d_str, slot, menu_ids[idx], item[0], item[3], hhmm, item[4], created_ts),
                 )
 
-        # 7. Goals (1 год, 5 лет + linked 1 месяц mini-goals) with Milestones & Check-ins
+        # 7. Goals (1 год, 5 лет + linked 1 месяц mini-goals) across canonical 7 categories
         goals_spec = [
             (
                 "Гибкое и сильное тело без боли в спине",
                 "Регулярная практика пилатеса, цигуна и утреннего дыхания как естественная часть жизни.",
-                "Здоровье и тело",
+                "Здоровье и спорт",
                 "year",
                 1,
                 (today - timedelta(days=145)).isoformat(),
@@ -412,7 +432,7 @@ def seed_if_empty(db: sqlite3.Connection) -> bool:
             (
                 "Свободный разговорный итальянский и жизнь без спешки",
                 "Учить язык с удовольствием: книги, подкасты, разговорный клуб и поездки в Италию.",
-                "Личностный рост",
+                "Хобби и увлечения",
                 "year",
                 5,
                 (today - timedelta(days=520)).isoformat(),
@@ -426,7 +446,7 @@ def seed_if_empty(db: sqlite3.Connection) -> bool:
             (
                 "Собственный уютный ритуал дома и осознанное пространство",
                 "Минимализм в шкафах, капсульный гардероб, порядок без стресса и живые растения.",
-                "Дом и уют",
+                "Семья и отношения",
                 "year",
                 1,
                 (today - timedelta(days=140)).isoformat(),

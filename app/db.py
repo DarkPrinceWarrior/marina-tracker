@@ -32,6 +32,26 @@ CYCLE_PHASE_LABELS: dict[str, str] = {
     "luteal": "Лютеиновая фаза",
 }
 
+GOAL_CATEGORIES: tuple[str, ...] = (
+    "Здоровье и спорт",
+    "Семья и отношения",
+    "Друзья и социум",
+    "Развлечения и отдых",
+    "Хобби и увлечения",
+    "Деньги и благосостояние",
+    "Работа и бизнес",
+)
+
+LEGACY_GOAL_CATEGORY_MAP: dict[str, str] = {
+    "Здоровье и тело": "Здоровье и спорт",
+    "Отношения": "Семья и отношения",
+    "Финансы": "Деньги и благосостояние",
+    "Карьера": "Работа и бизнес",
+    "Карьера и проекты": "Работа и бизнес",
+    "Личностный рост": "Хобби и увлечения",
+    "Дом и уют": "Семья и отношения",
+}
+
 HOUSEHOLD_MIGRATION_CATEGORIES: tuple[str, ...] = (
     "Для уборки и дома",
     "Для дома и быта",
@@ -61,6 +81,7 @@ ID_PK_TABLES: frozenset[str] = frozenset(
         "shopping_items",
         "gratitudes",
         "calendar_events",
+        "wishes",
         "push_subscriptions",
         "push_deliveries",
     }
@@ -175,7 +196,7 @@ CREATE TABLE IF NOT EXISTS goals (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     title TEXT NOT NULL,
     description TEXT NOT NULL DEFAULT '',
-    category TEXT NOT NULL DEFAULT 'Личностный рост',
+    category TEXT NOT NULL DEFAULT 'Хобби и увлечения',
     horizon_unit TEXT NOT NULL DEFAULT 'year' CHECK(horizon_unit IN ('month','year')),
     horizon_years INTEGER NOT NULL DEFAULT 1 CHECK(horizon_years BETWEEN 1 AND 10),
     parent_goal_id INTEGER REFERENCES goals(id) ON DELETE SET NULL,
@@ -289,6 +310,19 @@ CREATE TABLE IF NOT EXISTS calendar_events (
     created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_calendar_events_date ON calendar_events(event_date);
+
+CREATE TABLE IF NOT EXISTS wishes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    target_year INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    category TEXT NOT NULL DEFAULT 'Развлечения и отдых',
+    note TEXT NOT NULL DEFAULT '',
+    fulfilled INTEGER NOT NULL DEFAULT 0 CHECK(fulfilled IN (0,1)),
+    fulfilled_at TEXT,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_wishes_year ON wishes(target_year, sort_order);
 
 CREATE TABLE IF NOT EXISTS push_subscriptions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -634,6 +668,11 @@ def _init_postgres(conn: PgConnectionAdapter) -> None:
         "ALTER TABLE goals ADD COLUMN IF NOT EXISTS parent_goal_id INTEGER REFERENCES goals(id) ON DELETE SET NULL"
     )
     conn.execute_raw("CREATE INDEX IF NOT EXISTS idx_goals_parent ON goals(parent_goal_id)")
+    for old_cat, new_cat in LEGACY_GOAL_CATEGORY_MAP.items():
+        conn.execute_raw(
+            "UPDATE goals SET category = %s WHERE category = %s",
+            (new_cat, old_cat),
+        )
     conn.execute_raw(
         "ALTER TABLE shopping_items ADD COLUMN IF NOT EXISTS list_type TEXT NOT NULL DEFAULT 'groceries'"
     )
@@ -668,6 +707,11 @@ def init_db(db: Any = None) -> None:
         if "parent_goal_id" not in goal_cols:
             conn.execute("ALTER TABLE goals ADD COLUMN parent_goal_id INTEGER REFERENCES goals(id) ON DELETE SET NULL")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_goals_parent ON goals(parent_goal_id)")
+        for old_cat, new_cat in LEGACY_GOAL_CATEGORY_MAP.items():
+            conn.execute(
+                "UPDATE goals SET category = ? WHERE category = ?",
+                (new_cat, old_cat),
+            )
 
         shopping_cols = _table_columns(conn, "shopping_items")
         if "list_type" not in shopping_cols:

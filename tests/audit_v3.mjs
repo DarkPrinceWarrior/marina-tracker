@@ -630,25 +630,38 @@ async function runIPhone13FullAudit(browser, todayIso) {
     await page.waitForTimeout(400);
   }
 
-  // 1f. Сегодня -> Благодарности sub-tab (add, edit, screenshot)
-  await clickSegment(page, "Благодарности");
+  // 1f. Phase 6: «Итоги дня» 3 rows + inline 5–10 numbered «Благодарности за день» block!
+  const todayMainText = await page.locator("main").innerText();
+  for (const rowTitle of ["Выполнено за день", "Итог дня и заметка", "Дневник благодарностей"]) {
+    assert.ok(todayMainText.includes(rowTitle), `Missing '${rowTitle}' inside Итоги дня`);
+  }
+  const gratCard = page.locator(".gratitude-inline-card").first();
+  await gratCard.scrollIntoViewIfNeeded();
+  await page.waitForTimeout(200);
+
+  const gratText1 = "Благодарю за тёплое солнце и ясную голову";
+  const gratText2 = "Спасибо за уютный вечер с травяным чаем";
+  for (const txt of [gratText1, gratText2]) {
+    await gratCard.locator(".gratitude-quick-input, input").first().fill(txt);
+    await gratCard.locator('button[type="submit"], button').last().click();
+    await page.waitForTimeout(380);
+  }
+  await gratCard.scrollIntoViewIfNeeded();
+  await page.waitForTimeout(200);
+  const gratCardText = await gratCard.innerText();
+  assert.ok(gratCardText.includes(gratText1) && gratCardText.includes(gratText2), "Inline gratitudes did not render");
+  assert.ok(gratCardText.includes("5 / 10") || gratCardText.includes("5/10"), `Expected 5/10 gratitude progress, got: ${gratCardText.slice(0, 120)}`);
+  await auditScreen(page, "iPhone13: Сегодня (Итоги дня + Благодарности 5/10)");
+  await snap(page, "ip13_today_itogi_gratitude.png", false);
+
+  // Open full «Дневник благодарностей» sheet & edit one entry
+  const diaryRow = page.locator(".mt-list-row", { hasText: /Дневник благодарностей/i }).first();
+  await diaryRow.scrollIntoViewIfNeeded();
+  await diaryRow.click();
   await page.waitForTimeout(350);
-  await auditScreen(page, "iPhone13: Сегодня (Благодарности)", { checkBottomScroll: true });
-  const gratText = "Благодарю за тёплое солнце и ясную голову";
-  await page.locator(".gratitude-composer textarea, .gratitude-composer input").first().fill(gratText);
-  await page.locator(".gratitude-composer button", { hasText: /Добавить/i }).first().click();
-  await page.waitForTimeout(450);
-  assert.ok((await page.locator("main").innerText()).includes(gratText), "Added gratitude did not appear");
-  await snap(page, "ip13_today_gratitude.png", false);
-  // Tap created gratitude row to verify edit sheet opens & saves cleanly
-  await page.locator(".mt-group-list .mt-list-row", { hasText: gratText }).first().click();
-  await page.waitForTimeout(300);
-  await auditScreen(page, "iPhone13 Sheet: GratitudeEdit", { isSheet: true });
-  await page.locator(".mt-sheet-footer .mt-btn--primary").first().click();
-  await page.waitForTimeout(350);
-  await clickSegment(page, "День");
-  await page.waitForTimeout(250);
-  pass("Today: all sheets + CompletedFeed (0 overlap) + Gratitude add/edit + reflection");
+  await auditScreen(page, "iPhone13 Sheet: GratitudeDiary", { isSheet: true });
+  await closeOpenSheet(page);
+  pass("Today: Итоги дня (3 rows) + inline 5/10 numbered Благодарности + Diary sheet");
 
   // -------------------------------------------------------------------------
   // 2. HEALTH TAB — «Здоровье» (Привычки / Тренировки / Цикл)
@@ -829,29 +842,57 @@ async function runIPhone13FullAudit(browser, todayIso) {
   pass("Home: unified GroupList chores + ChoreSheet + strictly isolated Household shopping");
 
   // -------------------------------------------------------------------------
-  // 5. GOALS TAB (1 месяц / 1 год / 5 лет + Mini-Goals + Календарь событий)
+  // 5. GOALS TAB (Цели [7 Categories + 1m/1y/5y] | Желания | Календарь)
   // -------------------------------------------------------------------------
   await clickBottomTab(page, "Цели");
   await page.waitForTimeout(450);
-  await auditScreen(page, "iPhone13: Цели", { checkBottomScroll: true });
+  await auditScreen(page, "iPhone13: Цели (3-way + 7 categories)", { checkBottomScroll: true });
   const goalsPageText = await page.locator("main").innerText();
-  for (const hLabel of ["1 месяц", "1 год", "5 лет"]) {
-    assert.ok(goalsPageText.includes(hLabel), `Missing horizon pill '${hLabel}' on Goals tab`);
+  for (const hLabel of ["1 месяц", "1 год", "5 лет", "Цели", "Желания", "Календарь"]) {
+    assert.ok(goalsPageText.includes(hLabel), `Missing '${hLabel}' on Goals tab`);
   }
+
+  // Open 7-category filter SelectField -> assert all 7 canonical categories & capture screenshot!
+  const catFilterTrigger = page.locator('.goals-filter-bar .mt-select-trigger[role="combobox"]').first();
+  await catFilterTrigger.click();
+  await page.waitForTimeout(250);
+  await auditScreen(page, "iPhone13 Dropdown: Goals 7-category filter");
+  const menuText = await page.locator('.mt-select-menu[role="listbox"]').innerText();
+  for (const cat of [
+    "Здоровье и спорт",
+    "Семья и отношения",
+    "Друзья и социум",
+    "Развлечения и отдых",
+    "Хобби и увлечения",
+    "Деньги и благосостояние",
+    "Работа и бизнес",
+  ]) {
+    assert.ok(menuText.includes(cat), `Missing canonical category '${cat}' in Goals filter`);
+  }
+  await snap(page, "ip13_goals_categories.png", false);
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(150);
   await snap(page, "ip13_09_goals.png", false);
   await snap(page, "ip13_goals_horizons.png", false);
+  pass("Goals: 3-way SegmentedControl (0 ellipsis) + all 7 canonical categories verified");
 
-  // Create a 1-month mini-goal linked to a 1-year/5-year big goal via custom SelectField!
+  // Create a 1-month mini-goal in 'Друзья и социум' linked to a 1-year/5-year big goal via custom SelectFields!
   await page.locator(".mt-page-header button", { hasText: /Цель|\+/ }).last().click();
   await page.waitForTimeout(300);
   await auditScreen(page, "iPhone13 Sheet: GoalFormSheet", { isSheet: true });
   await snap(page, "ip13_sheet_goal_form.png", false);
   const miniGoalTitle = "Прочитать 2 книги за месяц";
   await page.locator('.mt-sheet input[type="text"], .mt-sheet input:not([type])').first().fill(miniGoalTitle);
+  // Pick category via #goal-category-select
+  const goalCatTrigger = page.locator(".mt-sheet #goal-category-select").first();
+  await goalCatTrigger.click();
+  await page.waitForTimeout(200);
+  await page.locator('.mt-select-menu [role="option"]', { hasText: "Хобби и увлечения" }).first().click();
+  await page.waitForTimeout(150);
   await page.locator(".mt-sheet button", { hasText: "1 месяц" }).first().click();
   await page.waitForTimeout(200);
-  // Select parent big goal via custom SelectField (#5 parent goal!)
-  const parentGoalTrigger = page.locator('.mt-sheet .mt-select-trigger[role="combobox"]').first();
+  // Select parent big goal via custom #goal-parent-select
+  const parentGoalTrigger = page.locator(".mt-sheet #goal-parent-select").first();
   await parentGoalTrigger.scrollIntoViewIfNeeded();
   await parentGoalTrigger.click();
   await page.waitForTimeout(250);
@@ -862,7 +903,7 @@ async function runIPhone13FullAudit(browser, todayIso) {
   await page.waitForTimeout(150);
   await page.locator(".mt-sheet-footer .mt-btn--primary").first().click();
   await page.waitForTimeout(500);
-  pass("Goals: Created 1-month mini-goal linked to big goal", `${miniGoalTitle} -> ${chosenParentTitle}`);
+  pass("Goals: Created 1-month mini-goal in 7-category system linked to big goal", `${miniGoalTitle} -> ${chosenParentTitle}`);
 
   // Open parent big goal's GoalDetailSheet (exclude mini-goal card that mentions parent title in its subtitle!)
   const parentCard = page
@@ -914,6 +955,27 @@ async function runIPhone13FullAudit(browser, todayIso) {
   await page.locator(".mt-sheet textarea").fill("Стабильное движение к цели.");
   await page.locator(".mt-sheet-footer .mt-btn--primary").first().click();
   await page.waitForTimeout(450);
+
+  // 5a-bis. Цели -> Желания (Annual Wishlist: quick-add, toggle fulfilled, edit sheet)
+  await clickSegment(page, "Желания");
+  await page.waitForTimeout(400);
+  await auditScreen(page, "iPhone13: Цели (Список желаний)", { checkBottomScroll: true });
+  const testWishTitle = "Увидеть северное сияние в Мурманске";
+  await page.locator(".wish-quick-add input").first().fill(testWishTitle);
+  await page.locator('.wish-quick-add button[type="submit"], .wish-quick-add button').last().click();
+  await page.waitForTimeout(450);
+  assert.ok((await page.locator("main").innerText()).includes(testWishTitle), "Added yearly wish did not appear");
+  // Toggle fulfilled checkmark on the new wish
+  const newWishRow = page.locator(".mt-group-list .mt-list-row", { hasText: testWishTitle }).first();
+  await newWishRow.locator(".mt-list-check-btn").click();
+  await page.waitForTimeout(350);
+  await snap(page, "ip13_goals_wishes.png", false);
+  // Open WishFormSheet by tapping row body
+  await newWishRow.locator(".mt-list-body").click();
+  await page.waitForTimeout(300);
+  await auditScreen(page, "iPhone13 Sheet: WishFormSheet", { isSheet: true });
+  await closeOpenSheet(page);
+  pass("Goals -> Желания: quick-add wish, toggle fulfilled, WishFormSheet verified");
 
   // 5b. Цели -> Календарь событий (add Doctor/Cosmetologist event, toggle done, navigate months)
   await clickSegment(page, "Календарь");
@@ -1052,9 +1114,7 @@ async function runIPhone13FullAudit(browser, todayIso) {
   const persistedMorningTime = await page.locator('.mt-sheet input[type="time"]').first().inputValue();
   assert.equal(persistedMorningTime, "08:15", `Expected morning_time '08:15' after reload, got '${persistedMorningTime}'`);
   await closeOpenSheet(page);
-  await clickSegment(page, "Благодарности");
-  await page.waitForTimeout(300);
-  assert.ok((await page.locator("main").innerText()).includes(gratText), "Gratitude did not persist");
+  assert.ok((await page.locator(".gratitude-inline-card").innerText()).includes(gratText1), "Inline gratitude did not persist");
 
   await clickBottomTab(page, "Здоровье");
   await page.waitForTimeout(300);
@@ -1073,10 +1133,13 @@ async function runIPhone13FullAudit(browser, todayIso) {
   await clickBottomTab(page, "Цели");
   await page.waitForTimeout(350);
   assert.ok((await page.locator("main").innerText()).includes(miniGoalTitle), "1-month mini-goal did not persist");
+  await clickSegment(page, "Желания");
+  await page.waitForTimeout(350);
+  assert.ok((await page.locator("main").innerText()).includes(testWishTitle), "Yearly wish did not persist");
   await clickSegment(page, "Календарь");
   await page.waitForTimeout(350);
   assert.ok((await page.locator("main").innerText()).includes(testEventTitle), "Calendar event did not persist");
-  pass("Post-reload persistence verified across ALL Phase 4 features (Gratitude, Health, Groceries, Household, Mini-Goal, Calendar)");
+  pass("Post-reload persistence verified across ALL Phase 4+5+6 features (Notifications, Inline Gratitude, Health, Groceries, Household, Mini-Goal, Wishes, Calendar)");
 
   if (consoleErrors.length) finding("P0", "iPhone13 console errors", consoleErrors.join(" | "));
   else pass("Zero iPhone 13 console errors");

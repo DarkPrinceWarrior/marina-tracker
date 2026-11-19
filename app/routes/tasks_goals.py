@@ -23,7 +23,7 @@ from ..db import (
     validate_date_str,
 )
 
-router = APIRouter(prefix="/api", tags=["tasks", "goals", "events"])
+router = APIRouter(prefix="/api", tags=["tasks", "goals", "events", "wishes"])
 
 TaskPriority = Literal["low", "medium", "high"]
 TaskSectionTag = Literal["personal", "work", "health", "home", "goal"]
@@ -99,7 +99,7 @@ class MilestoneUpdate(BaseModel):
 class GoalCreate(BaseModel):
     title: str = Field(min_length=1, max_length=240)
     description: str | None = Field(default="", max_length=1500)
-    category: str | None = Field(default="Личностный рост", max_length=80)
+    category: str | None = Field(default="Хобби и увлечения", max_length=80)
     horizon_unit: HorizonUnit = "year"
     horizon_years: int = Field(default=1, ge=1, le=10)
     parent_goal_id: int | None = None
@@ -167,6 +167,27 @@ class EventUpdate(BaseModel):
 
 class EventToggle(BaseModel):
     completed: bool | None = None
+
+
+class WishCreate(BaseModel):
+    title: str = Field(min_length=1, max_length=240)
+    target_year: int | None = Field(default=None, ge=2020, le=2045)
+    category: str | None = Field(default="Развлечения и отдых", max_length=80)
+    note: str | None = Field(default="", max_length=1500)
+    sort_order: int | None = None
+
+
+class WishUpdate(BaseModel):
+    title: str | None = Field(default=None, min_length=1, max_length=240)
+    target_year: int | None = Field(default=None, ge=2020, le=2045)
+    category: str | None = Field(default=None, max_length=80)
+    note: str | None = Field(default=None, max_length=1500)
+    fulfilled: bool | None = None
+    sort_order: int | None = None
+
+
+class WishToggle(BaseModel):
+    fulfilled: bool | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -635,6 +656,7 @@ def list_goals(
     db: DB,
     goal_status: Annotated[Literal["all", "active", "completed", "paused"], Query(alias="status")] = "all",
     horizon: Annotated[Literal["all", "month", "1y", "5y", "1", "2-3", "5"], Query()] = "all",
+    category: Annotated[str | None, Query()] = None,
 ) -> dict[str, Any]:
     rows = records(
         db,
@@ -656,6 +678,9 @@ def list_goals(
         filtered = [g for g in filtered if g["horizon_unit"] == "year" and 2 <= g["horizon_years"] <= 3]
     elif horizon in ("5", "5y"):
         filtered = [g for g in filtered if g["horizon_unit"] == "year" and g["horizon_years"] >= 4]
+    if category and category.strip() and category.strip().lower() != "all":
+        cat_clean = category.strip()
+        filtered = [g for g in filtered if g["category"] == cat_clean]
 
     active = [g for g in all_details if g["status"] == "active"]
     completed = [g for g in all_details if g["status"] == "completed"]
@@ -701,7 +726,7 @@ def create_goal(db: DB, body: GoalCreate) -> dict[str, Any]:
             (
                 title,
                 (body.description or "").strip(),
-                (body.category or "").strip() or "Личностный рост",
+                (body.category or "").strip() or "Хобби и увлечения",
                 horizon_unit,
                 horizon_years,
                 body.parent_goal_id,
@@ -750,7 +775,7 @@ def update_goal(
     if "description" in fields:
         updates["description"] = (body.description or "").strip()
     if "category" in fields and body.category is not None:
-        updates["category"] = body.category.strip() or "Личностный рост"
+        updates["category"] = body.category.strip() or "Хобби и увлечения"
     if "horizon_unit" in fields and body.horizon_unit is not None:
         updates["horizon_unit"] = body.horizon_unit
         if body.horizon_unit == "month" and "horizon_years" not in fields:
@@ -1121,3 +1146,165 @@ def delete_event(db: DB, event_id: Annotated[int, Path(ge=1)]) -> dict[str, Any]
     with transaction(db):
         db.execute("DELETE FROM calendar_events WHERE id = ?", (event_id,))
     return {"deleted": True, "id": event_id}
+
+
+# ---------------------------------------------------------------------------
+# Yearly Wishes («Список желаний на год») Endpoints
+# ---------------------------------------------------------------------------
+
+
+def serialize_wish(row: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": int(row["id"]),
+        "target_year": int(row["target_year"]),
+        "title": row["title"],
+        "category": row["category"],
+        "note": row["note"],
+        "fulfilled": bool(row["fulfilled"]),
+        "fulfilled_at": row["fulfilled_at"],
+        "sort_order": int(row["sort_order"]),
+        "created_at": row["created_at"],
+    }
+
+
+def fetch_wish_by_id(db: Any, wish_id: int) -> dict[str, Any]:
+    row = record(db, "SELECT * FROM wishes WHERE id = ?", (wish_id,))
+    if row is None:
+        raise HTTPException(status_code=404, detail="Желание не найдено")
+    return serialize_wish(row)
+
+
+@router.get("/wishes")
+def list_wishes(
+    db: DB,
+    year: Annotated[int | None, Query(ge=2020, le=2045)] = None,
+    category: Annotated[str | None, Query()] = None,
+) -> dict[str, Any]:
+    target_year = year if year is not None else now_dt().year
+    all_rows = records(
+        db,
+        """SELECT * FROM wishes
+           WHERE target_year = ?
+           ORDER BY fulfilled ASC, sort_order ASC, id DESC""",
+        (target_year,),
+    )
+    all_items = [serialize_wish(r) for r in all_rows]
+    if category and category.strip() and category.strip().lower() != "all":
+        cat_clean = category.strip()
+        items = [w for w in all_items if w["category"] == cat_clean]
+    else:
+        items = all_items
+
+    by_category: dict[str, list[dict[str, Any]]] = {}
+    for w in items:
+        by_category.setdefault(w["category"], []).append(w)
+
+    total = len(all_items)
+    fulfilled = sum(1 for w in all_items if w["fulfilled"])
+    remaining = total - fulfilled
+    percent = round(fulfilled * 100 / total) if total > 0 else 0
+
+    return {
+        "year": target_year,
+        "items": items,
+        "summary": {
+            "total": total,
+            "fulfilled": fulfilled,
+            "remaining": remaining,
+            "percent": percent,
+        },
+        "by_category": by_category,
+    }
+
+
+@router.post("/wishes", status_code=status.HTTP_201_CREATED)
+def create_wish(db: DB, body: WishCreate) -> dict[str, Any]:
+    title = _require_non_empty(body.title, "Желание")
+    target_year = body.target_year if body.target_year is not None else now_dt().year
+    category = (body.category or "").strip() or "Развлечения и отдых"
+    note = (body.note or "").strip()
+    created_at = now_iso()
+
+    with transaction(db):
+        sort_order = body.sort_order
+        if sort_order is None:
+            max_row = record(
+                db,
+                "SELECT COALESCE(MAX(sort_order), 0) AS mx FROM wishes WHERE target_year = ?",
+                (target_year,),
+            )
+            sort_order = int(max_row["mx"]) + 1 if max_row else 1
+        cur = db.execute(
+            """INSERT INTO wishes(
+                target_year, title, category, note, fulfilled, fulfilled_at, sort_order, created_at
+            ) VALUES(?,?,?,?,0,NULL,?,?)""",
+            (target_year, title, category, note, sort_order, created_at),
+        )
+        wish_id = int(cur.lastrowid)
+    return fetch_wish_by_id(db, wish_id)
+
+
+@router.patch("/wishes/{wish_id}")
+def update_wish(
+    db: DB,
+    wish_id: Annotated[int, Path(ge=1)],
+    body: WishUpdate,
+) -> dict[str, Any]:
+    existing = record(db, "SELECT * FROM wishes WHERE id = ?", (wish_id,))
+    if existing is None:
+        raise HTTPException(status_code=404, detail="Желание не найдено")
+
+    fields = body.model_fields_set
+    updates: dict[str, Any] = {}
+    if "title" in fields and body.title is not None:
+        updates["title"] = _require_non_empty(body.title, "Желание")
+    if "target_year" in fields and body.target_year is not None:
+        updates["target_year"] = body.target_year
+    if "category" in fields and body.category is not None:
+        updates["category"] = body.category.strip() or "Развлечения и отдых"
+    if "note" in fields:
+        updates["note"] = (body.note or "").strip()
+    if "sort_order" in fields and body.sort_order is not None:
+        updates["sort_order"] = body.sort_order
+    if "fulfilled" in fields and body.fulfilled is not None:
+        updates["fulfilled"] = 1 if body.fulfilled else 0
+        updates["fulfilled_at"] = (existing["fulfilled_at"] or today_iso()) if body.fulfilled else None
+
+    if updates:
+        clause = ", ".join(f"{col} = ?" for col in updates)
+        with transaction(db):
+            db.execute(f"UPDATE wishes SET {clause} WHERE id = ?", (*updates.values(), wish_id))
+    return fetch_wish_by_id(db, wish_id)
+
+
+@router.post("/wishes/{wish_id}/toggle")
+def toggle_wish(
+    db: DB,
+    wish_id: Annotated[int, Path(ge=1)],
+    body: WishToggle | None = None,
+) -> dict[str, Any]:
+    existing = record(db, "SELECT * FROM wishes WHERE id = ?", (wish_id,))
+    if existing is None:
+        raise HTTPException(status_code=404, detail="Желание не найдено")
+    new_fulfilled = (
+        body.fulfilled
+        if body is not None and body.fulfilled is not None
+        else not bool(existing["fulfilled"])
+    )
+    fulfilled_at = today_iso() if new_fulfilled else None
+    with transaction(db):
+        db.execute(
+            "UPDATE wishes SET fulfilled = ?, fulfilled_at = ? WHERE id = ?",
+            (1 if new_fulfilled else 0, fulfilled_at, wish_id),
+        )
+    return fetch_wish_by_id(db, wish_id)
+
+
+@router.delete("/wishes/{wish_id}")
+def delete_wish(db: DB, wish_id: Annotated[int, Path(ge=1)]) -> dict[str, Any]:
+    existing = record(db, "SELECT id FROM wishes WHERE id = ?", (wish_id,))
+    if existing is None:
+        raise HTTPException(status_code=404, detail="Желание не найдено")
+    with transaction(db):
+        db.execute("DELETE FROM wishes WHERE id = ?", (wish_id,))
+    return {"deleted": True, "id": wish_id}

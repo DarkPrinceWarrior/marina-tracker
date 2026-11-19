@@ -538,12 +538,13 @@ export const ENERGY_LEVELS = [
 ];
 
 export const GOAL_SPHERES = [
-  { key: 'Здоровье и тело', label: 'Здоровье и тело', icon: 'HeartPulse', tone: 'habits' },
-  { key: 'Личностный рост', label: 'Личностный рост', icon: 'BookOpen', tone: 'goals' },
-  { key: 'Карьера и проекты', label: 'Карьера и проекты', icon: 'Briefcase', tone: 'brand' },
-  { key: 'Финансы', label: 'Финансы', icon: 'Wallet', tone: 'nutrition' },
-  { key: 'Дом и уют', label: 'Дом и уют', icon: 'Home', tone: 'home' },
-  { key: 'Отношения', label: 'Отношения', icon: 'Heart', tone: 'cycle' },
+  { key: 'Здоровье и спорт', label: 'Здоровье и спорт', icon: 'HeartPulse', tone: 'cobalt' },
+  { key: 'Семья и отношения', label: 'Семья и отношения', icon: 'Heart', tone: 'cobalt' },
+  { key: 'Друзья и социум', label: 'Друзья и социум', icon: 'Users', tone: 'cobalt' },
+  { key: 'Развлечения и отдых', label: 'Развлечения и отдых', icon: 'Sparkles', tone: 'cobalt' },
+  { key: 'Хобби и увлечения', label: 'Хобби и увлечения', icon: 'BookOpen', tone: 'cobalt' },
+  { key: 'Деньги и благосостояние', label: 'Деньги и благосостояние', icon: 'Wallet', tone: 'cobalt' },
+  { key: 'Работа и бизнес', label: 'Работа и бизнес', icon: 'Briefcase', tone: 'cobalt' },
 ];
 
 export const GOAL_HORIZONS = [
@@ -663,7 +664,7 @@ export const GOAL_STARTER_BLUEPRINTS = [
     id: 'blueprint-body',
     title: 'Сильное гибкое тело и спокойное дыхание',
     description: 'Регулярные занятия пилатесом, цигуном и дыхательной практикой 3–4 раза в неделю без перегрузки.',
-    category: 'Здоровье и тело',
+    category: 'Здоровье и спорт',
     horizon_unit: 'year',
     horizon_years: 1,
     check_in_cadence: 'weekly',
@@ -677,7 +678,7 @@ export const GOAL_STARTER_BLUEPRINTS = [
     id: 'blueprint-month-sprint',
     title: 'Месяц без пропусков утренних практик',
     description: 'Короткий фокусный шаг на 30 дней: дыхание, вода и спокойный утренний старт.',
-    category: 'Здоровье и тело',
+    category: 'Здоровье и спорт',
     horizon_unit: 'month',
     horizon_years: 1,
     check_in_cadence: 'weekly',
@@ -689,7 +690,7 @@ export const GOAL_STARTER_BLUEPRINTS = [
     id: 'blueprint-language',
     title: 'Свободный английский для жизни и путешествий',
     description: 'Живое чтение, подкасты и разговорная практика маленькими шагами.',
-    category: 'Личностный рост',
+    category: 'Хобби и увлечения',
     horizon_unit: 'year',
     horizon_years: 1,
     check_in_cadence: 'weekly',
@@ -703,7 +704,7 @@ export const GOAL_STARTER_BLUEPRINTS = [
     id: 'blueprint-finance',
     title: 'Финансовая подушка и спокойный капитал',
     description: 'Ежемесячное пополнение резерва и осознанное планирование крупных целей на 5 лет.',
-    category: 'Финансы',
+    category: 'Деньги и благосостояние',
     horizon_unit: 'year',
     horizon_years: 5,
     check_in_cadence: 'monthly',
@@ -715,9 +716,9 @@ export const GOAL_STARTER_BLUEPRINTS = [
   },
   {
     id: 'blueprint-home',
-    title: 'Светлый уютный дом в гармонии',
-    description: 'Поэтапное обновление пространства, расхламление и простые системы порядка.',
-    category: 'Дом и уют',
+    title: 'Тёплый ритм семьи и уютный дом',
+    description: 'Совместные традиции, спокойный быт и поэтапное обновление пространства.',
+    category: 'Семья и отношения',
     horizon_unit: 'year',
     horizon_years: 5,
     check_in_cadence: 'monthly',

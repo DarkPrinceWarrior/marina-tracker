@@ -223,17 +223,47 @@ Response `200`: `{"deleted": true, "id": 1}`.
 
 ---
 
-## 3. Goals (`1 месяц` / `1 год` / `5 лет`) & Calendar Events (`app/routes/tasks_goals.py`)
+## 3. Goals (`1 месяц` / `1 год` / `5 лет`), Yearly Wishes & Calendar Events (`app/routes/tasks_goals.py`)
 
-### `GET /api/goals?status=all&horizon=all`
+### Canonical 7 Goal & Wish Categories
+`Здоровье и спорт`, `Семья и отношения`, `Друзья и социум`, `Развлечения и отдых`, `Хобби и увлечения`, `Деньги и благосостояние`, `Работа и бизнес`.
+
+### `GET /api/goals?status=all&horizon=all&category=`
 - `status`: `"all" | "active" | "completed" | "paused"`
 - `horizon`: `"all" | "month" | "1y" | "5y"` (legacy `"1" | "2-3" | "5"` also accepted)
+- `category`: optional exact Russian category name (or `"all"` / omitted for all)
 
 Each `GoalDetail` additionally includes:
 - `horizon_unit`: `"month" | "year"` (`1 месяц` stores `horizon_unit="month", horizon_years=1`; `1 год` stores `horizon_unit="year", horizon_years=1`; `5 лет` stores `horizon_unit="year", horizon_years=5`)
 - `parent_goal_id`: `int | null`
 - `parent_goal_title`: `str | null`
 - `mini_goals`: `[{id, title, progress_pct, status, target_date, pace_status, pace_label, horizon_unit, horizon_years}]`
+
+### `GET /api/wishes?year=2026&category=`
+Response `200`:
+```json
+{
+  "year": 2026,
+  "items": [
+    {
+      "id": 1,
+      "target_year": 2026,
+      "title": "Съездить на выходные к морю без рабочего ноутбука",
+      "category": "Развлечения и отдых",
+      "note": "Три дня у воды и долгие прогулки",
+      "fulfilled": true,
+      "fulfilled_at": "2026-10-10",
+      "sort_order": 1,
+      "created_at": "..."
+    }
+  ],
+  "summary": {"total": 6, "fulfilled": 2, "remaining": 4, "percent": 33},
+  "by_category": {"Развлечения и отдых": []}
+}
+```
+
+### `POST /api/wishes` (201) / `PATCH /api/wishes/{id}` / `POST /api/wishes/{id}/toggle` / `DELETE /api/wishes/{id}`
+Full CRUD + fulfillment toggle (`fulfilled_at` set to `today_iso()` when fulfilled, else `null`).
 
 ### `GET /api/events?year=YYYY&month=MM&date=YYYY-MM-DD`
 Response `200`:
