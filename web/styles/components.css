@@ -1085,6 +1085,446 @@ button.mt-metric-cell:active {
   flex-shrink: 0;
 }
 
+/* ---------- Custom 2026 Carbon & Cobalt DateField / TimeField / RangeField / CheckField ---------- */
+
+.mt-picker-trigger-icon {
+  flex-shrink: 0;
+  color: var(--muted);
+}
+
+.mt-select-trigger.is-open .mt-picker-trigger-icon {
+  color: var(--cobalt);
+}
+
+.mt-time-trigger--compact {
+  width: auto;
+  min-width: 98px;
+  min-height: 40px;
+  padding: 6px 11px;
+  gap: 6px;
+  font-size: 16px;
+  font-weight: 600;
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+
+.mt-picker-popover {
+  position: fixed;
+  z-index: 1200;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow:
+    0 16px 38px -8px rgba(15, 23, 42, 0.18),
+    0 4px 12px -2px rgba(15, 23, 42, 0.06);
+  padding: 10px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transform-origin: top center;
+  animation: mt-menu-in 140ms var(--ease-spring) backwards;
+}
+
+.mt-picker-popover.is-above {
+  transform-origin: bottom center;
+  animation-name: mt-menu-in-up;
+}
+
+.mt-picker-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.mt-picker-nav {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--ink);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+
+.mt-picker-nav:active {
+  background: var(--surface-subtle);
+}
+
+.mt-picker-month-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 0;
+  background: var(--surface-subtle);
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+
+.mt-picker-month-btn.is-active {
+  background: var(--cobalt-soft);
+  color: var(--cobalt);
+}
+
+.mt-picker-month-chevron {
+  color: var(--muted);
+  transition: transform 150ms ease;
+}
+
+.mt-picker-month-chevron.is-open {
+  transform: rotate(180deg);
+  color: var(--cobalt);
+}
+
+.mt-picker-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 2px;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  padding: 2px 0;
+}
+
+.mt-picker-days {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 3px;
+}
+
+.mt-picker-day {
+  width: 100%;
+  height: 34px;
+  min-height: 34px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--ink);
+  font-size: 13.5px;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 110ms ease, color 110ms ease;
+}
+
+.mt-picker-day:hover {
+  background: var(--surface-subtle);
+}
+
+.mt-picker-day.is-outside {
+  color: var(--subtle);
+  opacity: 0.55;
+}
+
+.mt-picker-day.is-today {
+  box-shadow: inset 0 0 0 1.5px var(--cobalt);
+  color: var(--cobalt);
+  font-weight: 700;
+}
+
+.mt-picker-day.is-selected {
+  background: var(--brand);
+  color: #FFFFFF;
+  font-weight: 700;
+  box-shadow: none;
+  opacity: 1;
+}
+
+.mt-picker-months {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  padding: 4px 0;
+}
+
+.mt-picker-month-cell {
+  min-height: 38px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 110ms ease, border-color 110ms ease, color 110ms ease;
+}
+
+.mt-picker-month-cell.is-selected {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #FFFFFF;
+}
+
+.mt-picker-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 6px;
+  border-top: 1px solid var(--divider);
+}
+
+.mt-picker-foot-btn {
+  min-height: 32px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 110ms ease, color 110ms ease;
+}
+
+.mt-picker-foot-btn:hover {
+  background: var(--surface-subtle);
+  color: var(--ink);
+}
+
+.mt-picker-foot-btn.is-accent {
+  color: var(--cobalt);
+}
+
+.mt-picker-foot-btn.is-done {
+  background: var(--brand);
+  color: #FFFFFF;
+}
+
+/* 24-hour Time Picker Popover */
+.mt-time-pop-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px 4px 6px;
+  border-bottom: 1px solid var(--divider);
+}
+
+.mt-time-pop-display {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--ink);
+  letter-spacing: -0.02em;
+}
+
+.mt-time-pop-badge {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  background: var(--surface-subtle);
+  padding: 3px 8px;
+  border-radius: 999px;
+}
+
+.mt-time-cols {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.mt-time-col-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.mt-time-col-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  text-align: center;
+}
+
+.mt-time-col {
+  max-height: 176px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 10px;
+  background: var(--surface-subtle);
+}
+
+.mt-time-opt {
+  width: 100%;
+  min-height: 34px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink);
+  font-size: 14.5px;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background-color 100ms ease, color 100ms ease;
+}
+
+.mt-time-opt:hover {
+  background: var(--surface);
+}
+
+.mt-time-opt.is-selected {
+  background: var(--cobalt-soft);
+  color: var(--cobalt);
+  font-weight: 700;
+}
+
+/* Custom Carbon & Cobalt RangeField Slider */
+.mt-range-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 44px;
+}
+
+.mt-range-track {
+  position: relative;
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--surface-subtle);
+  border: 1px solid var(--border);
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.mt-range-fill {
+  height: 100%;
+  background: var(--cobalt);
+  border-radius: 999px;
+  transition: width 60ms linear;
+}
+
+.mt-range-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  background: transparent;
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+}
+
+.mt-range-input:focus-visible {
+  outline: none;
+}
+
+.mt-range-input::-webkit-slider-runnable-track {
+  height: 6px;
+  background: transparent;
+  border: 0;
+}
+
+.mt-range-input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 24px;
+  height: 24px;
+  margin-top: -9px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 2.5px solid var(--cobalt);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.18);
+  transition: transform 120ms ease, box-shadow 120ms ease;
+}
+
+.mt-range-input:active::-webkit-slider-thumb {
+  transform: scale(1.1);
+  box-shadow: 0 0 0 5px rgba(37, 99, 235, 0.16);
+}
+
+.mt-range-input::-moz-range-track {
+  height: 6px;
+  background: transparent;
+  border: 0;
+}
+
+.mt-range-input::-moz-range-thumb {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 2.5px solid var(--cobalt);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.18);
+}
+
+/* Custom Carbon & Cobalt CheckField */
+.mt-check-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
+  padding: 6px 2px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-size: 14.5px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+}
+
+.mt-check-field-box {
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  border: 1.5px solid var(--border-strong);
+  background: var(--surface);
+  color: #FFFFFF;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background-color 140ms ease, border-color 140ms ease;
+}
+
+.mt-check-field.is-checked .mt-check-field-box {
+  background: var(--cobalt);
+  border-color: var(--cobalt);
+}
+
+.mt-check-field-icon {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.mt-check-field-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  line-height: 20px;
+}
+
 .mt-select-option.is-selected .mt-select-option-meta {
   color: var(--cobalt-ink);
   opacity: 0.8;

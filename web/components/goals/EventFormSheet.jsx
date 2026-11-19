@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Trash2 } from "lucide-react";
 import Sheet from "../Sheet.jsx";
-import { Pill } from "../UiPrimitives.jsx";
+import { DateField, Pill, TimeField } from "../UiPrimitives.jsx";
 import { EVENT_CATEGORIES } from "../../data/presets.js";
 import { todayISO } from "../../utils/date.js";
 
@@ -175,12 +175,12 @@ export default function EventFormSheet({
             <label className="mt-label" htmlFor="event-date-input">
               Дата
             </label>
-            <input
+            <DateField
               id="event-date-input"
-              type="date"
-              className="mt-input tabular"
+              compact
               value={eventDate}
-              onChange={(e) => setEventDate(e.target.value)}
+              onChange={setEventDate}
+              ariaLabel="Дата события"
             />
           </div>
 
@@ -188,12 +188,13 @@ export default function EventFormSheet({
             <label className="mt-label" htmlFor="event-time-input">
               Время
             </label>
-            <input
+            <TimeField
               id="event-time-input"
-              type="time"
-              className="mt-input tabular"
+              clearable
+              placeholder="Не указано"
               value={eventTime}
-              onChange={(e) => setEventTime(e.target.value)}
+              onChange={setEventTime}
+              ariaLabel="Время события"
             />
           </div>
         </div>

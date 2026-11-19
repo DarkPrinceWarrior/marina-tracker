@@ -457,13 +457,13 @@ async function auditState(
         }
       }
 
-      // 11. Open SelectField dropdown viewport bounds, internal clipping & option wrapping
+      // 11. Open SelectField / DateField / TimeField popover bounds, clipping & option wrapping
       let dropdownIssue = null;
       const openMenus = Array.from(
-        document.querySelectorAll('.mt-select-menu[role="listbox"]')
+        document.querySelectorAll('.mt-select-menu[role="listbox"], .mt-picker-popover[role="dialog"]')
       ).filter(visible);
       if (expectDD && openMenus.length === 0) {
-        dropdownIssue = "Expected open SelectField listbox but none is visible";
+        dropdownIssue = "Expected open SelectField/Picker popover but none is visible";
       } else if (openMenus.length > 0) {
         const menu = openMenus[openMenus.length - 1];
         const mr = menu.getBoundingClientRect();

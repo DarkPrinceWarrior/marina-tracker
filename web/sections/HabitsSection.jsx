@@ -20,23 +20,28 @@ export default function HabitsSection({
   selectedDate,
   todayDate,
   onSelectDate,
-  initialSubTab,
+  navRequest = null,
+  onConsumeNavRequest,
   notify,
   onDataChanged,
 }) {
   const effectiveToday = todayDate || todayISO();
   const activeDate = selectedDate || effectiveToday;
 
-  const [subTab, setSubTab] = useState(() => normalizeSubTab(initialSubTab));
+  const [subTab, setSubTab] = useState(() =>
+    normalizeSubTab(navRequest?.subTab),
+  );
   const [habitsSummary, setHabitsSummary] = useState(null);
   const [workoutsTodayCount, setWorkoutsTodayCount] = useState(0);
   const [createHabitTrigger, setCreateHabitTrigger] = useState(0);
 
   useEffect(() => {
-    if (initialSubTab) {
-      setSubTab(normalizeSubTab(initialSubTab));
+    if (!navRequest?.seq) return;
+    if (navRequest.subTab) {
+      setSubTab(normalizeSubTab(navRequest.subTab));
     }
-  }, [initialSubTab]);
+    onConsumeNavRequest?.(navRequest.seq);
+  }, [navRequest, onConsumeNavRequest]);
 
   return (
     <div className="mt-section" aria-label="Здоровье">
@@ -96,6 +101,7 @@ export default function HabitsSection({
           onDataChanged={onDataChanged}
           onSummaryChange={setHabitsSummary}
           createTrigger={createHabitTrigger}
+          onConsumeCreateTrigger={() => setCreateHabitTrigger(0)}
         />
       ) : null}
 

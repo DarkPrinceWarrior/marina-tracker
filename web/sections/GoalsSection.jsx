@@ -33,14 +33,16 @@ function resolveInitialSubTab(initialSubTab) {
 
 export default function GoalsSection({
   todayDate,
-  initialSubTab,
+  navRequest = null,
+  onConsumeNavRequest,
+  onNavigate,
   notify,
   onOpenYearReview,
   onDataChanged,
 }) {
   const activeToday = todayDate || todayISO();
   const [subTab, setSubTab] = useState(() =>
-    resolveInitialSubTab(initialSubTab),
+    resolveInitialSubTab(navRequest?.subTab),
   );
 
   const [goals, setGoals] = useState([]);
@@ -61,14 +63,20 @@ export default function GoalsSection({
   const [eventCreateSignal, setEventCreateSignal] = useState(0);
 
   useEffect(() => {
+    if (!navRequest?.seq) return;
     if (
-      initialSubTab === "calendar" ||
-      initialSubTab === "wishes" ||
-      initialSubTab === "goals"
+      navRequest.subTab === "calendar" ||
+      navRequest.subTab === "wishes" ||
+      navRequest.subTab === "goals"
     ) {
-      setSubTab(initialSubTab);
+      setSubTab(navRequest.subTab);
     }
-  }, [initialSubTab]);
+    if (navRequest.goalId) {
+      setSubTab("goals");
+      setDetailGoalId(navRequest.goalId);
+    }
+    onConsumeNavRequest?.(navRequest.seq);
+  }, [navRequest, onConsumeNavRequest]);
 
   const loadGoals = useCallback(async () => {
     try {
@@ -391,6 +399,7 @@ export default function GoalsSection({
           notify={notify}
           onDataChanged={onDataChanged}
           createSignal={wishCreateSignal}
+          onConsumeCreateSignal={() => setWishCreateSignal(0)}
         />
       ) : (
         <EventsCalendarTab
@@ -398,6 +407,7 @@ export default function GoalsSection({
           notify={notify}
           onDataChanged={onDataChanged}
           createSignal={eventCreateSignal}
+          onConsumeCreateSignal={() => setEventCreateSignal(0)}
         />
       )}
 
@@ -406,6 +416,14 @@ export default function GoalsSection({
         goal={detailGoal}
         onClose={() => setDetailGoalId(null)}
         onSelectGoal={(goalId) => setDetailGoalId(goalId)}
+        onOpenHabit={
+          onNavigate
+            ? () => {
+                setDetailGoalId(null);
+                onNavigate("habits", "habits");
+              }
+            : undefined
+        }
         onAddMiniGoal={(parentGoal) =>
           openNewGoalForm({
             horizon: "month",

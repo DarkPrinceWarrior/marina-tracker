@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Sparkles, CheckCircle2, AlertTriangle, TrendingUp } from "lucide-react";
 import Sheet from "../Sheet.jsx";
-import { Pill } from "../UiPrimitives.jsx";
+import { DateField, Pill, RangeField } from "../UiPrimitives.jsx";
 import { todayISO } from "../../utils/date.js";
 
 export const CHECKIN_FEELINGS = [
@@ -118,20 +118,14 @@ export default function GoalCheckinSheet({
             </span>
           </div>
 
-          <input
+          <RangeField
             id="checkin-progress-range"
-            type="range"
             min={0}
             max={100}
             step={1}
             value={progressPct}
-            onChange={(e) => setProgressPct(Number(e.target.value))}
-            style={{
-              width: "100%",
-              minHeight: "44px",
-              accentColor: "var(--cobalt)",
-              cursor: "pointer",
-            }}
+            ariaLabel="Текущий прогресс цели"
+            onChange={setProgressPct}
           />
 
           <div
@@ -211,12 +205,11 @@ export default function GoalCheckinSheet({
           <label className="mt-label" htmlFor="checkin-date-input">
             Дата чек-ина
           </label>
-          <input
+          <DateField
             id="checkin-date-input"
-            type="date"
-            className="mt-input tabular"
             value={checkinDate}
-            onChange={(e) => setCheckinDate(e.target.value)}
+            onChange={setCheckinDate}
+            ariaLabel="Дата чек-ина"
           />
         </div>
       </form>

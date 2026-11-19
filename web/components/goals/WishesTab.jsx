@@ -29,6 +29,7 @@ export default function WishesTab({
   notify,
   onDataChanged,
   createSignal = 0,
+  onConsumeCreateSignal,
 }) {
   const activeToday = todayDate || todayISO();
   const initialYear = parseISODate(activeToday).getFullYear();
@@ -64,8 +65,9 @@ export default function WishesTab({
     if (createSignal > 0) {
       setEditingWish(null);
       setSheetOpen(true);
+      onConsumeCreateSignal?.();
     }
-  }, [createSignal]);
+  }, [createSignal, onConsumeCreateSignal]);
 
   const categoryFilterOptions = useMemo(
     () => [

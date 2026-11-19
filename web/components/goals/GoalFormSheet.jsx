@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Plus, Trash2, Sparkles } from "lucide-react";
 import Sheet from "../Sheet.jsx";
-import { GroupList, ListRow, Pill, SelectField } from "../UiPrimitives.jsx";
+import { DateField, GroupList, ListRow, Pill, SelectField } from "../UiPrimitives.jsx";
 import {
   GOAL_SPHERES,
   GOAL_HORIZONS,
@@ -456,12 +456,11 @@ export default function GoalFormSheet({
           <label className="mt-label" htmlFor="goal-target-date">
             Целевая дата
           </label>
-          <input
+          <DateField
             id="goal-target-date"
-            type="date"
-            className="mt-input tabular"
             value={targetDate}
-            onChange={(e) => setTargetDate(e.target.value)}
+            onChange={setTargetDate}
+            ariaLabel="Целевая дата цели"
           />
         </div>
 

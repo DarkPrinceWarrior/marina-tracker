@@ -57,13 +57,14 @@ function recomputeChoreSummary(items) {
 export default function HomeSection({
   selectedDate,
   todayDate,
-  initialSubTab,
+  navRequest = null,
+  onConsumeNavRequest,
   notify,
   onDataChanged,
 }) {
   const activeDate = selectedDate || todayDate || todayISO();
   const [subTab, setSubTab] = useState(
-    initialSubTab === "shopping" ? "shopping" : "chores",
+    navRequest?.subTab === "shopping" ? "shopping" : "chores",
   );
 
   // Chores state
@@ -85,10 +86,12 @@ export default function HomeSection({
   const [householdCount, setHouseholdCount] = useState(0);
 
   useEffect(() => {
-    if (initialSubTab === "shopping" || initialSubTab === "chores") {
-      setSubTab(initialSubTab);
+    if (!navRequest?.seq) return;
+    if (navRequest.subTab === "shopping" || navRequest.subTab === "chores") {
+      setSubTab(navRequest.subTab);
     }
-  }, [initialSubTab]);
+    onConsumeNavRequest?.(navRequest.seq);
+  }, [navRequest, onConsumeNavRequest]);
 
   const loadChores = useCallback(async () => {
     try {

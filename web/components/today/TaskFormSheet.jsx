@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { ArrowRight, Clock, Target, Trash2 } from "lucide-react";
 import Sheet from "../Sheet.jsx";
-import { Pill, SelectField } from "../UiPrimitives.jsx";
+import { Pill, SelectField, TimeField } from "../UiPrimitives.jsx";
 import { TASK_PRIORITIES, TASK_SECTIONS } from "../../data/presets.js";
 import { formatRelativeDayRu } from "../../utils/date.js";
 
@@ -158,12 +158,13 @@ export default function TaskFormSheet({
             Время (необязательно)
           </label>
           <div className="mt-input-row">
-            <input
+            <TimeField
               id="today-task-time"
-              type="time"
-              className="mt-input tabular"
+              clearable
+              placeholder="Не указано"
               value={timeSlot}
-              onChange={(e) => setTimeSlot(e.target.value)}
+              onChange={setTimeSlot}
+              ariaLabel="Время задачи"
             />
             {timeSlot ? (
               <button

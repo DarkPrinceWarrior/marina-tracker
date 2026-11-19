@@ -237,6 +237,7 @@ export default function YearReviewSheet({
                 key: "streak",
                 label: "Серия",
                 value: `${metrics.bestHabit?.streak_days || 0} дн.`,
+                onClick: onNavigate ? () => jumpTo("habits", "habits") : undefined,
               },
               {
                 key: "cycles",
@@ -368,7 +369,15 @@ export default function YearReviewSheet({
                           ) : null}
                         </span>
                       }
-                      onClick={onNavigate ? () => jumpTo("goals") : undefined}
+                      onClick={
+                        onNavigate
+                          ? () =>
+                              jumpTo("goals", {
+                                subTab: "goals",
+                                goalId: goal.id,
+                              })
+                          : undefined
+                      }
                     />
                   );
                 })}
@@ -427,16 +436,28 @@ export default function YearReviewSheet({
                 meta={`Цель ${metrics.waterGoal} мл`}
                 trailing={
                   <span
-                    className="tabular"
-                    style={{ fontSize: "13.5px", fontWeight: 600 }}
+                    className="mt-row tabular"
+                    style={{ gap: "4px", fontSize: "13.5px", fontWeight: 600 }}
                   >
-                    {metrics.waterMl} мл
+                    <span>{metrics.waterMl} мл</span>
+                    {onNavigate ? (
+                      <ChevronRight size={15} color="var(--subtle)" />
+                    ) : null}
                   </span>
+                }
+                onClick={
+                  onNavigate ? () => jumpTo("habits", "habits") : undefined
                 }
               />
               <ListRow
                 title="Задачи и дом сегодня"
                 meta={`Задачи ${metrics.tasksDone}/${metrics.tasksTotal} · Дом ${metrics.choresDone}/${metrics.choresTotal}`}
+                trailing={
+                  onNavigate ? (
+                    <ChevronRight size={15} color="var(--subtle)" />
+                  ) : null
+                }
+                onClick={onNavigate ? () => jumpTo("today") : undefined}
               />
             </GroupList>
           </div>

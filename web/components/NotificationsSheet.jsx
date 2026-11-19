@@ -12,6 +12,7 @@ import {
   GroupList,
   ListRow,
   SelectField,
+  TimeField,
 } from "./UiPrimitives.jsx";
 import api from "../api.js";
 
@@ -566,13 +567,12 @@ export default function NotificationsSheet({
               meta="Утренние ритуалы"
               trailing={
                 <div className="push-schedule-controls">
-                  <input
-                    type="time"
-                    className="mt-time-compact tabular"
-                    aria-label="Время утреннего напоминания"
+                  <TimeField
+                    compact
+                    ariaLabel="Время утреннего напоминания"
                     disabled={scheduleDisabled || !settings.morning_enabled}
                     value={settings.morning_time}
-                    onChange={(e) => updateField("morning_time", e.target.value)}
+                    onChange={(val) => updateField("morning_time", val)}
                   />
                   <SwitchToggle
                     checked={settings.morning_enabled}
@@ -588,13 +588,12 @@ export default function NotificationsSheet({
               meta="Дневные ритуалы"
               trailing={
                 <div className="push-schedule-controls">
-                  <input
-                    type="time"
-                    className="mt-time-compact tabular"
-                    aria-label="Время дневного напоминания"
+                  <TimeField
+                    compact
+                    ariaLabel="Время дневного напоминания"
                     disabled={scheduleDisabled || !settings.afternoon_enabled}
                     value={settings.afternoon_time}
-                    onChange={(e) => updateField("afternoon_time", e.target.value)}
+                    onChange={(val) => updateField("afternoon_time", val)}
                   />
                   <SwitchToggle
                     checked={settings.afternoon_enabled}
@@ -610,13 +609,12 @@ export default function NotificationsSheet({
               meta="Ритуалы и итог"
               trailing={
                 <div className="push-schedule-controls">
-                  <input
-                    type="time"
-                    className="mt-time-compact tabular"
-                    aria-label="Время вечернего напоминания"
+                  <TimeField
+                    compact
+                    ariaLabel="Время вечернего напоминания"
                     disabled={scheduleDisabled || !settings.evening_enabled}
                     value={settings.evening_time}
-                    onChange={(e) => updateField("evening_time", e.target.value)}
+                    onChange={(val) => updateField("evening_time", val)}
                   />
                   <SwitchToggle
                     checked={settings.evening_enabled}
@@ -767,13 +765,12 @@ export default function NotificationsSheet({
                 <ListRow
                   title="Время обзора"
                   trailing={
-                    <input
-                      type="time"
-                      className="mt-time-compact tabular"
-                      aria-label="Время чек-ина по целям"
+                    <TimeField
+                      compact
+                      ariaLabel="Время чек-ина по целям"
                       disabled={scheduleDisabled}
                       value={settings.goals_time}
-                      onChange={(e) => updateField("goals_time", e.target.value)}
+                      onChange={(val) => updateField("goals_time", val)}
                     />
                   }
                 />
@@ -792,13 +789,12 @@ export default function NotificationsSheet({
               title="Начало тишины"
               meta="Вечерняя граница"
               trailing={
-                <input
-                  type="time"
-                  className="mt-time-compact tabular"
-                  aria-label="Начало тихих часов"
+                <TimeField
+                  compact
+                  ariaLabel="Начало тихих часов"
                   disabled={scheduleDisabled}
                   value={settings.quiet_start}
-                  onChange={(e) => updateField("quiet_start", e.target.value)}
+                  onChange={(val) => updateField("quiet_start", val)}
                 />
               }
             />
@@ -806,13 +802,12 @@ export default function NotificationsSheet({
               title="Окончание тишины"
               meta="Утреннее возобновление"
               trailing={
-                <input
-                  type="time"
-                  className="mt-time-compact tabular"
-                  aria-label="Окончание тихих часов"
+                <TimeField
+                  compact
+                  ariaLabel="Окончание тихих часов"
                   disabled={scheduleDisabled}
                   value={settings.quiet_end}
-                  onChange={(e) => updateField("quiet_end", e.target.value)}
+                  onChange={(val) => updateField("quiet_end", val)}
                 />
               }
             />

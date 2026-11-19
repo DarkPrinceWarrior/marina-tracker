@@ -20,6 +20,7 @@ import {
   ListRow,
   MetricStrip,
   Pill,
+  TimeField,
 } from "../UiPrimitives.jsx";
 import {
   WORKOUT_DURATIONS,
@@ -454,12 +455,11 @@ export default function WorkoutsTab({
                   <label className="mt-label" htmlFor="workout-time-input">
                     Время
                   </label>
-                  <input
+                  <TimeField
                     id="workout-time-input"
-                    type="time"
-                    className="mt-input tabular"
                     value={loggedAt}
-                    onChange={(e) => setLoggedAt(e.target.value)}
+                    onChange={setLoggedAt}
+                    ariaLabel="Время тренировки"
                   />
                 </div>
                 <div className="mt-field">

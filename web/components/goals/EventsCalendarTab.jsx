@@ -48,6 +48,7 @@ export default function EventsCalendarTab({
   notify,
   onDataChanged,
   createSignal = 0,
+  onConsumeCreateSignal,
 }) {
   const activeToday = todayDate || todayISO();
   const initialDateObj = parseISODate(activeToday);
@@ -91,8 +92,9 @@ export default function EventsCalendarTab({
     if (createSignal > 0) {
       setEditingEvent(null);
       setSheetOpen(true);
+      onConsumeCreateSignal?.();
     }
-  }, [createSignal]);
+  }, [createSignal, onConsumeCreateSignal]);
 
   const weeks = useMemo(
     () => getMonthMatrix(viewYear, viewMonth),
@@ -165,6 +167,17 @@ export default function EventsCalendarTab({
     return formatDateRu(selectedDate);
   }, [selectedDate]);
 
+  const isViewingToday =
+    selectedDate === activeToday &&
+    viewYear === initialDateObj.getFullYear() &&
+    viewMonth === initialDateObj.getMonth() + 1;
+
+  function handleJumpToToday() {
+    setSelectedDate(activeToday);
+    setViewYear(initialDateObj.getFullYear());
+    setViewMonth(initialDateObj.getMonth() + 1);
+  }
+
   return (
     <div className="mt-stack">
       {/* Monthly Calendar Card */}
@@ -188,6 +201,17 @@ export default function EventsCalendarTab({
             <ChevronRight size={18} />
           </button>
         </div>
+        {!isViewingToday ? (
+          <div className="mt-date-return-row" style={{ marginBottom: "8px" }}>
+            <button
+              type="button"
+              className="mt-pill mt-pill--cobalt"
+              onClick={handleJumpToToday}
+            >
+              Вернуться на сегодня
+            </button>
+          </div>
+        ) : null}
 
         <div className="events-cal-weekdays" aria-hidden="true">
           {WEEKDAY_SHORT_RU.map((wd) => (

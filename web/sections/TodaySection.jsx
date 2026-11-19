@@ -31,7 +31,8 @@ export default function TodaySection({
   todayDate = todayISO(),
   onSelectDate,
   onNavigate,
-  initialSubTab,
+  navRequest = null,
+  onConsumeNavRequest,
   notify,
   onOpenInstallGuide,
   onOpenYearReview,
@@ -56,17 +57,21 @@ export default function TodaySection({
 
   const [doneSheetOpen, setDoneSheetOpen] = useState(false);
   const [reflectionSheetOpen, setReflectionSheetOpen] = useState(false);
-  const [gratitudeSheetOpen, setGratitudeSheetOpen] = useState(
-    initialSubTab === "gratitude"
-  );
+  const [gratitudeSheetOpen, setGratitudeSheetOpen] = useState(false);
 
   const reqSeqRef = useRef(0);
 
   useEffect(() => {
-    if (initialSubTab === "gratitude") {
+    if (!navRequest?.seq) return;
+    if (navRequest.subTab === "gratitude") {
       setGratitudeSheetOpen(true);
+    } else if (navRequest.subTab === "reflection") {
+      setReflectionSheetOpen(true);
+    } else if (navRequest.subTab === "done") {
+      setDoneSheetOpen(true);
     }
-  }, [initialSubTab]);
+    onConsumeNavRequest?.(navRequest.seq);
+  }, [navRequest, onConsumeNavRequest]);
 
   useEffect(() => {
     if (typeof window === "undefined" || !window.matchMedia) return undefined;
@@ -439,6 +444,7 @@ export default function TodaySection({
             selectedDate={activeDate}
             todayDate={todayDate}
             notify={notify}
+            onNavigate={onNavigate}
             onSaveReflection={handleSaveReflection}
             onGratitudeChanged={() => {
               loadToday(activeDate, { silent: true });

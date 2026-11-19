@@ -10,6 +10,7 @@ import {
 import Sheet from "../Sheet.jsx";
 import PhotoPickerField from "./PhotoPickerField.jsx";
 import {
+  CheckField,
   EmptyState,
   GroupList,
   MetricStrip,
@@ -17,6 +18,7 @@ import {
   SegmentedControl,
   SelectField,
   StepperPill,
+  TimeField,
 } from "../UiPrimitives.jsx";
 import {
   MEAL_SLOTS,
@@ -982,12 +984,11 @@ export default function MealPickerSheet({
                 Во сколько съела
               </label>
               <div className="mt-input-row">
-                <input
+                <TimeField
                   id="meal-eaten-at"
-                  type="time"
-                  className="mt-input tabular"
                   value={eatenAt}
-                  onChange={(e) => setEatenAt(e.target.value)}
+                  onChange={setEatenAt}
+                  ariaLabel="Время приёма пищи"
                 />
                 <button
                   type="button"
@@ -1058,27 +1059,11 @@ export default function MealPickerSheet({
             </div>
 
             {sourceMode === "custom" && !isEditing && onSaveToMenu ? (
-              <label
-                className="mt-row"
-                style={{
-                  minHeight: "44px",
-                  cursor: "pointer",
-                  fontSize: "14px",
-                  color: "var(--ink-secondary)",
-                }}
-              >
-                <input
-                  type="checkbox"
-                  checked={saveCustomToMenu}
-                  onChange={(e) => setSaveCustomToMenu(e.target.checked)}
-                  style={{
-                    width: "20px",
-                    height: "20px",
-                    accentColor: "var(--cobalt)",
-                  }}
-                />
-                <span>Сохранить блюдо в «Меню»</span>
-              </label>
+              <CheckField
+                checked={saveCustomToMenu}
+                onChange={setSaveCustomToMenu}
+                label="Сохранить блюдо в «Меню»"
+              />
             ) : null}
           </div>
         )}

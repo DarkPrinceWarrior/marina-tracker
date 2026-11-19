@@ -48,6 +48,7 @@ export default function DailyAccomplishments({
   selectedDate,
   todayDate = todayISO(),
   notify,
+  onNavigate,
   onSaveReflection,
   onGratitudeChanged,
   doneSheetOpen = false,
@@ -446,20 +447,54 @@ export default function DailyAccomplishments({
                 subtitleClean.toLowerCase() !== domainLabel.toLowerCase()
                   ? `${domainLabel} · ${subtitleClean}`
                   : domainLabel;
+
+              const targetNav =
+                item.domain === "habit" ||
+                item.domain === "vitamin" ||
+                item.domain === "water"
+                  ? ["habits", "habits"]
+                  : item.domain === "workout"
+                    ? ["habits", "workouts"]
+                    : item.domain === "meal"
+                      ? ["nutrition", "ration"]
+                      : item.domain === "chore"
+                        ? ["home", "chores"]
+                        : null;
+
+              const handleOpenDomain =
+                targetNav && onNavigate
+                  ? () => {
+                      onCloseDoneSheet?.();
+                      onNavigate(targetNav[0], targetNav[1]);
+                    }
+                  : item.domain === "task"
+                    ? () => onCloseDoneSheet?.()
+                    : undefined;
+
               return (
                 <ListRow
                   key={item.id}
                   title={item.title}
                   meta={meta}
+                  onClick={handleOpenDomain}
                   trailing={
-                    item.time ? (
-                      <span
-                        className="muted tabular"
-                        style={{ fontSize: 12.5, fontWeight: 500 }}
-                      >
-                        {item.time}
-                      </span>
-                    ) : null
+                    <span className="mt-row" style={{ gap: 4 }}>
+                      {item.time ? (
+                        <span
+                          className="muted tabular"
+                          style={{ fontSize: 12.5, fontWeight: 500 }}
+                        >
+                          {item.time}
+                        </span>
+                      ) : null}
+                      {targetNav && onNavigate ? (
+                        <ChevronRight
+                          size={14}
+                          className="mt-list-row-chevron"
+                          aria-hidden="true"
+                        />
+                      ) : null}
+                    </span>
                   }
                 />
               );

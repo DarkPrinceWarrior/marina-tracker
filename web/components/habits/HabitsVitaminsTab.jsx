@@ -52,6 +52,7 @@ export default function HabitsVitaminsTab({
   onDataChanged,
   onSummaryChange,
   createTrigger = 0,
+  onConsumeCreateTrigger,
 }) {
   const [habits, setHabits] = useState([]);
   const [water, setWater] = useState({
@@ -311,6 +312,7 @@ export default function HabitsVitaminsTab({
   useEffect(() => {
     if (createTrigger > 0) {
       openCreateSheet("morning", filter === "vitamin" ? "vitamin" : "habit");
+      onConsumeCreateTrigger?.();
     }
   }, [createTrigger]); // eslint-disable-line react-hooks/exhaustive-deps
 

@@ -57,6 +57,7 @@ export default function GoalDetailSheet({
   goal,
   onClose,
   onSelectGoal,
+  onOpenHabit,
   onAddMiniGoal,
   onOpenCheckin,
   onEditGoal,
@@ -263,24 +264,51 @@ export default function GoalDetailSheet({
 
         {/* Linked Daily Habit */}
         {goal.linked_habit ? (
-          <div className="goal-habit-link">
-            <Link2 size={15} style={{ flexShrink: 0 }} />
-            <div style={{ flex: "1 1 auto", minWidth: 0 }}>
-              Привычка: <strong>{goal.linked_habit.title}</strong> ·{" "}
-              <span className="tabular">
-                {formatCountRu(
-                  goal.linked_habit.completions_30d,
-                  "выполнение",
-                  "выполнения",
-                  "выполнений",
-                )}{" "}
-                за 30 дн.
+          onOpenHabit ? (
+            <button
+              type="button"
+              className="goal-habit-link"
+              style={{ width: "100%", border: 0, textAlign: "left" }}
+              onClick={onOpenHabit}
+            >
+              <Link2 size={15} style={{ flexShrink: 0 }} />
+              <div style={{ flex: "1 1 auto", minWidth: 0 }}>
+                Привычка: <strong>{goal.linked_habit.title}</strong> ·{" "}
+                <span className="tabular">
+                  {formatCountRu(
+                    goal.linked_habit.completions_30d,
+                    "выполнение",
+                    "выполнения",
+                    "выполнений",
+                  )}{" "}
+                  за 30 дн.
+                </span>
+              </div>
+              <span className="tabular" style={{ fontWeight: 700, flexShrink: 0 }}>
+                {goal.linked_habit.rate_30d_pct}%
+              </span>
+              <ChevronRight size={15} style={{ flexShrink: 0 }} aria-hidden="true" />
+            </button>
+          ) : (
+            <div className="goal-habit-link">
+              <Link2 size={15} style={{ flexShrink: 0 }} />
+              <div style={{ flex: "1 1 auto", minWidth: 0 }}>
+                Привычка: <strong>{goal.linked_habit.title}</strong> ·{" "}
+                <span className="tabular">
+                  {formatCountRu(
+                    goal.linked_habit.completions_30d,
+                    "выполнение",
+                    "выполнения",
+                    "выполнений",
+                  )}{" "}
+                  за 30 дн.
+                </span>
+              </div>
+              <span className="tabular" style={{ fontWeight: 700 }}>
+                {goal.linked_habit.rate_30d_pct}%
               </span>
             </div>
-            <span className="tabular" style={{ fontWeight: 700 }}>
-              {goal.linked_habit.rate_30d_pct}%
-            </span>
-          </div>
+          )
         ) : null}
 
         {/* Linked 1-Month Mini-Goals (for big 1-year / 5-year goals) */}

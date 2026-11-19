@@ -120,16 +120,17 @@ export default function NutritionSection({
   selectedDate,
   todayDate = todayISO(),
   onSelectDate,
-  initialSubTab,
+  navRequest = null,
+  onConsumeNavRequest,
   notify,
   onDataChanged,
 }) {
   const activeDate = selectedDate || todayDate;
 
   const [activeSubTab, setActiveSubTab] = useState(
-    initialSubTab === "menu" || initialSubTab === "catalog"
+    navRequest?.subTab === "menu" || navRequest?.subTab === "catalog"
       ? "menu"
-      : initialSubTab === "shopping" || initialSubTab === "groceries"
+      : navRequest?.subTab === "shopping" || navRequest?.subTab === "groceries"
         ? "shopping"
         : "ration",
   );
@@ -159,25 +160,23 @@ export default function NutritionSection({
   const [pickerMenuItem, setPickerMenuItem] = useState(null);
 
   useEffect(() => {
-    if (!initialSubTab) return;
-    if (initialSubTab === "menu" || initialSubTab === "catalog") {
+    if (!navRequest?.seq) return;
+    const sub = navRequest.subTab;
+    if (sub === "menu" || sub === "catalog") {
       setActiveSubTab("menu");
-    } else if (initialSubTab === "shopping" || initialSubTab === "groceries") {
+    } else if (sub === "shopping" || sub === "groceries") {
       setActiveSubTab("shopping");
-    } else if (
-      initialSubTab === "ration" ||
-      initialSubTab === "diary" ||
-      initialSubTab === "day"
-    ) {
+    } else if (sub === "ration" || sub === "diary" || sub === "day") {
       setActiveSubTab("ration");
-    } else if (MEAL_SLOT_MAP[initialSubTab]) {
+    } else if (sub && MEAL_SLOT_MAP[sub]) {
       setActiveSubTab("ration");
-      setPickerSlot(initialSubTab);
+      setPickerSlot(sub);
       setEditingMeal(null);
       setPickerMenuItem(null);
       setPickerOpen(true);
     }
-  }, [initialSubTab]);
+    onConsumeNavRequest?.(navRequest.seq);
+  }, [navRequest, onConsumeNavRequest]);
 
   const loadDay = useCallback(
     async (dateISO = activeDate, { silent = false } = {}) => {

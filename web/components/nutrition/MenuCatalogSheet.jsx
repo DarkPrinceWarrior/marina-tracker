@@ -10,7 +10,13 @@ import {
   Trash2,
 } from "lucide-react";
 import Sheet from "../Sheet.jsx";
-import { EmptyState, GroupHeader, GroupList, Pill } from "../UiPrimitives.jsx";
+import {
+  CheckField,
+  EmptyState,
+  GroupHeader,
+  GroupList,
+  Pill,
+} from "../UiPrimitives.jsx";
 import DishPhotoCard from "./DishPhotoCard.jsx";
 import PhotoPickerField from "./PhotoPickerField.jsx";
 import { MEAL_SLOTS, MEAL_SLOT_MAP } from "../../data/presets.js";
@@ -475,32 +481,18 @@ export function MenuItemFormSheet({
           </div>
         </div>
 
-        <label
-          className="mt-row"
-          style={{
-            minHeight: "44px",
-            cursor: "pointer",
-            fontSize: "14.5px",
-            color: "var(--ink)",
-          }}
-        >
-          <input
-            type="checkbox"
-            checked={isFavorite}
-            onChange={(e) => setIsFavorite(e.target.checked)}
-            style={{
-              width: "20px",
-              height: "20px",
-              accentColor: "var(--cobalt)",
-            }}
-          />
-          <Star
-            size={15}
-            fill={isFavorite ? "var(--cobalt)" : "none"}
-            color={isFavorite ? "var(--cobalt)" : "var(--muted)"}
-          />
-          <span>Избранное блюдо</span>
-        </label>
+        <CheckField
+          checked={isFavorite}
+          onChange={setIsFavorite}
+          label="Избранное блюдо"
+          icon={
+            <Star
+              size={15}
+              fill={isFavorite ? "var(--cobalt)" : "none"}
+              color={isFavorite ? "var(--cobalt)" : "var(--muted)"}
+            />
+          }
+        />
 
         {error ? <div className="mt-form-error">{error}</div> : null}
       </form>

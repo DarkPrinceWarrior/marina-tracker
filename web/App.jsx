@@ -17,17 +17,19 @@ const VALID_TABS = new Set(["today", "habits", "nutrition", "home", "goals"]);
 
 function readInitialRouteFromUrl() {
   if (typeof window === "undefined") {
-    return { tab: "today", subTabs: {} };
+    return { tab: "today", navRequest: null };
   }
   try {
     const params = new URLSearchParams(window.location.search);
     const rawTab = params.get("tab") || "";
     const rawSub = params.get("sub") || "";
     const tab = VALID_TABS.has(rawTab) ? rawTab : "today";
-    const subTabs = rawSub ? { [tab]: rawSub } : {};
-    return { tab, subTabs };
+    const navRequest = rawSub
+      ? { seq: 1, tab, subTab: rawSub, goalId: null }
+      : null;
+    return { tab, navRequest };
   } catch {
-    return { tab: "today", subTabs: {} };
+    return { tab: "today", navRequest: null };
   }
 }
 
@@ -76,7 +78,10 @@ export default function App() {
   const [todayDate, setTodayDate] = useState(() => todayISO());
   const [selectedDate, setSelectedDate] = useState(() => todayISO());
   const [activeTab, setActiveTab] = useState(() => initialRoute.current.tab);
-  const [subTabs, setSubTabs] = useState(() => initialRoute.current.subTabs);
+  const [navRequest, setNavRequest] = useState(
+    () => initialRoute.current.navRequest
+  );
+  const navSeqRef = useRef(initialRoute.current.navRequest ? 1 : 0);
   const [installGuideOpen, setInstallGuideOpen] = useState(false);
   const [yearReviewOpen, setYearReviewOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -191,22 +196,41 @@ export default function App() {
     refreshBadges();
   }, [refreshBadges]);
 
+  const consumeNavRequest = useCallback((seq) => {
+    setNavRequest((curr) => (curr && curr.seq === seq ? null : curr));
+  }, []);
+
   const handleSelectTab = useCallback((tab) => {
     if (!VALID_TABS.has(tab)) return;
-    setActiveTab(tab);
-    window.scrollTo(0, 0);
+    setNavRequest(null);
+    setActiveTab((prev) => {
+      if (prev === tab) {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        return prev;
+      }
+      window.scrollTo(0, 0);
+      return tab;
+    });
   }, []);
 
   const handleNavigate = useCallback((tab, subTabOrOpts) => {
     if (!VALID_TABS.has(tab)) return;
+    const isObj = subTabOrOpts && typeof subTabOrOpts === "object";
     const subTab =
       typeof subTabOrOpts === "string"
         ? subTabOrOpts
-        : subTabOrOpts?.subTab || null;
-    if (subTab) {
-      setSubTabs((prev) => ({ ...prev, [tab]: subTab }));
+        : isObj
+          ? subTabOrOpts.subTab || null
+          : null;
+    const goalId = isObj && subTabOrOpts.goalId ? subTabOrOpts.goalId : null;
+
+    if (subTab || goalId) {
+      const seq = ++navSeqRef.current;
+      setNavRequest({ seq, tab, subTab, goalId });
+    } else {
+      setNavRequest(null);
     }
-    if (subTabOrOpts && typeof subTabOrOpts === "object" && subTabOrOpts.date) {
+    if (isObj && subTabOrOpts.date) {
       setSelectedDate(subTabOrOpts.date);
     }
     setActiveTab(tab);
@@ -275,25 +299,39 @@ export default function App() {
     <div className="app-shell">
       <main className="app-main">
         {activeTab === "today" && (
-          <TodaySection {...commonProps} initialSubTab={subTabs.today || null} />
+          <TodaySection
+            {...commonProps}
+            navRequest={navRequest?.tab === "today" ? navRequest : null}
+            onConsumeNavRequest={consumeNavRequest}
+          />
         )}
         {activeTab === "habits" && (
           <HabitsSection
             {...commonProps}
-            initialSubTab={subTabs.habits || null}
+            navRequest={navRequest?.tab === "habits" ? navRequest : null}
+            onConsumeNavRequest={consumeNavRequest}
           />
         )}
         {activeTab === "nutrition" && (
           <NutritionSection
             {...commonProps}
-            initialSubTab={subTabs.nutrition || null}
+            navRequest={navRequest?.tab === "nutrition" ? navRequest : null}
+            onConsumeNavRequest={consumeNavRequest}
           />
         )}
         {activeTab === "home" && (
-          <HomeSection {...commonProps} initialSubTab={subTabs.home || null} />
+          <HomeSection
+            {...commonProps}
+            navRequest={navRequest?.tab === "home" ? navRequest : null}
+            onConsumeNavRequest={consumeNavRequest}
+          />
         )}
         {activeTab === "goals" && (
-          <GoalsSection {...commonProps} initialSubTab={subTabs.goals || null} />
+          <GoalsSection
+            {...commonProps}
+            navRequest={navRequest?.tab === "goals" ? navRequest : null}
+            onConsumeNavRequest={consumeNavRequest}
+          />
         )}
       </main>
 
