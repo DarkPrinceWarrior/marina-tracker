@@ -1,9 +1,9 @@
 .git
 .venv
 node_modules
-dist
-data
-artifacts
+/dist
+/data
+/artifacts
 __pycache__
 **/__pycache__
 .pytest_cache
