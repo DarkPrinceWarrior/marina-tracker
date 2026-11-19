@@ -2,9 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
   Check,
   Clock,
-  Flame,
   Search,
-  Sparkles,
   Star,
   Trash2,
   UtensilsCrossed,
@@ -12,6 +10,8 @@ import {
 import Sheet from "../Sheet.jsx";
 import {
   EmptyState,
+  GroupList,
+  MetricStrip,
   Pill,
   SegmentedControl,
   StepperPill,
@@ -123,7 +123,6 @@ export default function MealPickerSheet({
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState("");
 
-  // Base reference for smooth scaling even on custom/edited entries
   const [baseRef, setBaseRef] = useState({
     amountValue: 1,
     amountUnit: "порция",
@@ -220,7 +219,6 @@ export default function MealPickerSheet({
       return;
     }
 
-    // Fresh create flow
     const slot = initialSlot || "breakfast";
     setMealSlot(slot);
     setSourceMode("menu");
@@ -260,7 +258,11 @@ export default function MealPickerSheet({
       } else if (menuFilter === "favorites") {
         if (!item.is_favorite) return false;
       } else if (menuFilter === "slot") {
-        if (item.meal_slot && item.meal_slot !== "any" && item.meal_slot !== mealSlot) {
+        if (
+          item.meal_slot &&
+          item.meal_slot !== "any" &&
+          item.meal_slot !== mealSlot
+        ) {
           return false;
         }
       }
@@ -438,9 +440,13 @@ export default function MealPickerSheet({
         ? Math.min(10000, parsedAmount)
         : 1;
     const parsedGrams =
-      grams === "" ? null : Math.min(10000, Math.max(0, Math.round(Number(grams))));
+      grams === ""
+        ? null
+        : Math.min(10000, Math.max(0, Math.round(Number(grams))));
     const parsedKcal =
-      kcal === "" ? null : Math.min(15000, Math.max(0, Math.round(Number(kcal))));
+      kcal === ""
+        ? null
+        : Math.min(15000, Math.max(0, Math.round(Number(kcal))));
     const cleanTime = (eatenAt || nowTimeHHMM()).trim().slice(0, 5);
 
     setSubmitting(true);
@@ -448,7 +454,12 @@ export default function MealPickerSheet({
     try {
       let linkedMenuId = selectedMenuItem?.id ?? null;
 
-      if (sourceMode === "custom" && saveCustomToMenu && !isEditing && onSaveToMenu) {
+      if (
+        sourceMode === "custom" &&
+        saveCustomToMenu &&
+        !isEditing &&
+        onSaveToMenu
+      ) {
         try {
           const created = await onSaveToMenu({
             name: cleanName,
@@ -461,7 +472,7 @@ export default function MealPickerSheet({
           });
           if (created?.id) linkedMenuId = created.id;
         } catch {
-          // Saving to catalog is optional; keep logging the meal
+          // Optional catalog save failure should not block meal logging
         }
       }
 
@@ -473,7 +484,9 @@ export default function MealPickerSheet({
         amount_value: safeAmount,
         amount_unit: amountUnit || "порция",
         grams:
-          parsedGrams !== null && Number.isFinite(parsedGrams) && parsedGrams >= 0
+          parsedGrams !== null &&
+          Number.isFinite(parsedGrams) &&
+          parsedGrams >= 0
             ? parsedGrams
             : null,
         eaten_at: cleanTime,
@@ -510,7 +523,10 @@ export default function MealPickerSheet({
 
   const slotLabel = MEAL_SLOT_MAP[mealSlot]?.label || "Приём пищи";
   const showDetailForm =
-    sourceMode === "custom" || Boolean(selectedMenuItem) || isEditing || !showCatalogList;
+    sourceMode === "custom" ||
+    Boolean(selectedMenuItem) ||
+    isEditing ||
+    !showCatalogList;
 
   const isPresetActive = (preset) => {
     if (preset.mode === "grams") {
@@ -525,12 +541,7 @@ export default function MealPickerSheet({
     <Sheet
       open={open}
       onClose={onClose}
-      title={isEditing ? "Изменить приём пищи" : `Добавить · ${slotLabel}`}
-      subtitle={
-        isEditing
-          ? "Уточните блюдо, порцию или время"
-          : "Выберите из меню или запишите своё блюдо"
-      }
+      title={isEditing ? "Редактировать блюдо" : `Добавить · ${slotLabel}`}
       footer={
         <div className="mt-row" style={{ width: "100%" }}>
           {isEditing && onDeleteMeal ? (
@@ -547,7 +558,6 @@ export default function MealPickerSheet({
           <button
             type="button"
             className="mt-btn mt-btn--primary mt-btn--wide"
-            data-accent="nutrition"
             disabled={submitting || deleting || !dishName.trim()}
             onClick={handleSubmit}
           >
@@ -556,7 +566,7 @@ export default function MealPickerSheet({
               {submitting
                 ? "Сохраняем..."
                 : isEditing
-                  ? "Сохранить изменения"
+                  ? "Сохранить"
                   : completed
                     ? "Записать в рацион"
                     : "Добавить в план"}
@@ -567,25 +577,22 @@ export default function MealPickerSheet({
     >
       <form className="mt-stack" onSubmit={handleSubmit}>
         {/* 1. Meal slot selector */}
-        <div className="mt-field">
-          <span className="mt-label">Приём пищи</span>
-          <div className="mt-chip-row" role="group" aria-label="Приём пищи">
-            {MEAL_SLOTS.map((slot) => (
-              <Pill
-                key={slot.key}
-                tone="nutrition"
-                active={mealSlot === slot.key}
-                onClick={() => {
-                  setMealSlot(slot.key);
-                  if (!isEditing && !selectedMenuItem) {
-                    setEatenAt(slot.defaultTime);
-                  }
-                }}
-              >
-                {slot.label}
-              </Pill>
-            ))}
-          </div>
+        <div className="mt-chip-row" role="group" aria-label="Приём пищи">
+          {MEAL_SLOTS.map((slot) => (
+            <Pill
+              key={slot.key}
+              tone="cobalt"
+              active={mealSlot === slot.key}
+              onClick={() => {
+                setMealSlot(slot.key);
+                if (!isEditing && !selectedMenuItem) {
+                  setEatenAt(slot.defaultTime);
+                }
+              }}
+            >
+              {slot.label}
+            </Pill>
+          ))}
         </div>
 
         {/* 2. Mode switch: From Menu vs Custom Dish */}
@@ -600,9 +607,8 @@ export default function MealPickerSheet({
               setShowCatalogList(false);
             }
           }}
-          accent="nutrition"
           options={[
-            { value: "menu", label: "Из меню блюд", count: menuItems.length },
+            { value: "menu", label: "Из меню", count: menuItems.length },
             { value: "custom", label: "Своё блюдо" },
           ]}
         />
@@ -611,75 +617,70 @@ export default function MealPickerSheet({
         {sourceMode === "menu" && (
           <div className="mt-stack mt-stack--sm">
             {selectedMenuItem && !showCatalogList ? (
-              <div
-                className="mt-card mt-card--compact mt-card--tinted"
-                data-accent="nutrition"
-              >
-                <div className="mt-row mt-row--between" style={{ alignItems: "flex-start" }}>
-                  <div className="mt-stack mt-stack--xs" style={{ flex: 1 }}>
-                    <span className="mt-eyebrow" style={{ color: "var(--nutrition-ink)" }}>
-                      Выбрано из меню
+              <GroupList>
+                <div className="mt-list-row">
+                  <div className="mt-list-body">
+                    <span className="mt-list-title">{selectedMenuItem.name}</span>
+                    <span className="mt-list-meta tabular">
+                      {[
+                        selectedMenuItem.default_grams
+                          ? `${selectedMenuItem.default_grams} г`
+                          : null,
+                        selectedMenuItem.default_portion || null,
+                        selectedMenuItem.kcal
+                          ? `${selectedMenuItem.kcal} ккал`
+                          : null,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
                     </span>
-                    <strong className="mt-card-title">{selectedMenuItem.name}</strong>
-                    <div className="mt-row mt-row--wrap" style={{ gap: "6px" }}>
-                      {selectedMenuItem.default_grams ? (
-                        <span className="nutrition-amount-badge">
-                          база {selectedMenuItem.default_grams} г
-                        </span>
-                      ) : null}
-                      {selectedMenuItem.kcal ? (
-                        <span className="nutrition-kcal-badge">
-                          {selectedMenuItem.kcal} ккал
-                        </span>
-                      ) : null}
-                    </div>
                   </div>
-                  <button
-                    type="button"
-                    className="mt-btn mt-btn--secondary mt-btn--sm"
-                    onClick={() => setShowCatalogList(true)}
-                  >
-                    Другое
-                  </button>
+                  <div className="mt-list-trailing">
+                    <button
+                      type="button"
+                      className="mt-btn mt-btn--secondary mt-btn--sm"
+                      onClick={() => setShowCatalogList(true)}
+                    >
+                      Другое
+                    </button>
+                  </div>
                 </div>
-              </div>
+              </GroupList>
             ) : (
               <div className="mt-stack mt-stack--sm">
-                <div className="mt-field">
-                  <div style={{ position: "relative" }}>
-                    <Search
-                      size={17}
-                      aria-hidden="true"
-                      style={{
-                        position: "absolute",
-                        left: "13px",
-                        top: "50%",
-                        transform: "translateY(-50%)",
-                        color: "var(--subtle)",
-                        pointerEvents: "none",
-                      }}
-                    />
-                    <input
-                      type="search"
-                      className="mt-input"
-                      style={{ paddingLeft: "38px" }}
-                      placeholder="Поиск: овсянка, лосось, суп..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                    />
-                  </div>
+                <div style={{ position: "relative" }}>
+                  <Search
+                    size={16}
+                    aria-hidden="true"
+                    style={{
+                      position: "absolute",
+                      left: "13px",
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      color: "var(--muted)",
+                      pointerEvents: "none",
+                    }}
+                  />
+                  <input
+                    type="search"
+                    className="mt-input"
+                    style={{ paddingLeft: "38px" }}
+                    placeholder="Поиск: овсянка, лосось, суп..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
                 </div>
 
                 <div className="mt-chip-row">
                   <Pill
-                    tone="nutrition"
+                    tone="cobalt"
                     active={menuFilter === "slot"}
                     onClick={() => setMenuFilter("slot")}
                   >
                     На {slotLabel.toLowerCase()}
                   </Pill>
                   <Pill
-                    tone="nutrition"
+                    tone="cobalt"
                     active={menuFilter === "favorites"}
                     icon={<Star size={13} />}
                     onClick={() => setMenuFilter("favorites")}
@@ -687,7 +688,7 @@ export default function MealPickerSheet({
                     Избранное
                   </Pill>
                   <Pill
-                    tone="nutrition"
+                    tone="cobalt"
                     active={menuFilter === "all"}
                     onClick={() => setMenuFilter("all")}
                   >
@@ -697,14 +698,13 @@ export default function MealPickerSheet({
 
                 {filteredMenu.length === 0 ? (
                   <EmptyState
-                    icon={<UtensilsCrossed size={22} />}
+                    icon={<UtensilsCrossed size={20} />}
                     title="В меню не нашлось"
-                    description="Можно переключить фильтр на «Всё меню» или записать своё блюдо."
+                    description="Переключите фильтр на «Всё меню» или запишите своё блюдо."
                     action={
                       <button
                         type="button"
                         className="mt-btn mt-btn--soft mt-btn--sm"
-                        data-accent="nutrition"
                         onClick={() => {
                           setSourceMode("custom");
                           if (searchQuery.trim()) setDishName(searchQuery.trim());
@@ -715,89 +715,82 @@ export default function MealPickerSheet({
                     }
                   />
                 ) : (
-                  <div
-                    className="mt-stack"
-                    style={{
-                      maxHeight: "300px",
-                      overflowY: "auto",
-                      padding: "4px 2px",
-                      gap: "10px",
-                      WebkitOverflowScrolling: "touch",
-                    }}
+                  <GroupList
+                    className="nutrition-picker-list"
                   >
-                    {filteredMenu.map((item) => {
-                      const isChosen = selectedMenuItem?.id === item.id;
-                      return (
-                        <button
-                          key={item.id}
-                          type="button"
-                          className="menu-catalog-item"
-                          style={{
-                            width: "100%",
-                            flexShrink: 0,
-                            padding: "12px 14px",
-                            textAlign: "left",
-                            borderColor: isChosen
-                              ? "var(--nutrition)"
-                              : undefined,
-                            background: isChosen
-                              ? "var(--nutrition-soft)"
-                              : undefined,
-                            minHeight: "64px",
-                          }}
-                          onClick={() => handleSelectMenuDish(item)}
-                        >
-                          <div className="mt-stack mt-stack--xs" style={{ flex: 1 }}>
-                            <span
-                              style={{
-                                fontSize: "14.5px",
-                                lineHeight: "20px",
-                                fontWeight: 600,
-                                color: "var(--ink)",
-                                overflowWrap: "anywhere",
-                              }}
-                            >
-                              {item.name}
-                              {item.is_favorite ? (
-                                <Star
-                                  size={13}
-                                  fill="var(--nutrition)"
-                                  color="var(--nutrition)"
-                                  aria-label="Избранное"
-                                  style={{
-                                    display: "inline-block",
-                                    verticalAlign: "-2px",
-                                    marginLeft: "5px",
-                                  }}
-                                />
-                              ) : null}
-                            </span>
-                            <div className="mt-row mt-row--wrap" style={{ gap: "6px" }}>
-                              <span className="nutrition-amount-badge">
-                                {item.default_grams
-                                  ? `${item.default_grams} г`
-                                  : item.default_portion || "1 порция"}
-                                {item.default_grams && item.default_portion
-                                  ? ` · ${item.default_portion}`
-                                  : ""}
+                    <div
+                      style={{
+                        maxHeight: "280px",
+                        overflowY: "auto",
+                        WebkitOverflowScrolling: "touch",
+                      }}
+                    >
+                      {filteredMenu.map((item, idx) => {
+                        const isChosen = selectedMenuItem?.id === item.id;
+                        const metaText = [
+                          item.default_grams
+                            ? `${item.default_grams} г`
+                            : null,
+                          item.default_portion || null,
+                          item.kcal ? `${item.kcal} ккал` : null,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ");
+                        return (
+                          <button
+                            key={item.id}
+                            type="button"
+                            className="mt-list-row mt-list-row--clickable"
+                            style={{
+                              width: "100%",
+                              borderTop:
+                                idx > 0
+                                  ? "1px solid var(--divider, var(--border-subtle))"
+                                  : "none",
+                              background: isChosen
+                                ? "var(--cobalt-soft)"
+                                : "transparent",
+                            }}
+                            onClick={() => handleSelectMenuDish(item)}
+                          >
+                            <span className="mt-list-body">
+                              <span className="mt-list-title">
+                                {item.name}
+                                {item.is_favorite ? (
+                                  <Star
+                                    size={12}
+                                    fill="var(--cobalt)"
+                                    color="var(--cobalt)"
+                                    aria-label="Избранное"
+                                    style={{
+                                      display: "inline-block",
+                                      verticalAlign: "-1px",
+                                      marginLeft: "5px",
+                                    }}
+                                  />
+                                ) : null}
                               </span>
-                              {item.kcal ? (
-                                <span className="nutrition-kcal-badge">
-                                  {item.kcal} ккал
+                              {metaText ? (
+                                <span className="mt-list-meta tabular">
+                                  {metaText}
                                 </span>
                               ) : null}
-                            </div>
-                          </div>
-                          <span
-                            className="mt-pill mt-pill--nutrition"
-                            style={{ flexShrink: 0 }}
-                          >
-                            Выбрать
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
+                            </span>
+                            <span
+                              className="mt-list-trailing"
+                              style={{
+                                fontSize: "13px",
+                                fontWeight: 600,
+                                color: "var(--cobalt)",
+                              }}
+                            >
+                              Выбрать
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </GroupList>
                 )}
               </div>
             )}
@@ -809,13 +802,13 @@ export default function MealPickerSheet({
           <div className="mt-stack">
             <div className="mt-field">
               <label className="mt-label" htmlFor="meal-dish-name">
-                Что именно съела
+                Что съела
               </label>
               <input
                 id="meal-dish-name"
                 type="text"
                 className="mt-input"
-                placeholder="Например: Скрэмбл с авокадо и тостом"
+                placeholder="Например: скрэмбл с авокадо"
                 value={dishName}
                 onChange={(e) => setDishName(e.target.value)}
                 required
@@ -823,14 +816,9 @@ export default function MealPickerSheet({
             </div>
 
             {/* Portion controls */}
-            <div
-              className="mt-card mt-card--compact"
-              style={{ background: "var(--canvas)", boxShadow: "none" }}
-            >
+            <div className="mt-stack mt-stack--sm">
               <div className="mt-row mt-row--between">
-                <span className="mt-label" style={{ color: "var(--ink)" }}>
-                  Сколько съела
-                </span>
+                <span className="mt-label">Сколько съела</span>
                 <StepperPill
                   value={amountValue || "0"}
                   unit={amountUnit}
@@ -842,12 +830,11 @@ export default function MealPickerSheet({
                 />
               </div>
 
-              {/* Quick portion presets */}
-              <div className="portion-preset-row">
+              <div className="mt-chip-row">
                 {PORTION_PRESETS.map((preset) => (
                   <Pill
                     key={preset.key}
-                    tone="nutrition"
+                    tone="cobalt"
                     active={isPresetActive(preset)}
                     onClick={() => handleApplyPortionPreset(preset)}
                   >
@@ -856,7 +843,6 @@ export default function MealPickerSheet({
                 ))}
               </div>
 
-              {/* Direct numeric amount + unit selector */}
               <div className="mt-form-grid">
                 <div className="mt-field">
                   <label className="mt-label" htmlFor="meal-amount-val">
@@ -899,7 +885,6 @@ export default function MealPickerSheet({
                 </div>
               </div>
 
-              {/* Live-scaled grams & kcal */}
               <div className="mt-form-grid">
                 <div className="mt-field">
                   <label className="mt-label" htmlFor="meal-grams">
@@ -933,25 +918,29 @@ export default function MealPickerSheet({
                 </div>
               </div>
 
-              {/* Live scaled macros when menu item linked */}
               {scaledMacros &&
               (scaledMacros.protein > 0 ||
                 scaledMacros.fat > 0 ||
                 scaledMacros.carbs > 0) ? (
-                <div className="nutrition-macros-row">
-                  <div className="nutrition-macro-pill">
-                    <span>Белки</span>
-                    <strong>{scaledMacros.protein} г</strong>
-                  </div>
-                  <div className="nutrition-macro-pill">
-                    <span>Жиры</span>
-                    <strong>{scaledMacros.fat} г</strong>
-                  </div>
-                  <div className="nutrition-macro-pill">
-                    <span>Углеводы</span>
-                    <strong>{scaledMacros.carbs} г</strong>
-                  </div>
-                </div>
+                <MetricStrip
+                  items={[
+                    {
+                      key: "p",
+                      value: `${scaledMacros.protein} г`,
+                      label: "Белки",
+                    },
+                    {
+                      key: "f",
+                      value: `${scaledMacros.fat} г`,
+                      label: "Жиры",
+                    },
+                    {
+                      key: "c",
+                      value: `${scaledMacros.carbs} г`,
+                      label: "Углеводы",
+                    },
+                  ]}
+                />
               ) : null}
             </div>
 
@@ -971,7 +960,6 @@ export default function MealPickerSheet({
                 <button
                   type="button"
                   className="mt-btn mt-btn--soft"
-                  data-accent="nutrition"
                   onClick={() => setEatenAt(nowTimeHHMM())}
                 >
                   <Clock size={16} />
@@ -982,7 +970,7 @@ export default function MealPickerSheet({
                 {slotQuickTimes.map((t) => (
                   <Pill
                     key={t}
-                    tone="nutrition"
+                    tone="cobalt"
                     active={eatenAt === t}
                     onClick={() => setEatenAt(t)}
                   >
@@ -995,38 +983,20 @@ export default function MealPickerSheet({
             {/* Eaten vs Planned status */}
             <div className="mt-field">
               <span className="mt-label">Статус</span>
-              <div className="mt-grid-2">
-                <button
-                  type="button"
-                  className={`mt-btn mt-btn--sm ${
-                    completed ? "mt-btn--soft" : "mt-btn--secondary"
-                  }`}
-                  data-accent="habits"
-                  aria-pressed={completed}
-                  onClick={() => setCompleted(true)}
-                >
-                  <Check size={16} />
-                  <span>Уже съела</span>
-                </button>
-                <button
-                  type="button"
-                  className={`mt-btn mt-btn--sm ${
-                    !completed ? "mt-btn--soft" : "mt-btn--secondary"
-                  }`}
-                  data-accent="nutrition"
-                  aria-pressed={!completed}
-                  onClick={() => setCompleted(false)}
-                >
-                  <Flame size={16} />
-                  <span>В плане</span>
-                </button>
-              </div>
+              <SegmentedControl
+                value={completed ? "eaten" : "planned"}
+                onChange={(val) => setCompleted(val === "eaten")}
+                options={[
+                  { value: "eaten", label: "Уже съела" },
+                  { value: "planned", label: "В плане" },
+                ]}
+              />
             </div>
 
             {/* Optional Note + quick chips */}
             <div className="mt-field">
               <label className="mt-label" htmlFor="meal-note">
-                Заметка (по желанию)
+                Заметка
               </label>
               <input
                 id="meal-note"
@@ -1044,7 +1014,7 @@ export default function MealPickerSheet({
                   return (
                     <Pill
                       key={chip}
-                      tone="neutral"
+                      tone="cobalt"
                       active={active}
                       onClick={() => handleToggleQuickNote(chip)}
                     >
@@ -1055,7 +1025,6 @@ export default function MealPickerSheet({
               </div>
             </div>
 
-            {/* Optional save custom dish to personal menu */}
             {sourceMode === "custom" && !isEditing && onSaveToMenu ? (
               <label
                 className="mt-row"
@@ -1070,10 +1039,13 @@ export default function MealPickerSheet({
                   type="checkbox"
                   checked={saveCustomToMenu}
                   onChange={(e) => setSaveCustomToMenu(e.target.checked)}
-                  style={{ width: "20px", height: "20px", accentColor: "var(--nutrition)" }}
+                  style={{
+                    width: "20px",
+                    height: "20px",
+                    accentColor: "var(--cobalt)",
+                  }}
                 />
-                <Sparkles size={15} color="var(--nutrition)" />
-                <span>Также сохранить блюдо в моё «Меню блюд»</span>
+                <span>Сохранить блюдо в «Меню»</span>
               </label>
             ) : null}
           </div>

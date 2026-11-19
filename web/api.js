@@ -19,6 +19,38 @@ function buildQuery(params = {}) {
   return qs ? `?${qs}` : "";
 }
 
+function localizeErrorMessage(raw, status) {
+  const text = String(raw || "").trim();
+  if (!text) {
+    if (status === 404) return "Запись не найдена.";
+    if (status === 422) return "Проверьте заполненные поля.";
+    if (status >= 500) return "Временная ошибка сервера. Попробуйте ещё раз.";
+    return "Не удалось выполнить запрос.";
+  }
+
+  const lower = text.toLowerCase();
+  if (
+    lower.includes("failed to fetch") ||
+    lower.includes("networkerror") ||
+    lower.includes("load failed")
+  ) {
+    return "Не удалось связаться с сервером. Проверьте подключение.";
+  }
+  if (lower === "not found") return "Запись не найдена.";
+  if (lower === "internal server error") {
+    return "Временная ошибка сервера. Попробуйте ещё раз.";
+  }
+  if (
+    lower.includes("field required") ||
+    lower.includes("string should have") ||
+    lower.includes("input should be") ||
+    lower.includes("validation error")
+  ) {
+    return "Проверьте корректность введённых данных.";
+  }
+  return text;
+}
+
 async function request(path, { method = "GET", body, signal } = {}) {
   const headers = { Accept: "application/json" };
   const init = { method, headers, signal };
@@ -51,11 +83,11 @@ async function request(path, { method = "GET", body, signal } = {}) {
     const detail =
       (data && typeof data === "object" && (data.detail || data.message)) ||
       (typeof data === "string" && data) ||
-      `Ошибка запроса (${response.status})`;
-    const message = Array.isArray(detail)
+      "";
+    const rawMessage = Array.isArray(detail)
       ? detail.map((d) => d.msg || String(d)).join("; ")
-      : String(detail);
-    throw new ApiError(message, {
+      : String(detail || "");
+    throw new ApiError(localizeErrorMessage(rawMessage, response.status), {
       status: response.status,
       detail,
       data,

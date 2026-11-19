@@ -1,37 +1,20 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  Activity,
-  CheckCircle2,
-  ChevronRight,
-  Droplets,
-  Flame,
-  HeartPulse,
-  Home,
-  Pill as CapsuleIcon,
-  Smartphone,
-  Target,
-  UtensilsCrossed,
-} from "lucide-react";
+import { Award, Smartphone } from "lucide-react";
 import api, { withOptimistic } from "../api.js";
 import {
   DateStrip,
-  Pill,
-  ProgressRing,
-  SectionHeader,
+  MetricStrip,
+  PageHeader,
 } from "../components/UiPrimitives.jsx";
 import DailyTaskPlanner from "../components/today/DailyTaskPlanner.jsx";
 import DailyAccomplishments from "../components/today/DailyAccomplishments.jsx";
 import TaskFormSheet from "../components/today/TaskFormSheet.jsx";
 import {
-  APP_BRAND,
-  CYCLE_PHASES,
-  formatCountRu,
-  getGreetingByHour,
-} from "../data/presets.js";
-import {
+  WEEKDAY_SHORT_RU,
   addDays,
-  formatDateFullRu,
+  formatDateShortRu,
   formatRelativeDayRu,
+  getWeekdayIndex,
   todayISO,
 } from "../utils/date.js";
 
@@ -41,13 +24,6 @@ function detectStandaloneMode() {
     window.matchMedia?.("(display-mode: standalone)")?.matches ||
       window.navigator?.standalone === true
   );
-}
-
-function getGreetingFromPeriod(period) {
-  if (period === "morning") return `Доброе утро, ${APP_BRAND.ownerName}`;
-  if (period === "afternoon") return `Добрый день, ${APP_BRAND.ownerName}`;
-  if (period === "evening") return `Добрый вечер, ${APP_BRAND.ownerName}`;
-  return getGreetingByHour();
 }
 
 export default function TodaySection({
@@ -69,12 +45,14 @@ export default function TodaySection({
   const [isStandalone, setIsStandalone] = useState(detectStandaloneMode);
 
   const [quickWaterBusy, setQuickWaterBusy] = useState(false);
-  const [quickHabitBusy, setQuickHabitBusy] = useState(false);
   const [busyTaskId, setBusyTaskId] = useState(null);
 
   const [taskSheetOpen, setTaskSheetOpen] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
   const [savingTask, setSavingTask] = useState(false);
+
+  const [doneSheetOpen, setDoneSheetOpen] = useState(false);
+  const [reflectionSheetOpen, setReflectionSheetOpen] = useState(false);
 
   const reqSeqRef = useRef(0);
 
@@ -112,7 +90,7 @@ export default function TodaySection({
       const res = await api.getGoals({ status: "active" });
       setGoals(Array.isArray(res?.items) ? res.items : []);
     } catch {
-      // Non-critical for initial Today render
+      // Optional for initial Today render
     }
   }, []);
 
@@ -130,6 +108,11 @@ export default function TodaySection({
   const reflection = data?.reflection || null;
   const overallPct = data?.overall_progress_pct ?? 0;
 
+  const compactDateLabel = useMemo(() => {
+    const wd = WEEKDAY_SHORT_RU[getWeekdayIndex(activeDate)] || "";
+    return `${wd}, ${formatDateShortRu(activeDate)}`;
+  }, [activeDate]);
+
   const dateMarkers = useMemo(() => {
     if (!data) return {};
     const status = summary?.cycle?.is_period_today
@@ -141,13 +124,6 @@ export default function TodaySection({
           : undefined;
     return status ? { [activeDate]: status } : {};
   }, [data, summary?.cycle?.is_period_today, overallPct, activeDate]);
-
-  const greeting = useMemo(() => {
-    if (data?.greeting_period) {
-      return getGreetingFromPeriod(data.greeting_period);
-    }
-    return getGreetingByHour();
-  }, [data?.greeting_period]);
 
   const handleQuickAddWater = async () => {
     if (quickWaterBusy) return;
@@ -167,7 +143,10 @@ export default function TodaySection({
                 water: {
                   ...curr.summary.water,
                   total_ml: nextTotal,
-                  percent: Math.min(100, Math.round((nextTotal * 100) / Math.max(1, goalMl))),
+                  percent: Math.min(
+                    100,
+                    Math.round((nextTotal * 100) / Math.max(1, goalMl))
+                  ),
                 },
               },
             };
@@ -188,29 +167,6 @@ export default function TodaySection({
       // Handled in onError
     } finally {
       setQuickWaterBusy(false);
-    }
-  };
-
-  const handleQuickCompleteHabit = async () => {
-    const nextPending = summary?.habits?.next_pending;
-    if (!nextPending) {
-      onNavigate?.("habits", "habits");
-      return;
-    }
-    if (quickHabitBusy) return;
-    setQuickHabitBusy(true);
-    try {
-      await api.toggleHabit(nextPending.id, {
-        date: activeDate,
-        completed: true,
-      });
-      await loadToday(activeDate, { silent: true });
-      onDataChanged?.();
-      notify?.(`Отмечено: ${nextPending.title}`, "success");
-    } catch (err) {
-      notify?.(err?.message || "Не удалось отметить привычку", "error");
-    } finally {
-      setQuickHabitBusy(false);
     }
   };
 
@@ -246,7 +202,7 @@ export default function TodaySection({
           await loadToday(activeDate, { silent: true });
           onDataChanged?.();
           if (nextCompleted) {
-            notify?.(`Задача выполнена: ${task.title}`, "success");
+            notify?.(`Выполнено: ${task.title}`, "success");
           }
         },
         rollback: (prev) => setData(prev),
@@ -263,28 +219,34 @@ export default function TodaySection({
   const handleRescheduleTask = async (task) => {
     if (!task?.id) return;
     setBusyTaskId(task.id);
+    setSavingTask(true);
     const nextDate = addDays(task.task_date || activeDate, 1);
     try {
       await api.rescheduleTask(task.id, { task_date: nextDate });
+      setTaskSheetOpen(false);
+      setEditingTask(null);
       await loadToday(activeDate, { silent: true });
       onDataChanged?.();
-      notify?.(`Перенесено на ${formatRelativeDayRu(nextDate).toLowerCase()}`, "info");
+      notify?.(
+        `Перенесено на ${formatRelativeDayRu(nextDate).toLowerCase()}`,
+        "info"
+      );
     } catch (err) {
       notify?.(err?.message || "Не удалось перенести задачу", "error");
     } finally {
       setBusyTaskId(null);
+      setSavingTask(false);
     }
   };
 
   const handleDeleteTask = async (task) => {
     if (!task?.id) return;
     setBusyTaskId(task.id);
+    setSavingTask(true);
     try {
       await api.deleteTask(task.id);
-      if (editingTask?.id === task.id) {
-        setTaskSheetOpen(false);
-        setEditingTask(null);
-      }
+      setTaskSheetOpen(false);
+      setEditingTask(null);
       await loadToday(activeDate, { silent: true });
       onDataChanged?.();
       notify?.("Задача удалена", "info");
@@ -292,6 +254,7 @@ export default function TodaySection({
       notify?.(err?.message || "Не удалось удалить задачу", "error");
     } finally {
       setBusyTaskId(null);
+      setSavingTask(false);
     }
   };
 
@@ -328,69 +291,73 @@ export default function TodaySection({
     }
   };
 
-  const openCreateTask = () => {
-    setEditingTask(null);
-    setTaskSheetOpen(true);
-  };
-
-  const openEditTask = (task) => {
-    setEditingTask(task);
-    setTaskSheetOpen(true);
-  };
-
-  const habits = summary?.habits || {
-    done: 0,
-    total: 0,
-    vitamins_done: 0,
-    vitamins_total: 0,
-    next_pending: null,
-  };
   const water = summary?.water || { total_ml: 0, goal_ml: 2000, percent: 0 };
-  const workouts = summary?.workouts || {
-    count: 0,
-    total_minutes: 0,
-    latest: null,
-  };
-  const nutrition = summary?.nutrition || {
-    meals_count: 0,
-    slots_done: [],
-    total_kcal: 0,
-    total_grams: 0,
-  };
-  const chores = summary?.chores || {
-    done: 0,
-    total: 0,
-    shopping_remaining: 0,
-  };
-  const goalsSummary = summary?.goals || {
-    active_count: 0,
-    avg_progress_pct: 0,
-    needs_attention_count: 0,
-  };
   const cycle = summary?.cycle || null;
-  const cyclePhaseMeta = cycle?.phase ? CYCLE_PHASES[cycle.phase] : null;
   const waterReached = water.total_ml >= water.goal_ml;
+
+  const metricItems = [
+    {
+      key: "day",
+      label: "День",
+      value: `${overallPct}%`,
+      tone: "cobalt",
+      onClick: () => setDoneSheetOpen(true),
+      ariaLabel: `Прогресс дня ${overallPct}% — открыть выполненное`,
+    },
+    {
+      key: "water",
+      label: "Вода +250",
+      value: `${water.total_ml}/${water.goal_ml}`,
+      tone: waterReached ? "success" : "cobalt",
+      onClick: handleQuickAddWater,
+      ariaLabel: `Вода ${water.total_ml} из ${water.goal_ml} мл — добавить 250 мл`,
+    },
+    {
+      key: "cycle",
+      label: "Цикл",
+      value: cycle?.cycle_day ? `${cycle.cycle_day} дн.` : "—",
+      tone: cycle?.is_period_today ? "coral" : "neutral",
+      onClick: () => onNavigate?.("habits", "cycle"),
+      ariaLabel: cycle?.cycle_day
+        ? `День цикла ${cycle.cycle_day} — открыть календарь`
+        : "Открыть календарь цикла",
+    },
+  ];
 
   return (
     <div className="mt-section">
-      {/* 1. Top Hero & 7-Day Date Strip */}
       <div className="mt-stack mt-stack--sm">
-        <SectionHeader
-          eyebrow={formatDateFullRu(activeDate)}
-          title={greeting}
+        <PageHeader
+          title="Сегодня"
+          subtitle={compactDateLabel}
+          secondaryAction={
+            onOpenYearReview ? (
+              <button
+                type="button"
+                className="mt-icon-btn"
+                aria-label="Итоги года"
+                title="Итоги года"
+                onClick={onOpenYearReview}
+              >
+                <Award size={19} />
+              </button>
+            ) : null
+          }
           action={
             !isStandalone && onOpenInstallGuide ? (
-              <Pill
-                tone="brand"
-                icon={<Smartphone size={14} />}
+              <button
+                type="button"
+                className="mt-icon-btn"
+                aria-label="На экран «Домой»"
+                title="На экран «Домой»"
                 onClick={onOpenInstallGuide}
-                aria-label="Установить приложение на экран Домой"
               >
-                На экран
-              </Pill>
+                <Smartphone size={19} />
+              </button>
             ) : null
           }
         />
+
         <DateStrip
           selectedDate={activeDate}
           todayDate={todayDate}
@@ -413,333 +380,38 @@ export default function TodaySection({
       ) : null}
 
       {loading && !data ? (
-        <div className="mt-card">
-          <p className="mt-card-sub">Загружаем ваш ритм дня...</p>
+        <div className="mt-card mt-card--compact">
+          <p className="mt-card-sub">Загружаем сводку дня...</p>
         </div>
       ) : (
         <>
-          {/* 2. Daily Progress Overview Card */}
-          <section className="today-hero-card" aria-label="Сводка дня">
-            <div className="today-overview-row">
-              <ProgressRing
-                percent={overallPct}
-                size={78}
-                strokeWidth={7}
-                color="var(--brand)"
-                sublabel="дня"
-              />
-              <div className="today-overview-copy">
-                <strong>
-                  {activeDate === todayDate
-                    ? "Ритм сегодняшнего дня"
-                    : `Обзор за ${formatRelativeDayRu(activeDate).toLowerCase()}`}
-                </strong>
-                <span>
-                  {completedFeed.length > 0
-                    ? `${formatCountRu(completedFeed.length, "шаг", "шага", "шагов")} · задачи ${summary?.tasks?.done ?? 0}/${summary?.tasks?.total ?? 0}`
-                    : "Отмечайте шаги в удобном ритме"}
-                </span>
-              </div>
-            </div>
+          <MetricStrip items={metricItems} />
 
-            <div className="today-domain-grid">
-              <button
-                type="button"
-                className="today-domain-tile today-domain-tile--habits"
-                onClick={() => onNavigate?.("habits", "habits")}
-              >
-                <span className="today-domain-tile-head">
-                  <span>Привычки и вода</span>
-                  <HeartPulse size={15} aria-hidden="true" />
-                </span>
-                <strong className="tabular">
-                  {habits.done}/{habits.total}
-                </strong>
-                <small className="tabular">
-                  Вода {water.total_ml} / {water.goal_ml} мл
-                </small>
-              </button>
-
-              <button
-                type="button"
-                className="today-domain-tile today-domain-tile--nutrition"
-                onClick={() => onNavigate?.("nutrition", "day")}
-              >
-                <span className="today-domain-tile-head">
-                  <span>Питание</span>
-                  <UtensilsCrossed size={15} aria-hidden="true" />
-                </span>
-                <strong className="tabular">
-                  {formatCountRu(nutrition.meals_count, "приём", "приёма", "приёмов")}
-                </strong>
-                <small className="tabular">
-                  {nutrition.total_kcal > 0
-                    ? `${nutrition.total_kcal} ккал · ${nutrition.total_grams} г`
-                    : "Добавить завтрак или обед"}
-                </small>
-              </button>
-
-              <button
-                type="button"
-                className="today-domain-tile today-domain-tile--home"
-                onClick={() => onNavigate?.("home", "chores")}
-              >
-                <span className="today-domain-tile-head">
-                  <span>Дом</span>
-                  <Home size={15} aria-hidden="true" />
-                </span>
-                <strong className="tabular">
-                  {chores.done}/{chores.total}
-                </strong>
-                <small className="tabular">
-                  {chores.shopping_remaining > 0
-                    ? `Покупки: ${chores.shopping_remaining}`
-                    : "Список покупок чист"}
-                </small>
-              </button>
-
-              <button
-                type="button"
-                className="today-domain-tile today-domain-tile--goals"
-                onClick={() => onNavigate?.("goals")}
-              >
-                <span className="today-domain-tile-head">
-                  <span>Цели</span>
-                  <Target size={15} aria-hidden="true" />
-                </span>
-                <strong className="tabular">{goalsSummary.avg_progress_pct}%</strong>
-                <small className="tabular">
-                  {goalsSummary.needs_attention_count > 0
-                    ? `Внимание: ${goalsSummary.needs_attention_count}`
-                    : formatCountRu(goalsSummary.active_count, "активная", "активные", "активных")}
-                </small>
-              </button>
-            </div>
-
-            {cycle && cycle.cycle_day ? (
-              <button
-                type="button"
-                className="today-cycle-banner"
-                onClick={() => onNavigate?.("habits", "cycle")}
-              >
-                <span className="mt-row" style={{ gap: 8 }}>
-                  <Flame size={16} aria-hidden="true" />
-                  <span className="tabular">
-                    День цикла {cycle.cycle_day} ·{" "}
-                    {cycle.phase_label || cyclePhaseMeta?.label || "Цикл"}
-                  </span>
-                </span>
-                <ChevronRight size={17} aria-hidden="true" />
-              </button>
-            ) : (
-              <button
-                type="button"
-                className="today-cycle-banner"
-                onClick={() => onNavigate?.("habits", "cycle")}
-              >
-                <span className="mt-row" style={{ gap: 8 }}>
-                  <Flame size={16} aria-hidden="true" />
-                  <span>Календарь цикла · открыть</span>
-                </span>
-                <ChevronRight size={17} aria-hidden="true" />
-              </button>
-            )}
-          </section>
-
-          {/* 3. Quick One-Tap Check Strip («Быстрые отметки») */}
-          <section className="mt-stack mt-stack--xs" aria-label="Быстрые отметки">
-            <p className="mt-eyebrow" style={{ paddingInline: 2 }}>
-              Быстрые отметки
-            </p>
-            <div className="mt-stack mt-stack--xs">
-              <div className="today-quick-strip today-quick-strip--grid">
-                <button
-                  type="button"
-                  className={`today-quick-btn${waterReached ? " is-done" : ""}`}
-                  style={{ minWidth: 0, padding: "9px 12px" }}
-                  disabled={quickWaterBusy}
-                  onClick={handleQuickAddWater}
-                >
-                  <Droplets
-                    size={17}
-                    style={{
-                      color: waterReached ? "var(--habits)" : "var(--water)",
-                      flexShrink: 0,
-                    }}
-                    aria-hidden="true"
-                  />
-                  <span
-                    style={{
-                      minWidth: 0,
-                      flex: "1 1 auto",
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "flex-start",
-                      gap: 1,
-                      lineHeight: 1.25,
-                    }}
-                  >
-                    <span className="tabular">+250 мл воды</span>
-                    <span
-                      className="muted tabular"
-                      style={{
-                        fontSize: 11.5,
-                        fontWeight: 500,
-                        maxWidth: "100%",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                      }}
-                    >
-                      {water.total_ml} / {water.goal_ml} мл
-                    </span>
-                  </span>
-                </button>
-
-                {habits.next_pending ? (
-                  <button
-                    type="button"
-                    className="today-quick-btn"
-                    style={{ minWidth: 0, padding: "9px 12px" }}
-                    disabled={quickHabitBusy}
-                    onClick={handleQuickCompleteHabit}
-                  >
-                    {habits.next_pending.category === "vitamin" ? (
-                      <CapsuleIcon
-                        size={17}
-                        style={{ color: "var(--brand)", flexShrink: 0 }}
-                        aria-hidden="true"
-                      />
-                    ) : (
-                      <CheckCircle2
-                        size={17}
-                        style={{ color: "var(--habits)", flexShrink: 0 }}
-                        aria-hidden="true"
-                      />
-                    )}
-                    <span
-                      style={{
-                        minWidth: 0,
-                        flex: "1 1 auto",
-                        display: "flex",
-                        flexDirection: "column",
-                        alignItems: "flex-start",
-                        gap: 1,
-                        lineHeight: 1.25,
-                      }}
-                    >
-                      <span
-                        className="muted"
-                        style={{ fontSize: 11, fontWeight: 600 }}
-                      >
-                        {habits.next_pending.category === "vitamin"
-                          ? "Витамин"
-                          : "Следующий шаг"}
-                      </span>
-                      <span
-                        style={{
-                          maxWidth: "100%",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                        }}
-                      >
-                        {habits.next_pending.title}
-                      </span>
-                    </span>
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    className="today-quick-btn is-done"
-                    style={{ minWidth: 0, padding: "9px 12px" }}
-                    onClick={() => onNavigate?.("habits", "habits")}
-                  >
-                    <CheckCircle2
-                      size={17}
-                      style={{ flexShrink: 0 }}
-                      aria-hidden="true"
-                    />
-                    <span
-                      style={{
-                        minWidth: 0,
-                        flex: "1 1 auto",
-                        display: "flex",
-                        flexDirection: "column",
-                        alignItems: "flex-start",
-                        gap: 1,
-                        lineHeight: 1.25,
-                      }}
-                    >
-                      <span>Привычки</span>
-                      <span style={{ fontSize: 11.5, fontWeight: 500 }}>
-                        Все сделаны ✓
-                      </span>
-                    </span>
-                  </button>
-                )}
-              </div>
-
-              <button
-                type="button"
-                className={`today-quick-btn${workouts.latest ? " is-done" : ""}`}
-                style={{
-                  width: "100%",
-                  minWidth: 0,
-                  justifyContent: "space-between",
-                  padding: "10px 13px",
-                }}
-                onClick={() => onNavigate?.("habits", "workouts")}
-              >
-                <span
-                  className="mt-row"
-                  style={{ gap: 8, minWidth: 0, flex: "1 1 auto" }}
-                >
-                  <Activity
-                    size={16}
-                    style={{
-                      color: workouts.latest ? "var(--habits)" : "var(--brand)",
-                      flexShrink: 0,
-                    }}
-                    aria-hidden="true"
-                  />
-                  <span
-                    className="tabular"
-                    style={{
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                    }}
-                  >
-                    {workouts.latest
-                      ? `Тренировка: ${workouts.latest.label} · ${workouts.latest.duration_min} мин ✓`
-                      : "Отметить тренировку"}
-                  </span>
-                </span>
-                <ChevronRight
-                  size={16}
-                  style={{ flexShrink: 0, opacity: 0.7 }}
-                  aria-hidden="true"
-                />
-              </button>
-            </div>
-          </section>
-
-          {/* 4. Full Daily Task Planner */}
           <DailyTaskPlanner
             tasks={tasks}
-            onAddTask={openCreateTask}
-            onEditTask={openEditTask}
+            onAddTask={() => {
+              setEditingTask(null);
+              setTaskSheetOpen(true);
+            }}
+            onEditTask={(task) => {
+              setEditingTask(task);
+              setTaskSheetOpen(true);
+            }}
             onToggleTask={handleToggleTask}
-            onRescheduleTask={handleRescheduleTask}
-            onDeleteTask={handleDeleteTask}
             busyTaskId={busyTaskId}
           />
 
-          {/* 5. «Что сделано за день» & Evening Reflection */}
           <DailyAccomplishments
             feed={completedFeed}
             reflection={reflection}
             selectedDate={activeDate}
             onSaveReflection={handleSaveReflection}
-            onOpenYearReview={onOpenYearReview}
+            doneSheetOpen={doneSheetOpen}
+            onOpenDoneSheet={() => setDoneSheetOpen(true)}
+            onCloseDoneSheet={() => setDoneSheetOpen(false)}
+            reflectionSheetOpen={reflectionSheetOpen}
+            onOpenReflectionSheet={() => setReflectionSheetOpen(true)}
+            onCloseReflectionSheet={() => setReflectionSheetOpen(false)}
           />
         </>
       )}
@@ -754,6 +426,7 @@ export default function TodaySection({
         selectedDate={activeDate}
         goals={goals}
         onSave={handleSaveTask}
+        onReschedule={handleRescheduleTask}
         onDelete={handleDeleteTask}
         saving={savingTask}
       />

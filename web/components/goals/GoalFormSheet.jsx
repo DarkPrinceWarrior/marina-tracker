@@ -1,16 +1,16 @@
 import React, { useEffect, useState } from "react";
 import { Plus, Trash2, Sparkles } from "lucide-react";
 import Sheet from "../Sheet.jsx";
-import { Pill } from "../UiPrimitives.jsx";
+import { GroupList, ListRow, Pill } from "../UiPrimitives.jsx";
 import {
   GOAL_SPHERES,
   GOAL_HORIZONS,
   GOAL_CHECKIN_CADENCES,
   GOAL_STARTER_BLUEPRINTS,
+  QUARTER_OPTIONS,
+  formatYearQuarterRu,
 } from "../../data/presets.js";
 import { todayISO, parseISODate, toISODate } from "../../utils/date.js";
-
-const QUARTERS = ["Q1", "Q2", "Q3", "Q4"];
 
 function addYearsISO(iso, years) {
   const dt = parseISODate(iso || todayISO());
@@ -82,7 +82,10 @@ export default function GoalFormSheet({
       setCategory(goal.category || GOAL_SPHERES[0].key);
       setHorizonYears(Number(goal.horizon_years) || 1);
       setStartDate(goal.start_date || baseDate);
-      setTargetDate(goal.target_date || addYearsISO(goal.start_date || baseDate, goal.horizon_years || 1));
+      setTargetDate(
+        goal.target_date ||
+          addYearsISO(goal.start_date || baseDate, goal.horizon_years || 1),
+      );
       setLinkedHabitId(goal.linked_habit_id ? String(goal.linked_habit_id) : "");
       setCheckInCadence(goal.check_in_cadence || "weekly");
       setStatus(goal.status || "active");
@@ -110,7 +113,9 @@ export default function GoalFormSheet({
   function handleSelectHorizon(years) {
     setHorizonYears(years);
     setTargetDate(addYearsISO(startDate || baseDate, years));
-    setMsYear(parseISODate(startDate || baseDate).getFullYear() + Math.min(years, 1));
+    setMsYear(
+      parseISODate(startDate || baseDate).getFullYear() + Math.min(years, 1),
+    );
   }
 
   function handleApplyBlueprint(bp) {
@@ -162,13 +167,13 @@ export default function GoalFormSheet({
     }
 
     const effectiveStart = startDate || baseDate;
-    const effectiveTarget = targetDate || addYearsISO(effectiveStart, horizonYears);
+    const effectiveTarget =
+      targetDate || addYearsISO(effectiveStart, horizonYears);
     if (effectiveTarget <= effectiveStart) {
-      setError("Целевая дата должна быть позже даты начала цели");
+      setError("Целевая дата должна быть позже даты начала");
       return;
     }
 
-    // If user typed a milestone draft without tapping +, include it automatically
     const finalMilestones = [...milestones];
     if (!isEditing && msTitle.trim()) {
       finalMilestones.push({
@@ -187,8 +192,8 @@ export default function GoalFormSheet({
         description: description.trim(),
         category,
         horizon_years: Number(horizonYears) || 1,
-        start_date: startDate || baseDate,
-        target_date: targetDate || addYearsISO(startDate || baseDate, horizonYears),
+        start_date: effectiveStart,
+        target_date: effectiveTarget,
         linked_habit_id: linkedHabitId ? Number(linkedHabitId) : null,
         check_in_cadence: checkInCadence,
         status,
@@ -234,18 +239,12 @@ export default function GoalFormSheet({
     <Sheet
       open={open}
       onClose={onClose}
-      title={isEditing ? "Редактировать цель" : "Новая долгосрочная цель"}
-      subtitle={
-        isEditing
-          ? "Настройте горизонт, привычку и ритм чек-инов"
-          : "Цель будет следить за вашим темпом в течение 1–5 лет"
-      }
+      title={isEditing ? "Редактировать цель" : "Новая цель"}
       footer={
-        <div className="mt-stack mt-stack--sm" data-accent="goals">
+        <div className="mt-stack mt-stack--sm">
           <button
             type="button"
             className="mt-btn mt-btn--primary mt-btn--wide"
-            data-accent="goals"
             disabled={saving}
             onClick={handleSubmit}
           >
@@ -264,25 +263,25 @@ export default function GoalFormSheet({
             >
               <Trash2 size={16} />
               <span>
-                {confirmDelete ? "Точно удалить эту цель?" : "Удалить цель"}
+                {confirmDelete ? "Подтвердить удаление" : "Удалить цель"}
               </span>
             </button>
           )}
         </div>
       }
     >
-      <form className="mt-stack" onSubmit={handleSubmit} data-accent="goals">
+      <form className="mt-stack" onSubmit={handleSubmit}>
         {error ? <div className="mt-form-error">{error}</div> : null}
 
         {/* Starter Blueprints (only when creating) */}
         {!isEditing && (
           <div className="mt-field">
-            <span className="mt-label">Готовые идеи на 1–3 года (по желанию)</span>
+            <span className="mt-label">Готовые шаблоны</span>
             <div className="mt-chip-row">
               {GOAL_STARTER_BLUEPRINTS.map((bp) => (
                 <Pill
                   key={bp.id}
-                  tone="goals"
+                  tone="neutral"
                   icon={<Sparkles size={12} />}
                   onClick={() => handleApplyBlueprint(bp)}
                 >
@@ -315,7 +314,7 @@ export default function GoalFormSheet({
         {/* Description */}
         <div className="mt-field">
           <label className="mt-label" htmlFor="goal-desc-input">
-            Зачем это важно и как поймёте, что получилось
+            Описание
           </label>
           <textarea
             id="goal-desc-input"
@@ -323,18 +322,18 @@ export default function GoalFormSheet({
             rows={2}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="Короткое описание для вдохновения и ясности"
+            placeholder="Зачем это важно и что станет результатом"
           />
         </div>
 
         {/* Sphere / Category */}
         <div className="mt-field">
-          <span className="mt-label">Сфера жизни</span>
+          <span className="mt-label">Сфера</span>
           <div className="mt-chip-row mt-chip-row--wrap">
             {GOAL_SPHERES.map((sphere) => (
               <Pill
                 key={sphere.key}
-                tone="goals"
+                tone="neutral"
                 active={category === sphere.key}
                 onClick={() => setCategory(sphere.key)}
               >
@@ -346,12 +345,12 @@ export default function GoalFormSheet({
 
         {/* Horizon Selector */}
         <div className="mt-field">
-          <span className="mt-label">Горизонт планирования</span>
+          <span className="mt-label">Горизонт</span>
           <div className="mt-chip-row mt-chip-row--wrap">
             {GOAL_HORIZONS.map((h) => (
               <Pill
                 key={h.years}
-                tone="goals"
+                tone="neutral"
                 active={horizonYears === h.years}
                 onClick={() => handleSelectHorizon(h.years)}
               >
@@ -364,7 +363,7 @@ export default function GoalFormSheet({
         {/* Target Date */}
         <div className="mt-field">
           <label className="mt-label" htmlFor="goal-target-date">
-            Целевая дата (рассчитана автоматически, можно изменить)
+            Целевая дата
           </label>
           <input
             id="goal-target-date"
@@ -378,7 +377,7 @@ export default function GoalFormSheet({
         {/* Linked Daily Habit */}
         <div className="mt-field">
           <label className="mt-label" htmlFor="goal-habit-select">
-            Связать с ежедневной привычкой (необязательно)
+            Связанная привычка
           </label>
           <select
             id="goal-habit-select"
@@ -386,16 +385,13 @@ export default function GoalFormSheet({
             value={linkedHabitId}
             onChange={(e) => setLinkedHabitId(e.target.value)}
           >
-            <option value="">Без привязки к привычке</option>
+            <option value="">Без привязки</option>
             {habits.map((h) => (
               <option key={h.id} value={String(h.id)}>
                 {h.title}
               </option>
             ))}
           </select>
-          <span className="muted" style={{ fontSize: "12px" }}>
-            Цель автоматически подсчитает выполнения этой привычки за последние 30 дней.
-          </span>
         </div>
 
         {/* Check-in Cadence */}
@@ -405,7 +401,7 @@ export default function GoalFormSheet({
             {GOAL_CHECKIN_CADENCES.map((c) => (
               <Pill
                 key={c.key}
-                tone="goals"
+                tone="neutral"
                 active={checkInCadence === c.key}
                 onClick={() => setCheckInCadence(c.key)}
               >
@@ -418,7 +414,7 @@ export default function GoalFormSheet({
         {/* Status selector when editing */}
         {isEditing && (
           <div className="mt-field">
-            <span className="mt-label">Статус цели</span>
+            <span className="mt-label">Статус</span>
             <div className="mt-chip-row mt-chip-row--wrap">
               {[
                 { key: "active", label: "Активна" },
@@ -427,7 +423,7 @@ export default function GoalFormSheet({
               ].map((st) => (
                 <Pill
                   key={st.key}
-                  tone={st.key === "completed" ? "success" : "goals"}
+                  tone={st.key === "completed" ? "success" : "neutral"}
                   active={status === st.key}
                   onClick={() => setStatus(st.key)}
                 >
@@ -441,35 +437,27 @@ export default function GoalFormSheet({
         {/* Initial Milestones Builder (when creating a goal) */}
         {!isEditing && (
           <div className="mt-field">
-            <span className="mt-label">Вехи по годам и кварталам</span>
+            <span className="mt-label">Вехи по кварталам</span>
             {milestones.length > 0 && (
-              <div className="mt-stack mt-stack--xs">
+              <GroupList>
                 {milestones.map((ms) => (
-                  <div key={ms.tempId} className="goal-milestone-row">
-                    <Pill tone="goals">
-                      {ms.target_year} {ms.target_quarter}
-                    </Pill>
-                    <span
-                      style={{
-                        flex: "1 1 auto",
-                        fontSize: "13.5px",
-                        minWidth: 0,
-                        overflowWrap: "anywhere",
-                      }}
-                    >
-                      {ms.title}
-                    </span>
-                    <button
-                      type="button"
-                      className="mt-icon-btn mt-icon-btn--danger"
-                      aria-label="Удалить веху"
-                      onClick={() => handleRemoveMilestoneDraft(ms.tempId)}
-                    >
-                      <Trash2 size={15} />
-                    </button>
-                  </div>
+                  <ListRow
+                    key={ms.tempId}
+                    title={ms.title}
+                    meta={formatYearQuarterRu(ms.target_year, ms.target_quarter)}
+                    trailing={
+                      <button
+                        type="button"
+                        className="mt-icon-btn mt-icon-btn--danger"
+                        aria-label="Удалить веху"
+                        onClick={() => handleRemoveMilestoneDraft(ms.tempId)}
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    }
+                  />
                 ))}
-              </div>
+              </GroupList>
             )}
 
             <div className="mt-card mt-card--compact" style={{ gap: "8px" }}>
@@ -478,7 +466,7 @@ export default function GoalFormSheet({
                 className="mt-input"
                 value={msTitle}
                 onChange={(e) => setMsTitle(e.target.value)}
-                placeholder="Этап, например: уровень B1"
+                placeholder="Этап, например: разговорный клуб"
                 aria-label="Название вехи"
               />
               <div className="mt-input-row">
@@ -500,18 +488,17 @@ export default function GoalFormSheet({
                   value={msQuarter}
                   onChange={(e) => setMsQuarter(e.target.value)}
                   aria-label="Квартал вехи"
-                  style={{ flex: "0 0 84px" }}
+                  style={{ flex: "0 0 92px" }}
                 >
-                  {QUARTERS.map((q) => (
-                    <option key={q} value={q}>
-                      {q}
+                  {QUARTER_OPTIONS.map((q) => (
+                    <option key={q.value} value={q.value}>
+                      {q.label}
                     </option>
                   ))}
                 </select>
                 <button
                   type="button"
                   className="mt-btn mt-btn--soft mt-btn--sm"
-                  data-accent="goals"
                   disabled={!msTitle.trim()}
                   onClick={handleAddMilestoneDraft}
                 >

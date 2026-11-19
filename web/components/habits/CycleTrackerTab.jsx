@@ -11,8 +11,11 @@ import {
 import api from "../../api.js";
 import Sheet from "../Sheet.jsx";
 import {
-  CheckRow,
   EmptyState,
+  GroupHeader,
+  GroupList,
+  ListRow,
+  MetricStrip,
   Pill,
   StepperPill,
 } from "../UiPrimitives.jsx";
@@ -75,8 +78,7 @@ function normalizeSymptomKey(raw) {
   if (!raw) return "";
   const str = String(raw).trim();
   if (SYMPTOM_LABEL_MAP[str]) return str;
-  const byLabel = SYMPTOM_KEY_BY_LABEL[str.toLowerCase()];
-  return byLabel || str;
+  return SYMPTOM_KEY_BY_LABEL[str.toLowerCase()] || str;
 }
 
 function formatSymptomRu(raw) {
@@ -98,6 +100,7 @@ export default function CycleTrackerTab({
 }) {
   const effectiveToday = todayDate || todayISO();
   const initialDateObj = useMemo(() => parseISODate(effectiveToday), [effectiveToday]);
+  const currentYear = initialDateObj.getFullYear();
 
   const [viewYear, setViewYear] = useState(initialDateObj.getFullYear());
   const [viewMonth, setViewMonth] = useState(initialDateObj.getMonth() + 1);
@@ -148,7 +151,7 @@ export default function CycleTrackerTab({
     loadOverview(viewYear, viewMonth);
   }, [viewYear, viewMonth, loadOverview]);
 
-  // Combined map of recorded cycle days (400d archive + current requested month)
+  // Combined map of recorded cycle days (archive + current requested month)
   const daysMap = useMemo(() => {
     const map = {};
     if (overview?.days_map_400d) {
@@ -336,26 +339,24 @@ export default function CycleTrackerTab({
   const avgPeriodLen =
     stats.computed_avg_period_length || overview?.settings?.avg_period_length || 5;
   const history12m = Array.isArray(overview?.history_12m) ? overview.history_12m : [];
+  const trackedCount = stats.tracked_cycles_count || history12m.length;
 
-  const nextPeriodCopy = (() => {
-    if (phaseKey === "menstruation") {
-      return { main: "Идёт период менструации", date: "" };
-    }
+  const forecastLine = (() => {
+    if (phaseKey === "menstruation") return "Идёт менструация";
     const daysLeft = stats.days_until_period;
     if (typeof daysLeft === "number") {
       if (daysLeft > 0) {
-        return {
-          main: `До цикла: ${formatCountRu(daysLeft, "день", "дня", "дней")}`,
-          date: stats.next_period_start ? formatDateShortRu(stats.next_period_start) : "",
-        };
+        const nextStr = stats.next_period_start
+          ? ` · ${formatDateShortRu(stats.next_period_start).replace(" ", "\u00A0")}`
+          : "";
+        return `До цикла ${daysLeft}\u00A0дн.${nextStr}`;
       }
-      if (daysLeft === 0) return { main: "Прогноз начала цикла — сегодня", date: "" };
-      return { main: `Ожидание начала цикла (${Math.abs(daysLeft)} дн.)`, date: "" };
+      if (daysLeft === 0) return "Прогноз начала — сегодня";
+      return `Ожидание начала · ${Math.abs(daysLeft)}\u00A0дн.`;
     }
-    return { main: "Отметьте начало цикла для прогноза", date: "" };
+    return "Отметьте начало цикла в календаре";
   })();
 
-  // Extra custom symptoms stored on this day that aren't in SYMPTOM_OPTIONS
   const extraDaySymptoms = useMemo(() => {
     const known = new Set(SYMPTOM_OPTIONS.map((s) => s.key));
     return dayForm.symptoms.filter((s) => !known.has(s));
@@ -363,66 +364,39 @@ export default function CycleTrackerTab({
 
   return (
     <div className="mt-stack">
-      {/* 1. Cycle Summary Hero Card */}
-      <section className="cycle-hero" data-accent="cycle" aria-label="Сводка женского цикла">
-        <div className="mt-card-head">
-          <div className="mt-row mt-row--wrap" style={{ gap: "8px" }}>
-            <Pill tone={phaseMeta.tone || "cycle"} icon={<Droplet size={12} />}>
+      {/* 1. Calm White Status Card + Inline MetricStrip (Zero nested gray boxes) */}
+      <section className="cycle-hero" aria-label="Сводка женского цикла">
+        <div className="mt-row mt-row--between" style={{ alignItems: "flex-start" }}>
+          <div className="mt-stack mt-stack--xs" style={{ minWidth: 0, gap: "3px" }}>
+            <h2
+              className="mt-card-title tabular"
+              style={{ fontSize: "16px", lineHeight: "22px" }}
+            >
+              {stats.current_cycle_day ? `День ${stats.current_cycle_day} · ` : ""}
               {phaseLabel}
-            </Pill>
-            {stats.current_cycle_day ? (
-              <span className="mt-pill mt-pill--neutral tabular">
-                День {stats.current_cycle_day}
-              </span>
-            ) : null}
+            </h2>
+            <p className="mt-card-sub tabular">{forecastLine}</p>
           </div>
 
           <button
             type="button"
             className="mt-icon-btn"
+            style={{ width: "36px", height: "36px", minWidth: "36px", minHeight: "36px" }}
             aria-label="Настройки длительности цикла"
             onClick={openSettings}
           >
-            <Settings2 size={18} />
+            <Settings2 size={17} />
           </button>
         </div>
 
-        <div className="mt-stack mt-stack--xs" style={{ gap: "4px" }}>
-          <strong
-            className="tabular"
-            style={{
-              fontFamily: "var(--font-heading)",
-              fontSize: "19px",
-              lineHeight: "25px",
-              letterSpacing: "-0.02em",
-              color: "var(--ink)",
-            }}
-          >
-            {nextPeriodCopy.main}
-            {nextPeriodCopy.date ? (
-              <span style={{ whiteSpace: "nowrap", color: "var(--cycle-ink)" }}>
-                {" · "}
-                {nextPeriodCopy.date}
-              </span>
-            ) : null}
-          </strong>
-          <p className="mt-card-sub">{phaseMeta.guidance}</p>
-        </div>
-
-        <div className="cycle-stats-grid">
-          <div className="cycle-stat-box">
-            <span>Средний цикл</span>
-            <strong>{avgCycleLen} дн.</strong>
-          </div>
-          <div className="cycle-stat-box">
-            <span>Длительность</span>
-            <strong>{avgPeriodLen} дн.</strong>
-          </div>
-          <div className="cycle-stat-box">
-            <span>Циклов</span>
-            <strong>{stats.tracked_cycles_count || history12m.length}</strong>
-          </div>
-        </div>
+        <MetricStrip
+          className="mt-metric-strip--inline"
+          items={[
+            { value: `${avgCycleLen} дн.`, label: "Цикл" },
+            { value: `${avgPeriodLen} дн.`, label: "Менструация", tone: "coral" },
+            { value: String(trackedCount), label: "За год" },
+          ]}
+        />
       </section>
 
       {error ? (
@@ -431,7 +405,7 @@ export default function CycleTrackerTab({
         </div>
       ) : null}
 
-      {/* 2. Interactive 12+ Month Calendar */}
+      {/* 2. Interactive 12+ Month Calendar (Coral period + Cobalt fertile) */}
       <section
         ref={calendarRef}
         className="mt-card"
@@ -444,13 +418,13 @@ export default function CycleTrackerTab({
             aria-label="Предыдущий месяц"
             onClick={goPrevMonth}
           >
-            <ChevronLeft size={19} />
+            <ChevronLeft size={18} />
           </button>
 
           <button
             type="button"
-            className="mt-pill mt-pill--cycle"
-            style={{ minHeight: "38px", paddingInline: "14px", fontSize: "14px" }}
+            className="mt-pill mt-pill--neutral"
+            style={{ minHeight: "36px", paddingInline: "12px", fontSize: "13.5px" }}
             aria-label="Выбрать месяц и год"
             onClick={() => setMonthPickerOpen(true)}
           >
@@ -465,14 +439,14 @@ export default function CycleTrackerTab({
             aria-label="Следующий месяц"
             onClick={goNextMonth}
           >
-            <ChevronRight size={19} />
+            <ChevronRight size={18} />
           </button>
         </div>
 
         {!isViewingCurrentMonth ? (
           <div className="mt-row mt-row--between" style={{ gap: "8px" }}>
-            <span className="mt-card-sub">Архив / просмотр месяца</span>
-            <Pill tone="cycle" onClick={goTodayMonth}>
+            <span className="mt-card-sub">Архив календаря</span>
+            <Pill tone="cobalt" onClick={goTodayMonth}>
               К текущему месяцу
             </Pill>
           </div>
@@ -484,7 +458,11 @@ export default function CycleTrackerTab({
           ))}
         </div>
 
-        <div className="cycle-cal-grid" role="grid" aria-label={formatMonthYearRu(viewYear, viewMonth)}>
+        <div
+          className="cycle-cal-grid"
+          role="grid"
+          aria-label={formatMonthYearRu(viewYear, viewMonth)}
+        >
           {monthMatrix.flat().map((cell) => {
             const rec = daysMap[cell.iso];
             const isPeriod = Boolean(rec?.is_period);
@@ -526,7 +504,7 @@ export default function CycleTrackerTab({
                 key={cell.iso}
                 type="button"
                 className={classNames}
-                aria-label={`${formatDateWithYearRu(cell.iso)}${isPeriod ? ", менструация" : isPredicted ? ", прогноз" : isOvulation ? ", овуляция" : isFertile ? ", фертильное окно" : ""}`}
+                aria-label={`${formatDateWithYearRu(cell.iso)}${isPeriod ? ", менструация" : isPredicted ? ", прогноз" : isOvulation ? ", овуляция" : isFertile ? ", фертильность" : ""}`}
                 onClick={() => openDayEditor(cell.iso)}
               >
                 <span>{cell.day}</span>
@@ -538,11 +516,7 @@ export default function CycleTrackerTab({
           })}
         </div>
 
-        <p className="mt-card-sub" style={{ fontSize: "12px", textAlign: "center" }}>
-          Нажмите на любую дату, чтобы отметить цикл, симптомы или заметку
-        </p>
-
-        {/* Visual Legend */}
+        {/* Crisp 3-Item Single-Line Legend */}
         <div className="cycle-legend" aria-label="Обозначения календаря">
           <span className="cycle-legend-item">
             <span className="cycle-legend-swatch cycle-legend-swatch--period" />
@@ -554,127 +528,78 @@ export default function CycleTrackerTab({
           </span>
           <span className="cycle-legend-item">
             <span className="cycle-legend-swatch cycle-legend-swatch--fertile" />
-            Фертильное окно
-          </span>
-          <span className="cycle-legend-item">
-            <span
-              className="cycle-day-dot"
-              style={{ width: "6px", height: "6px", background: "var(--ink)" }}
-            />
-            Симптомы / заметка
-          </span>
-          <span className="cycle-legend-item">
-            <span
-              className="cycle-legend-swatch"
-              style={{
-                border: "1.5px solid var(--ink)",
-                background: "transparent",
-              }}
-            />
-            Сегодня
+            Фертильность
           </span>
         </div>
       </section>
 
-      {/* 3. 12+ Month Cycle History Archive */}
-      <section className="mt-card" aria-label="История циклов за последний год">
-        <div className="mt-card-head">
-          <div>
-            <h2 className="mt-card-title">История циклов за последний год</h2>
-            <p className="mt-card-sub">
-              Нажмите на любой цикл, чтобы перейти к его месяцу в календаре
-            </p>
-          </div>
-          <Pill tone="cycle" className="tabular">
-            {history12m.length}
-          </Pill>
-        </div>
+      {/* 3. Single Grouped List: History for the Last Year */}
+      <section className="mt-stack mt-stack--xs" aria-label="История циклов за последний год">
+        <GroupHeader
+          title="История за год"
+          meta={formatCountRu(history12m.length, "цикл", "цикла", "циклов")}
+        />
 
         {loading && !overview ? (
-          <p className="mt-card-sub">Загружаем историю за год…</p>
+          <div className="mt-card mt-card--compact">
+            <p className="mt-card-sub">Загружаем историю…</p>
+          </div>
         ) : history12m.length === 0 ? (
-          <EmptyState
-            icon={<Droplet size={22} />}
-            title="История циклов пока пуста"
-            description="Отметьте дни цикла в календаре выше — здесь появится хронология за год."
-          />
+          <div className="mt-card">
+            <EmptyState
+              icon={<Droplet size={22} />}
+              title="История пока пуста"
+              description="Отметьте дни цикла в календаре — здесь появится хронология за год."
+            />
+          </div>
         ) : (
-          <div className="cycle-history-list">
+          <GroupList>
             {history12m.map((cycle, idx) => {
               const startDt = parseISODate(cycle.start_date);
               const rangeLabel = formatShortRangeRu(cycle.start_date, cycle.end_date);
-              const yearLabel = startDt.getFullYear();
+              const yearSuffix =
+                startDt.getFullYear() !== currentYear
+                  ? ` ${startDt.getFullYear()}`
+                  : "";
               const symptomLabels = (cycle.dominant_symptoms || [])
                 .slice(0, 3)
                 .map(formatSymptomRu);
+              const metaText =
+                symptomLabels.length > 0
+                  ? symptomLabels.join(" · ")
+                  : cycle.notes || undefined;
 
               return (
-                <button
+                <ListRow
                   key={`${cycle.start_date}-${idx}`}
-                  type="button"
-                  className="cycle-history-card"
+                  title={`${rangeLabel}${yearSuffix} · ${cycle.period_length} дн.`}
+                  meta={metaText}
                   onClick={() => jumpToCycle(cycle)}
-                >
-                  <div className="mt-stack mt-stack--xs" style={{ minWidth: 0, flex: "1 1 auto", gap: "4px" }}>
-                    <div className="mt-row mt-row--wrap" style={{ gap: "6px" }}>
-                      <strong
-                        className="tabular"
-                        style={{
-                          fontFamily: "var(--font-heading)",
-                          fontSize: "14.5px",
-                          color: "var(--ink)",
-                        }}
-                      >
-                        {rangeLabel} {yearLabel}
-                      </strong>
-                      <Pill tone="cycle" className="tabular">
-                        {cycle.period_length} дн.
-                      </Pill>
-                    </div>
-
-                    {symptomLabels.length > 0 ? (
-                      <p className="mt-card-sub" style={{ fontSize: "12.5px" }}>
-                        {symptomLabels.join(" · ")}
-                      </p>
-                    ) : null}
-
-                    {cycle.notes ? (
-                      <p
-                        className="mt-card-sub"
-                        style={{
-                          fontSize: "12px",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {cycle.notes}
-                      </p>
-                    ) : null}
-                  </div>
-
-                  <div
-                    className="mt-row"
-                    style={{ alignItems: "center", flexShrink: 0, gap: "6px" }}
-                  >
+                  trailing={
                     <span
-                      className="mt-pill mt-pill--neutral tabular"
-                      style={{ fontSize: "11.5px" }}
+                      className="mt-row tabular"
+                      style={{
+                        gap: "4px",
+                        fontSize: "13px",
+                        fontWeight: 500,
+                        color: "var(--muted)",
+                        whiteSpace: "nowrap",
+                      }}
                     >
-                      {cycle.cycle_length
-                        ? `Цикл ${cycle.cycle_length} дн.`
-                        : "Текущий"}
+                      <span>
+                        {cycle.cycle_length ? `${cycle.cycle_length} дн.` : "Текущий"}
+                      </span>
+                      <ChevronRight
+                        size={15}
+                        style={{ color: "var(--subtle)" }}
+                        aria-hidden="true"
+                      />
                     </span>
-                    <ChevronRight
-                      size={16}
-                      style={{ color: "var(--subtle)", flexShrink: 0 }}
-                      aria-hidden="true"
-                    />
-                  </div>
-                </button>
+                  }
+                />
               );
             })}
-          </div>
+          </GroupList>
         )}
       </section>
 
@@ -683,7 +608,6 @@ export default function CycleTrackerTab({
         open={daySheetOpen}
         onClose={() => setDaySheetOpen(false)}
         title={dayForm.date ? formatDateWithYearRu(dayForm.date) : "Запись дня"}
-        subtitle="Отметка цикла, симптомы, настроение и личная заметка"
         footer={
           <div className="mt-row" style={{ gap: "10px" }}>
             {dayForm.hasExisting ? (
@@ -700,7 +624,6 @@ export default function CycleTrackerTab({
             <button
               type="button"
               className="mt-btn mt-btn--primary mt-btn--wide"
-              data-accent="cycle"
               disabled={savingDay}
               onClick={handleSaveDay}
             >
@@ -710,23 +633,25 @@ export default function CycleTrackerTab({
         }
       >
         <form className="mt-stack" onSubmit={handleSaveDay}>
-          <CheckRow
-            checked={dayForm.is_period}
-            onToggle={() =>
-              setDayForm((prev) => ({
-                ...prev,
-                is_period: !prev.is_period,
-                flow: !prev.is_period ? prev.flow || "medium" : prev.flow,
-              }))
-            }
-            accent="cycle"
-            title="Менструация"
-            subtitle={
-              dayForm.is_period
-                ? "День отмечен в календаре цикла"
-                : "Нажмите, чтобы отметить день менструации"
-            }
-          />
+          <GroupList>
+            <ListRow
+              checked={dayForm.is_period}
+              onToggle={() =>
+                setDayForm((prev) => ({
+                  ...prev,
+                  is_period: !prev.is_period,
+                  flow: !prev.is_period ? prev.flow || "medium" : prev.flow,
+                }))
+              }
+              accent="coral"
+              title="Менструация"
+              meta={
+                dayForm.is_period
+                  ? "День отмечен в календаре"
+                  : "Нажмите, чтобы отметить"
+              }
+            />
+          </GroupList>
 
           {dayForm.is_period ? (
             <div className="mt-field">
@@ -735,7 +660,7 @@ export default function CycleTrackerTab({
                 {FLOW_LEVELS.map((lvl) => (
                   <Pill
                     key={lvl.key}
-                    tone="cycle"
+                    tone="coral"
                     active={dayForm.flow === lvl.key}
                     onClick={() =>
                       setDayForm((prev) => ({ ...prev, flow: lvl.key }))
@@ -749,12 +674,12 @@ export default function CycleTrackerTab({
           ) : null}
 
           <div className="mt-field">
-            <span className="mt-label">Симптомы и ощущения</span>
+            <span className="mt-label">Симптомы</span>
             <div className="mt-chip-row mt-chip-row--wrap">
               {SYMPTOM_OPTIONS.map((sym) => (
                 <Pill
                   key={sym.key}
-                  tone="cycle"
+                  tone="cobalt"
                   active={dayForm.symptoms.includes(sym.key)}
                   onClick={() => toggleSymptom(sym.key)}
                 >
@@ -764,7 +689,7 @@ export default function CycleTrackerTab({
               {extraDaySymptoms.map((sym) => (
                 <Pill
                   key={sym}
-                  tone="cycle"
+                  tone="cobalt"
                   active
                   onClick={() => toggleSymptom(sym)}
                 >
@@ -797,13 +722,13 @@ export default function CycleTrackerTab({
 
           <div className="mt-field">
             <label className="mt-label" htmlFor="cycle-day-note">
-              Личная заметка
+              Заметка
             </label>
             <textarea
               id="cycle-day-note"
               rows={3}
               className="mt-textarea"
-              placeholder="Самочувствие, сон, практики, тёплые напоминания себе…"
+              placeholder="Самочувствие, сон, заметки…"
               value={dayForm.note}
               onChange={(e) =>
                 setDayForm((prev) => ({ ...prev, note: e.target.value }))
@@ -818,12 +743,9 @@ export default function CycleTrackerTab({
         open={monthPickerOpen}
         onClose={() => setMonthPickerOpen(false)}
         title="Выберите месяц"
-        subtitle="Быстрый переход по истории цикла за последний год и ранее"
+        subtitle="Быстрый переход по истории за последний год"
       >
-        <div
-          className="mt-grid-2"
-          style={{ gap: "8px" }}
-        >
+        <div className="mt-grid-2" style={{ gap: "8px" }}>
           {monthPickerOptions.map((item) => {
             const isActive = item.year === viewYear && item.month === viewMonth;
             return (
@@ -831,7 +753,6 @@ export default function CycleTrackerTab({
                 key={item.key}
                 type="button"
                 className={`mt-btn ${isActive ? "mt-btn--primary" : "mt-btn--secondary"} mt-btn--sm`}
-                data-accent="cycle"
                 style={{ justifyContent: "space-between" }}
                 onClick={() => {
                   setViewYear(item.year);
@@ -841,7 +762,7 @@ export default function CycleTrackerTab({
               >
                 <span>{item.label}</span>
                 {item.isFuture ? (
-                  <span style={{ fontSize: "11px", opacity: 0.75 }}>прогноз</span>
+                  <span style={{ fontSize: "11px", opacity: 0.72 }}>прогноз</span>
                 ) : null}
               </button>
             );
@@ -854,16 +775,15 @@ export default function CycleTrackerTab({
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
         title="Настройки цикла"
-        subtitle="Базовые значения для расчёта прогноза (уточняются автоматически по вашей истории)"
+        subtitle="Уточняются автоматически по вашей истории"
         footer={
           <button
             type="button"
             className="mt-btn mt-btn--primary mt-btn--wide"
-            data-accent="cycle"
             disabled={savingSettings}
             onClick={handleSaveSettings}
           >
-            {savingSettings ? "Сохраняем…" : "Сохранить настройки"}
+            {savingSettings ? "Сохраняем…" : "Сохранить"}
           </button>
         }
       >

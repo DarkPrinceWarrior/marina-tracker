@@ -31,15 +31,15 @@ def seed_if_empty(db: sqlite3.Connection) -> bool:
             # Morning
             ("Стакан тёплой воды", "morning", "habit", "Натощак с долькой лимона", "droplets", "sky", 7, 1),
             ("Дыхательная гимнастика 10 мин", "morning", "habit", "Квадратное дыхание у открытого окна", "wind", "sage", 7, 2),
-            ("Витамин D3 + K2", "morning", "vitamin", "2000 МЕ после завтрака", "sun", "amber", 7, 3),
+            ("Витамин Д3 + К2", "morning", "vitamin", "2000 МЕ после завтрака", "sun", "amber", 7, 3),
             ("Омега-3", "morning", "vitamin", "1000 мг с завтраком", "pill", "amber", 7, 4),
             # Afternoon
             ("Прогулка 20 минут на свежем воздухе", "afternoon", "habit", "Без телефона, спокойный шаг", "footprints", "sage", 6, 5),
             ("Пауза для спины и шеи", "afternoon", "habit", "Мягкая растяжка 5 минут", "activity", "sage", 6, 6),
-            ("Железо + Витамин C", "afternoon", "vitamin", "1 капсула в обед", "pill", "rose", 7, 7),
+            ("Железо + Витамин С", "afternoon", "vitamin", "1 капсула в обед", "pill", "rose", 7, 7),
             # Evening
             ("Чтение книги 25 минут", "evening", "habit", "Бумажная книга перед сном", "book-open", "indigo", 6, 8),
-            ("Магний B6", "evening", "vitamin", "400 мг за 40 минут до сна", "moon", "indigo", 7, 9),
+            ("Магний В6", "evening", "vitamin", "400 мг за 40 минут до сна", "moon", "indigo", 7, 9),
             ("Вечерний уход за кожей", "evening", "habit", "Очищение, тоник и крем", "sparkles", "rose", 7, 10),
         ]
         habit_ids: list[int] = []
@@ -300,7 +300,7 @@ def seed_if_empty(db: sqlite3.Connection) -> bool:
                 (today - timedelta(days=3)).isoformat(),
             ),
             (
-                "Свободный разговорный итальянский (уровень B2)",
+                "Свободный разговорный итальянский",
                 "Учить язык с удовольствием: книги, подкасты, разговорный клуб и поездка в Тоскану.",
                 "Личностный рост",
                 3,
@@ -345,10 +345,10 @@ def seed_if_empty(db: sqlite3.Connection) -> bool:
             (goal_ids[0], "Освоить полный комплекс цигун «8 кусков парчи»", today.year + 1, "Q2", 0, None, 3),
             (goal_ids[0], "Поддерживать 4 практики в неделю весь второй год", today.year + 1, "Q4", 0, None, 4),
             # Goal 2 (3 years)
-            (goal_ids[1], "Закрыть базовую грамматику A1–A2", today.year, "Q3", 1, (today - timedelta(days=60)).isoformat(), 1),
+            (goal_ids[1], "Освоить базовую грамматику", today.year, "Q3", 1, (today - timedelta(days=60)).isoformat(), 1),
             (goal_ids[1], "Прочитать первую книгу на итальянском в оригинале", today.year + 1, "Q1", 0, None, 2),
-            (goal_ids[1], "Еженедельный разговорный клуб уровня B1", today.year + 1, "Q4", 0, None, 3),
-            (goal_ids[1], "Сдать пробный экзамен CILS B2", today.year + 2, "Q3", 0, None, 4),
+            (goal_ids[1], "Еженедельный разговорный клуб", today.year + 1, "Q4", 0, None, 3),
+            (goal_ids[1], "Сдать пробный языковой экзамен", today.year + 2, "Q3", 0, None, 4),
             # Goal 3 (1 year)
             (goal_ids[2], "Разобрать гардероб и оставить только любимые вещи", today.year, "Q3", 1, (today - timedelta(days=90)).isoformat(), 1),
             (goal_ids[2], "Настроить лёгкую систему уборки по зонам", today.year, "Q4", 1, (today - timedelta(days=25)).isoformat(), 2),

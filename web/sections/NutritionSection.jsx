@@ -1,25 +1,17 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  Apple,
-  Check,
-  Clock,
-  Pencil,
-  Plus,
-  Sun,
-  Sunrise,
-  Sunset,
-  Trash2,
-} from "lucide-react";
+import { ChevronRight, Plus } from "lucide-react";
 import api, { withOptimistic } from "../api.js";
 import {
   DateStrip,
-  Pill,
-  ProgressRing,
-  SectionHeader,
+  GroupHeader,
+  GroupList,
+  ListRow,
+  MetricStrip,
+  PageHeader,
   SegmentedControl,
 } from "../components/UiPrimitives.jsx";
 import MealPickerSheet, {
-  formatMealAmount,
+  formatAmountNumber,
   parseDefaultPortion,
 } from "../components/nutrition/MealPickerSheet.jsx";
 import MenuCatalogView, {
@@ -27,19 +19,10 @@ import MenuCatalogView, {
 } from "../components/nutrition/MenuCatalogSheet.jsx";
 import { MEAL_SLOTS, MEAL_SLOT_MAP } from "../data/presets.js";
 import {
-  formatDateFullRu,
   formatDateShortRu,
-  formatRelativeDayRu,
   nowTimeHHMM,
   todayISO,
 } from "../utils/date.js";
-
-const SLOT_ICONS = {
-  breakfast: Sunrise,
-  lunch: Sun,
-  dinner: Sunset,
-  snack: Apple,
-};
 
 const MAIN_SLOTS = ["breakfast", "lunch", "dinner"];
 
@@ -86,6 +69,28 @@ function normalizeDayResponse(res, fallbackDate) {
   };
 }
 
+function buildMealMetaLine(meal, isEaten) {
+  const parts = [];
+  if (meal.eaten_at) parts.push(meal.eaten_at);
+
+  const grams = Number(meal?.grams) || 0;
+  const val = Number(meal?.amount_value) || 0;
+  const unit = String(meal?.amount_unit || "").trim();
+  if (grams > 0) {
+    parts.push(`${Math.round(grams)} г`);
+  } else if (val > 0) {
+    parts.push(`${formatAmountNumber(val)} ${unit || "порция"}`);
+  }
+
+  if (meal.kcal > 0) {
+    parts.push(`${Math.round(meal.kcal)} ккал`);
+  }
+  if (!isEaten) {
+    parts.push("В плане");
+  }
+  return parts.join(" · ");
+}
+
 export default function NutritionSection({
   selectedDate,
   todayDate = todayISO(),
@@ -106,6 +111,7 @@ export default function NutritionSection({
   const [loadingDay, setLoadingDay] = useState(true);
   const [loadingMenu, setLoadingMenu] = useState(true);
   const [errorMsg, setErrorMsg] = useState("");
+  const [createMenuSignal, setCreateMenuSignal] = useState(0);
 
   // MealPickerSheet state
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -148,17 +154,20 @@ export default function NutritionSection({
     [activeDate],
   );
 
-  const loadMenu = useCallback(async ({ silent = false } = {}) => {
-    if (!silent) setLoadingMenu(true);
-    try {
-      const res = await api.getMenu();
-      setMenuItems(Array.isArray(res?.items) ? res.items : []);
-    } catch (err) {
-      notify?.(err?.message || "Не удалось загрузить меню блюд.", "error");
-    } finally {
-      if (!silent) setLoadingMenu(false);
-    }
-  }, [notify]);
+  const loadMenu = useCallback(
+    async ({ silent = false } = {}) => {
+      if (!silent) setLoadingMenu(true);
+      try {
+        const res = await api.getMenu();
+        setMenuItems(Array.isArray(res?.items) ? res.items : []);
+      } catch (err) {
+        notify?.(err?.message || "Не удалось загрузить меню блюд.", "error");
+      } finally {
+        if (!silent) setLoadingMenu(false);
+      }
+    },
+    [notify],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -197,26 +206,21 @@ export default function NutritionSection({
     return map;
   }, [menuItems]);
 
-  // Derived daily overview stats (live-updating on optimistic actions)
   const overview = useMemo(() => {
     const items = dayData.items || [];
     const eatenItems = items.filter((m) => m.completed !== false);
-    const plannedCount = items.length - eatenItems.length;
 
     const mainDoneSet = new Set();
-    let hasSnack = false;
     let totalKcal = 0;
     let totalGrams = 0;
     let protein = 0;
     let fat = 0;
     let carbs = 0;
     let hasAnyMacros = false;
-
     const times = [];
 
     eatenItems.forEach((meal) => {
       if (MAIN_SLOTS.includes(meal.meal_slot)) mainDoneSet.add(meal.meal_slot);
-      if (meal.meal_slot === "snack") hasSnack = true;
       totalKcal += Number(meal.kcal) || 0;
       totalGrams += Number(meal.grams) || 0;
       if (meal.eaten_at && /^\d{2}:\d{2}/.test(meal.eaten_at)) {
@@ -249,26 +253,21 @@ export default function NutritionSection({
     });
 
     times.sort();
-    let eatingWindow = "Окно откроется с первым приёмом";
+    let eatingWindow = "—";
     if (times.length === 1) {
-      eatingWindow = `с ${times[0]}`;
+      eatingWindow = times[0];
     } else if (times.length >= 2) {
       const first = times[0];
       const last = times[times.length - 1];
-      eatingWindow = first === last ? `в ${first}` : `${first} — ${last}`;
+      eatingWindow = first === last ? first : `${first}–${last}`;
     }
 
     const mainDoneCount = mainDoneSet.size;
-    const progressPct = Math.round((mainDoneCount / 3) * 100);
-
-    // Suggest next open main slot for header quick-add CTA
     const nextOpenSlot =
       MAIN_SLOTS.find((s) => !mainDoneSet.has(s)) || "snack";
 
     return {
       mainDoneCount,
-      hasSnack,
-      plannedCount,
       eatenCount: eatenItems.length,
       totalCount: items.length,
       totalKcal: Math.round(totalKcal),
@@ -278,7 +277,6 @@ export default function NutritionSection({
       carbs: round1(carbs),
       hasAnyMacros,
       eatingWindow,
-      progressPct,
       nextOpenSlot,
     };
   }, [dayData.items, menuById]);
@@ -299,7 +297,12 @@ export default function NutritionSection({
       map[activeDate] = "partial";
     }
     return map;
-  }, [dayData.recent_7d, overview.mainDoneCount, overview.eatenCount, activeDate]);
+  }, [
+    dayData.recent_7d,
+    overview.mainDoneCount,
+    overview.eatenCount,
+    activeDate,
+  ]);
 
   const openPickerForSlot = (slotKey) => {
     setPickerSlot(slotKey || "breakfast");
@@ -348,10 +351,7 @@ export default function NutritionSection({
           item.id === meal.id ? { ...item, completed: nextCompleted } : item,
         );
         setDayData(
-          normalizeDayResponse(
-            { ...dayData, items: nextItems },
-            activeDate,
-          ),
+          normalizeDayResponse({ ...dayData, items: nextItems }, activeDate),
         );
         return snapshot;
       },
@@ -374,10 +374,7 @@ export default function NutritionSection({
         const snapshot = dayData;
         const nextItems = dayData.items.filter((item) => item.id !== meal.id);
         setDayData(
-          normalizeDayResponse(
-            { ...dayData, items: nextItems },
-            activeDate,
-          ),
+          normalizeDayResponse({ ...dayData, items: nextItems }, activeDate),
         );
         return snapshot;
       },
@@ -424,7 +421,10 @@ export default function NutritionSection({
       const slotName = MEAL_SLOT_MAP[targetSlot]?.label || "Рацион";
       const dayLabel =
         activeDate === todayDate ? "сегодня" : formatDateShortRu(activeDate);
-      notify?.(`«${menuItem.name}» добавлено в ${slotName} (${dayLabel})`, "success");
+      notify?.(
+        `«${menuItem.name}» добавлено в ${slotName} (${dayLabel})`,
+        "success",
+      );
       await loadDay(activeDate, { silent: true });
       onDataChanged?.();
     } catch (err) {
@@ -441,35 +441,11 @@ export default function NutritionSection({
           menuItem.default_portion ||
           (menuItem.default_grams ? `${menuItem.default_grams} г` : "1 порция"),
       });
-      notify?.(`«${menuItem.name}» добавлено в список покупок`, "success");
+      notify?.(`«${menuItem.name}» добавлено в покупки`, "success");
       onDataChanged?.();
     } catch (err) {
       notify?.(err?.message || "Не удалось добавить в покупки", "error");
     }
-  };
-
-  const handleToggleFavorite = async (menuItem) => {
-    const nextFav = !menuItem.is_favorite;
-    await withOptimistic({
-      apply: () => {
-        const snapshot = menuItems;
-        setMenuItems((prev) =>
-          prev.map((m) =>
-            m.id === menuItem.id ? { ...m, is_favorite: nextFav } : m,
-          ),
-        );
-        return snapshot;
-      },
-      commit: async () => {
-        await api.updateMenuItem(menuItem.id, { is_favorite: nextFav });
-      },
-      rollback: (snapshot) => {
-        if (snapshot) setMenuItems(snapshot);
-      },
-      onError: (err) => {
-        notify?.(err?.message || "Не удалось обновить избранное", "error");
-      },
-    }).catch(() => {});
   };
 
   const handleSaveMenuItem = async (payload, menuItemId) => {
@@ -499,21 +475,33 @@ export default function NutritionSection({
   const selectedDateShortLabel =
     activeDate === todayDate ? "сегодня" : formatDateShortRu(activeDate);
 
+  const macrosText = overview.hasAnyMacros
+    ? `${Math.round(overview.protein)} / ${Math.round(overview.fat)} / ${Math.round(overview.carbs)}`
+    : "—";
+
   return (
-    <div className="mt-section" data-accent="nutrition">
-      <SectionHeader
-        eyebrow={formatDateFullRu(activeDate)}
+    <div className="mt-section">
+      <PageHeader
         title="Питание"
-        subtitle="Спокойный учёт рациона по меню и времени"
+        subtitle={formatDateShortRu(activeDate)}
         action={
           <button
             type="button"
             className="mt-btn mt-btn--primary mt-btn--sm"
-            data-accent="nutrition"
-            onClick={() => openPickerForSlot(overview.nextOpenSlot)}
+            aria-label={
+              activeSubTab === "menu"
+                ? "Новое блюдо в меню"
+                : "Добавить блюдо в рацион"
+            }
+            onClick={() => {
+              if (activeSubTab === "menu") {
+                setCreateMenuSignal((n) => n + 1);
+              } else {
+                openPickerForSlot(overview.nextOpenSlot);
+              }
+            }}
           >
             <Plus size={16} />
-            <span>Блюдо</span>
           </button>
         }
       />
@@ -525,93 +513,18 @@ export default function NutritionSection({
         markers={dateMarkers}
       />
 
-      {/* Daily Ration Overview Card */}
-      <section
-        className="nutrition-summary-card"
-        data-accent="nutrition"
-        aria-label="Сводка рациона за день"
-      >
-        <div className="mt-row" style={{ gap: "14px", alignItems: "center" }}>
-          <ProgressRing
-            percent={overview.progressPct}
-            size={68}
-            strokeWidth={7}
-            color={
-              overview.mainDoneCount === 3
-                ? "var(--nutrition-olive)"
-                : "var(--nutrition)"
-            }
-            label={`${overview.mainDoneCount}/3`}
-            sublabel="осн."
-          />
-
-          <div className="mt-stack mt-stack--xs" style={{ flex: 1 }}>
-            <div className="mt-row mt-row--between" style={{ gap: "6px" }}>
-              <h2 className="mt-card-title" style={{ fontSize: "16px" }}>
-                {overview.mainDoneCount} из 3 основных приёмов
-              </h2>
-            </div>
-
-            <div className="mt-row mt-row--wrap" style={{ gap: "6px" }}>
-              <span className="nutrition-time-badge">
-                <Clock size={12} />
-                <span>{overview.eatingWindow}</span>
-              </span>
-              {overview.hasSnack ? (
-                <Pill tone="neutral">+ перекус</Pill>
-              ) : null}
-              {overview.plannedCount > 0 ? (
-                <Pill tone="nutrition">в плане: {overview.plannedCount}</Pill>
-              ) : null}
-            </div>
-
-            <p className="mt-card-sub tabular" style={{ marginTop: "2px" }}>
-              {overview.totalKcal > 0 || overview.totalGrams > 0 ? (
-                <>
-                  Всего за день:{" "}
-                  <strong style={{ color: "var(--ink)" }}>
-                    {overview.totalKcal} ккал
-                  </strong>
-                  {overview.totalGrams > 0 ? ` · ${overview.totalGrams} г` : ""}
-                </>
-              ) : (
-                "Выберите блюда из меню, чтобы отметить приёмы пищи"
-              )}
-            </p>
-          </div>
-        </div>
-
-        {/* Gentle Protein / Fat / Carbs summary bar */}
-        <div className="nutrition-macros-row">
-          <div className="nutrition-macro-pill">
-            <span>Белки</span>
-            <strong>{overview.hasAnyMacros ? `${overview.protein} г` : "—"}</strong>
-          </div>
-          <div className="nutrition-macro-pill">
-            <span>Жиры</span>
-            <strong>{overview.hasAnyMacros ? `${overview.fat} г` : "—"}</strong>
-          </div>
-          <div className="nutrition-macro-pill">
-            <span>Углеводы</span>
-            <strong>{overview.hasAnyMacros ? `${overview.carbs} г` : "—"}</strong>
-          </div>
-        </div>
-      </section>
-
-      {/* Segmented View Switch: Рацион дня | Меню блюд */}
       <SegmentedControl
         value={activeSubTab}
         onChange={setActiveSubTab}
-        accent="nutrition"
         options={[
           {
             value: "ration",
-            label: "Рацион дня",
+            label: "Рацион",
             count: overview.totalCount,
           },
           {
             value: "menu",
-            label: "Меню блюд",
+            label: "Меню",
             count: menuItems.length,
           },
         ]}
@@ -619,27 +532,47 @@ export default function NutritionSection({
 
       {errorMsg ? <div className="mt-form-error">{errorMsg}</div> : null}
 
-      {/* SUB-TAB 1: РАЦИОН ДНЯ */}
+      {/* SUB-TAB 1: РАЦИОН */}
       {activeSubTab === "ration" ? (
         <div className="mt-stack">
+          <MetricStrip
+            items={[
+              {
+                key: "kcal",
+                value: `${overview.totalKcal} ккал`,
+                label: `${overview.mainDoneCount} из 3 осн.`,
+                tone: overview.mainDoneCount === 3 ? "cobalt" : undefined,
+              },
+              {
+                key: "macros",
+                value: macrosText,
+                label: "Б / Ж / У, г",
+              },
+              {
+                key: "window",
+                value: overview.eatingWindow,
+                label: "Окно",
+              },
+            ]}
+          />
+
           {loadingDay && dayData.items.length === 0 ? (
-            <div className="mt-stack">
-              {[0, 1, 2].map((idx) => (
-                <div key={idx} className="nutrition-slot-card">
-                  <div
-                    className="mt-skeleton"
-                    style={{ height: "20px", width: "42%" }}
-                  />
-                  <div
-                    className="mt-skeleton"
-                    style={{ height: "54px", width: "100%" }}
-                  />
-                </div>
-              ))}
-            </div>
+            <GroupList>
+              <div className="mt-list-row">
+                <div
+                  className="mt-skeleton"
+                  style={{ height: "20px", width: "55%" }}
+                />
+              </div>
+              <div className="mt-list-row">
+                <div
+                  className="mt-skeleton"
+                  style={{ height: "20px", width: "48%" }}
+                />
+              </div>
+            </GroupList>
           ) : (
             MEAL_SLOTS.map((slot) => {
-              const SlotIcon = SLOT_ICONS[slot.key] || Sun;
               const slotItems = dayData.slots?.[slot.key] || [];
               const eatenSlotItems = slotItems.filter(
                 (item) => item.completed !== false,
@@ -648,384 +581,99 @@ export default function NutritionSection({
                 (sum, item) => sum + (Number(item.kcal) || 0),
                 0,
               );
-              const slotGrams = eatenSlotItems.reduce(
-                (sum, item) => sum + (Number(item.grams) || 0),
-                0,
-              );
-
-              // Keep empty Перекус serene & compact until an item is logged
-              if (slot.key === "snack" && slotItems.length === 0) {
-                return (
-                  <section
-                    key={slot.key}
-                    className="nutrition-slot-card nutrition-slot-card--compact"
-                    data-accent="nutrition"
-                    aria-label={slot.label}
-                  >
-                    <div className="mt-row" style={{ gap: "10px", minWidth: 0 }}>
-                      <span
-                        className="mt-pill mt-pill--nutrition"
-                        style={{ padding: "6px 9px" }}
-                        aria-hidden="true"
-                      >
-                        <SlotIcon size={15} />
-                      </span>
-                      <div style={{ minWidth: 0 }}>
-                        <h3 className="mt-card-title">{slot.label}</h3>
-                        <span className="nutrition-slot-window">
-                          по желанию
-                        </span>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      className="mt-btn mt-btn--soft mt-btn--sm"
-                      data-accent="nutrition"
-                      onClick={() => openPickerForSlot(slot.key)}
-                    >
-                      <Plus size={15} />
-                      <span>Добавить перекус</span>
-                    </button>
-                  </section>
-                );
-              }
 
               return (
                 <section
                   key={slot.key}
-                  className="nutrition-slot-card"
-                  data-accent="nutrition"
+                  className="mt-group-block"
                   aria-label={slot.label}
                 >
-                  <div className="nutrition-slot-head">
-                    <div className="mt-row" style={{ gap: "10px" }}>
-                      <span
-                        className={`mt-pill ${
-                          eatenSlotItems.length > 0
-                            ? "mt-pill--habits"
-                            : "mt-pill--nutrition"
-                        }`}
-                        style={{ padding: "6px 9px" }}
-                        aria-hidden="true"
+                  <GroupHeader
+                    title={slot.label}
+                    meta={
+                      slotKcal > 0
+                        ? `${Math.round(slotKcal)} ккал`
+                        : slot.key === "snack"
+                          ? undefined
+                          : slot.window
+                    }
+                    action={
+                      <button
+                        type="button"
+                        className="mt-icon-btn"
+                        style={{
+                          width: "34px",
+                          height: "34px",
+                          minWidth: "34px",
+                          minHeight: "34px",
+                          color: "var(--cobalt)",
+                        }}
+                        aria-label={`Добавить в ${slot.label.toLowerCase()}`}
+                        onClick={() => openPickerForSlot(slot.key)}
                       >
-                        <SlotIcon size={15} />
-                      </span>
-                      <div>
-                        <h3 className="mt-card-title">{slot.label}</h3>
-                        <span className="nutrition-slot-window">
-                          <Clock size={11} />
-                          <span>{slot.window}</span>
-                        </span>
-                      </div>
-                    </div>
+                        <Plus size={17} />
+                      </button>
+                    }
+                  />
 
-                    <div className="mt-row" style={{ gap: "6px", flexShrink: 0 }}>
-                      {slotKcal > 0 ? (
-                        <span className="nutrition-kcal-badge">
-                          {Math.round(slotKcal)} ккал
-                        </span>
-                      ) : slotItems.length > 0 ? (
-                        <Pill tone="nutrition">В плане</Pill>
-                      ) : (
-                        <span
-                          className="muted"
-                          style={{ fontSize: "12px", whiteSpace: "nowrap" }}
-                        >
-                          {slot.key === "snack" ? "по желанию" : "открыт"}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Logged dishes for this meal slot */}
-                  {slotItems.length > 0 ? (
-                    <div className="mt-stack mt-stack--xs">
-                      {slotItems.map((meal) => {
+                  <GroupList>
+                    {slotItems.length > 0 ? (
+                      slotItems.map((meal) => {
                         const isEaten = meal.completed !== false;
-                        const amountText = formatMealAmount(meal);
                         return (
-                          <div
+                          <ListRow
                             key={meal.id}
-                            className={`nutrition-dish-row${
-                              isEaten ? " is-checked" : ""
-                            }`}
-                          >
-                            {/* Checkbox button (44x44 touch target) */}
-                            <button
-                              type="button"
-                              role="checkbox"
-                              aria-checked={isEaten}
-                              aria-label={
-                                isEaten
-                                  ? `Отметить «${meal.dish_name}» как запланированное`
-                                  : `Отметить «${meal.dish_name}» как съеденное`
-                              }
-                              onClick={() => handleToggleMealCompleted(meal)}
-                              style={{
-                                width: "44px",
-                                height: "44px",
-                                minWidth: "44px",
-                                margin: "-10px -8px -10px -10px",
-                                padding: 0,
-                                border: 0,
-                                background: "transparent",
-                                display: "inline-flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                flexShrink: 0,
-                              }}
-                            >
-                              <span
-                                className="mt-check-box"
-                                style={
-                                  isEaten
-                                    ? {
-                                        background: "var(--nutrition-olive)",
-                                        borderColor: "var(--nutrition-olive)",
-                                      }
-                                    : undefined
-                                }
-                              >
-                                {isEaten ? (
-                                  <Check size={14} strokeWidth={2.75} />
-                                ) : null}
-                              </span>
-                            </button>
-
-                            {/* Dish info: what + quick actions on top row, then full-width when/how-much/kcal badges */}
-                            <div
-                              className="mt-stack mt-stack--xs"
-                              style={{ flex: 1, minWidth: 0 }}
-                            >
-                              <div
-                                className="mt-row mt-row--between"
-                                style={{ alignItems: "flex-start", gap: "6px" }}
-                              >
-                                <div
-                                  className="mt-row mt-row--wrap"
-                                  style={{ gap: "6px", flex: 1, minWidth: 0, paddingTop: "2px" }}
-                                >
-                                  <strong
-                                    style={{
-                                      fontSize: "14.5px",
-                                      lineHeight: "20px",
-                                      fontWeight: 600,
-                                      color: isEaten
-                                        ? "var(--ink)"
-                                        : "var(--ink-secondary)",
-                                      overflowWrap: "anywhere",
-                                    }}
-                                  >
-                                    {meal.dish_name}
-                                  </strong>
-                                  {!isEaten ? (
-                                    <Pill tone="warning">В плане</Pill>
-                                  ) : null}
-                                </div>
-
-                                <div
-                                  className="mt-row"
-                                  style={{
-                                    gap: "0px",
-                                    flexShrink: 0,
-                                    margin: "-10px -10px -10px 0",
-                                  }}
-                                >
-                                  <button
-                                    type="button"
-                                    className="mt-icon-btn"
-                                    aria-label={`Изменить «${meal.dish_name}»`}
-                                    onClick={() => openPickerForEdit(meal)}
-                                  >
-                                    <Pencil size={16} />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className="mt-icon-btn mt-icon-btn--danger"
-                                    aria-label={`Удалить «${meal.dish_name}»`}
-                                    onClick={() => handleDeleteMeal(meal)}
-                                  >
-                                    <Trash2 size={16} />
-                                  </button>
-                                </div>
-                              </div>
-
-                              <div
-                                className="mt-row mt-row--wrap"
-                                style={{ gap: "6px" }}
-                              >
-                                {meal.eaten_at ? (
-                                  <span className="nutrition-time-badge">
-                                    <Clock size={11} />
-                                    <span>{meal.eaten_at}</span>
-                                  </span>
-                                ) : null}
-                                {amountText ? (
-                                  <span className="nutrition-amount-badge">
-                                    {amountText}
-                                  </span>
-                                ) : null}
-                                {meal.kcal > 0 ? (
-                                  <span className="nutrition-kcal-badge">
-                                    {Math.round(meal.kcal)} ккал
-                                  </span>
-                                ) : null}
-                              </div>
-
-                              {meal.note ? (
-                                <p
-                                  className="mt-card-sub"
-                                  style={{ marginTop: 0, fontSize: "12.5px" }}
-                                >
-                                  {meal.note}
-                                </p>
-                              ) : null}
-                            </div>
-                          </div>
+                            checked={isEaten}
+                            onToggle={() => handleToggleMealCompleted(meal)}
+                            title={meal.dish_name}
+                            meta={buildMealMetaLine(meal, isEaten)}
+                            onClick={() => openPickerForEdit(meal)}
+                            trailing={
+                              <ChevronRight
+                                size={15}
+                                className="mt-list-row-chevron"
+                                aria-hidden="true"
+                              />
+                            }
+                          />
                         );
-                      })}
-                      {slotGrams > 0 && slotItems.length > 1 ? (
-                        <div
-                          className="muted tabular"
-                          style={{
-                            fontSize: "12px",
-                            paddingTop: "4px",
-                            borderTop: "1px solid var(--border-subtle)",
-                          }}
-                        >
-                          Итого за {slot.label.toLowerCase()}:{" "}
-                          {Math.round(slotGrams)} г · {Math.round(slotKcal)} ккал
-                        </div>
-                      ) : null}
-                    </div>
-                  ) : (
-                    <p
-                      className="mt-card-sub"
-                      style={{
-                        marginTop: 0,
-                        padding: "4px 0",
-                        borderTop: "1px solid var(--border-subtle)",
-                      }}
-                    >
-                      {slot.key === "snack"
-                        ? "Перекус по желанию — можно добавить фрукт, орехи или напиток."
-                        : `Пока пусто · комфортное время ${slot.window}.`}
-                    </p>
-                  )}
-
-                  {/* Prominent button inside every meal slot */}
-                  <button
-                    type="button"
-                    className="mt-btn mt-btn--soft mt-btn--wide"
-                    data-accent="nutrition"
-                    onClick={() => openPickerForSlot(slot.key)}
-                  >
-                    <Plus size={17} />
-                    <span>Выбрать из меню / добавить</span>
-                  </button>
+                      })
+                    ) : (
+                      <button
+                        type="button"
+                        className="nutrition-empty-row"
+                        onClick={() => openPickerForSlot(slot.key)}
+                      >
+                        <span>Добавить блюдо</span>
+                        <Plus
+                          size={16}
+                          style={{ color: "var(--cobalt)", flexShrink: 0 }}
+                          aria-hidden="true"
+                        />
+                      </button>
+                    )}
+                  </GroupList>
                 </section>
               );
             })
           )}
-
-          {/* Calm 7-day meal rhythm strip */}
-          {dayData.recent_7d && dayData.recent_7d.length > 0 ? (
-            <section
-              className="mt-card mt-card--compact"
-              aria-label="Ритм питания за 7 дней"
-            >
-              <div className="mt-row mt-row--between">
-                <h3 className="mt-card-title">Ритм за 7 дней</h3>
-                <span className="muted" style={{ fontSize: "12px" }}>
-                  Завтрак · Обед · Ужин
-                </span>
-              </div>
-              <div className="workout-week-strip">
-                {dayData.recent_7d.slice(-7).map((entry) => {
-                  const isSel = entry.date === activeDate;
-                  const countMain =
-                    (entry.has_breakfast ? 1 : 0) +
-                    (entry.has_lunch ? 1 : 0) +
-                    (entry.has_dinner ? 1 : 0);
-                  const shortDay =
-                    entry.date === todayDate
-                      ? "Сег"
-                      : String(entry.date || "").slice(8, 10);
-
-                  return (
-                    <button
-                      key={entry.date}
-                      type="button"
-                      className={`workout-week-day${
-                        countMain === 3 ? " is-active" : ""
-                      }`}
-                      style={{
-                        borderColor: isSel ? "var(--nutrition)" : undefined,
-                        background: isSel
-                          ? "var(--nutrition-soft)"
-                          : countMain === 3
-                            ? "#F1F5EA"
-                            : undefined,
-                        color: isSel
-                          ? "var(--nutrition-ink)"
-                          : countMain === 3
-                            ? "var(--nutrition-olive)"
-                            : undefined,
-                        minHeight: "56px",
-                      }}
-                      aria-label={`${formatRelativeDayRu(entry.date)}: ${countMain} из 3 основных приёмов`}
-                      onClick={() => onSelectDate?.(entry.date)}
-                    >
-                      <span className="tabular">{shortDay}</span>
-                      <span
-                        style={{
-                          display: "inline-flex",
-                          gap: "3px",
-                          alignItems: "center",
-                        }}
-                        aria-hidden="true"
-                      >
-                        {[
-                          entry.has_breakfast,
-                          entry.has_lunch,
-                          entry.has_dinner,
-                        ].map((ok, idx) => (
-                          <span
-                            key={idx}
-                            style={{
-                              width: "5px",
-                              height: "5px",
-                              borderRadius: "50%",
-                              background: ok
-                                ? "var(--nutrition-olive)"
-                                : "var(--border-strong)",
-                            }}
-                          />
-                        ))}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </section>
-          ) : null}
         </div>
       ) : (
-        /* SUB-TAB 2: МЕНЮ БЛЮД */
+        /* SUB-TAB 2: МЕНЮ */
         <MenuCatalogView
           menuItems={menuItems}
           loading={loadingMenu}
           selectedDateLabel={selectedDateShortLabel}
+          createSignal={createMenuSignal}
           onQuickAddToDay={handleQuickAddFromMenu}
           onCustomizeAndAdd={openPickerForMenuItem}
           onAddToShopping={handleAddMenuItemToShopping}
-          onToggleFavorite={handleToggleFavorite}
           onSaveMenuItem={handleSaveMenuItem}
           onDeleteMenuItem={handleDeleteMenuItem}
         />
       )}
 
-      {/* Bottom Sheet: Выбор блюда / редактирование */}
+      {/* Bottom Sheet: Выбор блюда / редактирование / удаление */}
       <MealPickerSheet
         open={pickerOpen}
         onClose={() => {

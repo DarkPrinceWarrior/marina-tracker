@@ -8,13 +8,42 @@ import {
   Minus,
 } from "lucide-react";
 import Sheet from "./Sheet.jsx";
-import {
-  addDays,
-  formatShortRangeRu,
-  getWeekDays,
-  todayISO,
-} from "../utils/date.js";
+import { addDays, getWeekDays, todayISO } from "../utils/date.js";
 
+/**
+ * 2026 Minimalist single-row PageHeader.
+ * Renders a crisp page title, optional compact inline subtitle/date, and right-aligned actions.
+ */
+export function PageHeader({
+  title,
+  subtitle,
+  action,
+  secondaryAction,
+  className = "",
+}) {
+  return (
+    <header
+      className={["mt-page-header", className].filter(Boolean).join(" ")}
+    >
+      <div className="mt-page-header-copy">
+        <div className="mt-page-header-title-row">
+          {title ? <h1 className="mt-page-title">{title}</h1> : null}
+          {subtitle ? <span className="mt-page-meta">{subtitle}</span> : null}
+        </div>
+      </div>
+      {secondaryAction || action ? (
+        <div className="mt-page-header-actions">
+          {secondaryAction}
+          {action}
+        </div>
+      ) : null}
+    </header>
+  );
+}
+
+/**
+ * Backwards-compatible SectionHeader wrapper using the clean 2026 header geometry.
+ */
 export function SectionHeader({
   eyebrow,
   title,
@@ -29,15 +58,220 @@ export function SectionHeader({
       className={["mt-section-header", className].filter(Boolean).join(" ")}
     >
       <div className="mt-section-header-copy">
-        {eyebrow && <p className="mt-eyebrow">{eyebrow}</p>}
-        {title && <Heading className="mt-section-title">{title}</Heading>}
-        {subtitle && <p className="mt-card-sub">{subtitle}</p>}
+        {eyebrow ? <p className="mt-eyebrow">{eyebrow}</p> : null}
+        {title ? <Heading className="mt-section-title">{title}</Heading> : null}
+        {subtitle ? <p className="mt-card-sub">{subtitle}</p> : null}
       </div>
       {action ? <div className="mt-section-header-action">{action}</div> : null}
     </header>
   );
 }
 
+/**
+ * 2026 iOS Grouped List header: crisp uppercase micro-label + optional meta + right action.
+ */
+export function GroupHeader({ title, meta, action, className = "" }) {
+  return (
+    <div className={["mt-group-header", className].filter(Boolean).join(" ")}>
+      <div className="mt-group-header-left">
+        <span className="mt-group-title">{title}</span>
+        {meta ? <span className="mt-group-meta tabular">{meta}</span> : null}
+      </div>
+      {action ? <div className="mt-group-action">{action}</div> : null}
+    </div>
+  );
+}
+
+/**
+ * 2026 iOS Grouped List container: single crisp white card with 1px hairlines between rows.
+ */
+export function GroupList({ children, className = "" }) {
+  return (
+    <div className={["mt-group-list", className].filter(Boolean).join(" ")}>
+      {children}
+    </div>
+  );
+}
+
+/**
+ * Unified 2026 ListRow used across Tasks, Habits, Vitamins, Meals, Chores, Shopping,
+ * Cycle history, and Milestones. Guarantees razor-straight left alignment of title & meta.
+ */
+export function ListRow({
+  checked,
+  onToggle,
+  title,
+  meta,
+  trailing,
+  onClick,
+  strikethrough = false,
+  leading,
+  accent = "cobalt",
+  ariaToggleLabel,
+  disabled = false,
+  className = "",
+}) {
+  const isCheckable = typeof onToggle === "function";
+  const isChecked = Boolean(checked);
+  const rowClasses = [
+    "mt-list-row",
+    isChecked ? "is-checked" : "",
+    strikethrough && isChecked ? "is-strikethrough" : "",
+    className,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  if (isCheckable) {
+    const bodyClick = typeof onClick === "function" ? onClick : onToggle;
+    return (
+      <div className={rowClasses} data-accent={accent}>
+        <button
+          type="button"
+          className="mt-list-check-btn"
+          role="checkbox"
+          aria-checked={isChecked}
+          aria-label={
+            ariaToggleLabel ||
+            (typeof title === "string"
+              ? `${isChecked ? "Снять отметку" : "Отметить"}: ${title}`
+              : "Переключить")
+          }
+          disabled={disabled}
+          onClick={() => onToggle()}
+        >
+          <span className="mt-list-check-box" aria-hidden="true">
+            {isChecked ? <Check size={14} strokeWidth={2.8} /> : null}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          className="mt-list-body mt-list-body--clickable"
+          disabled={disabled}
+          onClick={() => bodyClick?.()}
+        >
+          <span className="mt-list-title">{title}</span>
+          {meta ? <span className="mt-list-meta">{meta}</span> : null}
+        </button>
+
+        {trailing ? <div className="mt-list-trailing">{trailing}</div> : null}
+      </div>
+    );
+  }
+
+  if (typeof onClick === "function") {
+    return (
+      <button
+        type="button"
+        className={`${rowClasses} mt-list-row--clickable`}
+        data-accent={accent}
+        disabled={disabled}
+        onClick={onClick}
+      >
+        {leading ? <span className="mt-list-leading">{leading}</span> : null}
+        <span className="mt-list-body">
+          <span className="mt-list-title">{title}</span>
+          {meta ? <span className="mt-list-meta">{meta}</span> : null}
+        </span>
+        {trailing ? <span className="mt-list-trailing">{trailing}</span> : null}
+      </button>
+    );
+  }
+
+  return (
+    <div className={rowClasses} data-accent={accent}>
+      {leading ? <span className="mt-list-leading">{leading}</span> : null}
+      <div className="mt-list-body">
+        <span className="mt-list-title">{title}</span>
+        {meta ? <span className="mt-list-meta">{meta}</span> : null}
+      </div>
+      {trailing ? <div className="mt-list-trailing">{trailing}</div> : null}
+    </div>
+  );
+}
+
+/**
+ * Single crisp horizontal white bar with hairline vertical dividers.
+ * items: [{ key?, label, value, tone?, onClick?, ariaLabel? }]
+ */
+export function MetricStrip({ items = [], className = "" }) {
+  return (
+    <div className={["mt-metric-strip", className].filter(Boolean).join(" ")}>
+      {items.map((item, idx) => {
+        const isInteractive = typeof item.onClick === "function";
+        const Tag = isInteractive ? "button" : "div";
+        return (
+          <Tag
+            key={item.key || item.label || idx}
+            type={isInteractive ? "button" : undefined}
+            className={[
+              "mt-metric-cell",
+              isInteractive ? "is-interactive" : "",
+              item.tone ? `is-${item.tone}` : "",
+            ]
+              .filter(Boolean)
+              .join(" ")}
+            onClick={item.onClick}
+            aria-label={item.ariaLabel}
+          >
+            <span className="mt-metric-value tabular">{item.value}</span>
+            <span className="mt-metric-label">{item.label}</span>
+          </Tag>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * Slim 5px Cobalt progress bar + single-line label/meta header.
+ */
+export function CompactProgress({
+  value = 0,
+  max = 100,
+  label,
+  meta,
+  tone = "cobalt",
+  className = "",
+}) {
+  const numVal = Number(value) || 0;
+  const numMax = Number(max) || 0;
+  const pct =
+    numMax > 0 ? Math.max(0, Math.min(100, (numVal / numMax) * 100)) : 0;
+
+  return (
+    <div
+      className={["mt-compact-progress", className].filter(Boolean).join(" ")}
+    >
+      {label || meta ? (
+        <div className="mt-compact-progress-head">
+          <span className="mt-compact-progress-label">{label || ""}</span>
+          {meta ? (
+            <span className="mt-compact-progress-meta tabular">{meta}</span>
+          ) : null}
+        </div>
+      ) : null}
+      <div
+        className="mt-progress-track"
+        role="progressbar"
+        aria-valuenow={Math.round(pct)}
+        aria-valuemin={0}
+        aria-valuemax={100}
+      >
+        <div
+          className={`mt-progress-fill is-${tone}`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Slim single-row 7-day DateStrip with inline prev/next week arrows.
+ * Displays compact «Сегодня» return pill ONLY when viewing a different date.
+ */
 export function DateStrip({
   selectedDate,
   todayDate = todayISO(),
@@ -47,83 +281,76 @@ export function DateStrip({
   const activeISO = selectedDate || todayDate;
   const days = getWeekDays(activeISO);
   const isNotToday = activeISO !== todayDate;
-  const rangeLabel =
-    days.length === 7 ? formatShortRangeRu(days[0].iso, days[6].iso) : "";
 
   return (
-    <div className="mt-stack mt-stack--xs">
-      <div className="mt-row mt-row--between" style={{ minHeight: 40 }}>
-        <div className="mt-row" style={{ gap: 2 }}>
-          <button
-            type="button"
-            className="mt-icon-btn"
-            aria-label="Предыдущая неделя"
-            onClick={() => onSelectDate?.(addDays(activeISO, -7))}
-          >
-            <ChevronLeft size={18} />
-          </button>
-          <span
-            className="muted tabular"
-            style={{ fontSize: "13px", fontWeight: 600, padding: "0 2px" }}
-          >
-            {rangeLabel}
-          </span>
-          <button
-            type="button"
-            className="mt-icon-btn"
-            aria-label="Следующая неделя"
-            onClick={() => onSelectDate?.(addDays(activeISO, 7))}
-          >
-            <ChevronRight size={18} />
-          </button>
+    <div className="mt-date-strip-wrap">
+      <div className="mt-date-bar">
+        <button
+          type="button"
+          className="mt-date-nav-btn"
+          aria-label="Предыдущая неделя"
+          onClick={() => onSelectDate?.(addDays(activeISO, -7))}
+        >
+          <ChevronLeft size={16} />
+        </button>
+
+        <div
+          className="mt-date-strip"
+          role="tablist"
+          aria-label="Выбор дня недели"
+        >
+          {days.map((item) => {
+            const isSelected = item.iso === activeISO;
+            const isToday = item.iso === todayDate;
+            const marker = markers?.[item.iso];
+            return (
+              <button
+                key={item.iso}
+                type="button"
+                role="tab"
+                aria-selected={isSelected}
+                aria-label={`${item.weekdayFull}, ${item.day}`}
+                className={[
+                  "mt-date-cell",
+                  isSelected ? "is-selected" : "",
+                  isToday ? "is-today" : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+                onClick={() => onSelectDate?.(item.iso)}
+              >
+                <span className="mt-date-weekday">{item.weekdayShort}</span>
+                <span className="mt-date-num tabular">{item.day}</span>
+                <span
+                  className={`mt-date-dot${marker ? ` is-${marker}` : ""}`}
+                  aria-hidden="true"
+                />
+              </button>
+            );
+          })}
         </div>
 
-        {isNotToday ? (
-          <button
-            type="button"
-            className="mt-pill mt-pill--brand"
-            onClick={() => onSelectDate?.(todayDate)}
-          >
-            Сегодня
-          </button>
-        ) : null}
+        <button
+          type="button"
+          className="mt-date-nav-btn"
+          aria-label="Следующая неделя"
+          onClick={() => onSelectDate?.(addDays(activeISO, 7))}
+        >
+          <ChevronRight size={16} />
+        </button>
       </div>
 
-      <div
-        className="mt-date-strip"
-        role="tablist"
-        aria-label="Выбор дня недели"
-      >
-        {days.map((item) => {
-          const isSelected = item.iso === activeISO;
-          const isToday = item.iso === todayDate;
-          const marker = markers?.[item.iso];
-          return (
-            <button
-              key={item.iso}
-              type="button"
-              role="tab"
-              aria-selected={isSelected}
-              aria-label={`${item.weekdayFull}, ${item.day}`}
-              className={[
-                "mt-date-cell",
-                isSelected ? "is-selected" : "",
-                isToday ? "is-today" : "",
-              ]
-                .filter(Boolean)
-                .join(" ")}
-              onClick={() => onSelectDate?.(item.iso)}
-            >
-              <span className="mt-date-weekday">{item.weekdayShort}</span>
-              <span className="mt-date-num tabular">{item.day}</span>
-              <span
-                className={`mt-date-dot${marker ? ` is-${marker}` : ""}`}
-                aria-hidden="true"
-              />
-            </button>
-          );
-        })}
-      </div>
+      {isNotToday ? (
+        <div className="mt-date-return-row">
+          <button
+            type="button"
+            className="mt-pill mt-pill--cobalt"
+            onClick={() => onSelectDate?.(todayDate)}
+          >
+            Вернуться на сегодня
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -131,11 +358,10 @@ export function DateStrip({
 export function SegmentedControl({
   value,
   onChange,
-  accent = "brand",
   options = [],
 }) {
   return (
-    <div className="mt-segmented" role="tablist" data-accent={accent}>
+    <div className="mt-segmented" role="tablist">
       {options.map((option) => {
         const isActive = option.value === value;
         return (
@@ -145,12 +371,9 @@ export function SegmentedControl({
             role="tab"
             aria-selected={isActive}
             className={`mt-segmented-btn${isActive ? " is-active" : ""}`}
-            data-accent={accent}
             onClick={() => onChange?.(option.value)}
           >
-            <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
-              {option.label}
-            </span>
+            <span className="mt-segmented-label">{option.label}</span>
             {typeof option.count === "number" && (
               <span className="mt-segmented-count tabular">{option.count}</span>
             )}
@@ -163,9 +386,9 @@ export function SegmentedControl({
 
 export function ProgressRing({
   percent = 0,
-  size = 72,
-  strokeWidth = 7,
-  color = "var(--brand)",
+  size = 64,
+  strokeWidth = 6,
+  color = "var(--cobalt)",
   label,
   sublabel,
 }) {
@@ -218,12 +441,15 @@ export function ProgressRing({
   );
 }
 
+/**
+ * Legacy CheckRow preserved for backwards compatibility; prefer ListRow inside GroupList.
+ */
 export function CheckRow({
   checked = false,
   onToggle,
   title,
   subtitle,
-  accent = "brand",
+  accent = "cobalt",
   badge,
   trailing,
   strikethrough = false,
@@ -251,7 +477,7 @@ export function CheckRow({
         onClick={() => onToggle?.()}
       >
         <span className="mt-check-box" aria-hidden="true">
-          {checked ? <Check size={15} strokeWidth={2.75} /> : null}
+          {checked ? <Check size={14} strokeWidth={2.75} /> : null}
         </span>
         <span className="mt-check-body">
           <span className="mt-check-title-row">
@@ -290,7 +516,6 @@ export function Pill({
       <button
         type={type}
         className={classes}
-        data-accent={tone}
         aria-pressed={active || undefined}
         onClick={onClick}
         {...rest}
@@ -302,7 +527,7 @@ export function Pill({
   }
 
   return (
-    <span className={classes} data-accent={tone} {...rest}>
+    <span className={classes} {...rest}>
       {icon ? <span className="mt-pill-icon">{icon}</span> : null}
       <span>{children}</span>
     </span>
@@ -327,14 +552,12 @@ export function EmptyState({ icon, title, description, action }) {
 export function FabButton({
   label = "Добавить",
   onClick,
-  accent = "brand",
   icon,
 }) {
   const button = (
     <button
       type="button"
       className="mt-fab"
-      data-accent={accent}
       aria-label={label}
       onClick={onClick}
     >
@@ -394,12 +617,12 @@ export function PwaInstallGuide({ open = false, onClose }) {
           {
             num: "1",
             title: "Нажмите «Поделиться» внизу экрана",
-            text: "Иконка квадрата со стрелкой вверх на нижней панели Safari.",
+            text: "Значок квадрата со стрелкой вверх на нижней панели Safari.",
           },
           {
             num: "2",
             title: "Выберите «На экран „Домой“»",
-            text: "Прокрутите меню чуть вниз и нажмите на пункт добавления ярлыка.",
+            text: "Прокрутите меню вниз и нажмите на пункт добавления ярлыка.",
           },
           {
             num: "3",
@@ -429,8 +652,8 @@ export function PwaInstallGuide({ open = false, onClose }) {
     <Sheet
       open={open}
       onClose={onClose}
-      title="Установить «Ритм» на iPhone"
-      subtitle="Полноэкранный режим без панели браузера"
+      title="На экран «Домой»"
+      subtitle="Полноэкранный запуск без панели браузера"
       footer={
         <button
           type="button"
@@ -445,10 +668,9 @@ export function PwaInstallGuide({ open = false, onClose }) {
         <SegmentedControl
           value={browser}
           onChange={setBrowser}
-          accent="brand"
           options={[
-            { value: "safari", label: "Safari (iOS)" },
-            { value: "chrome", label: "Chrome (iOS)" },
+            { value: "safari", label: "Safari" },
+            { value: "chrome", label: "Chrome" },
           ]}
         />
         <div className="mt-pwa-steps">

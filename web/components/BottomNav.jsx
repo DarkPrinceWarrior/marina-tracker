@@ -8,16 +8,11 @@ import {
 } from "lucide-react";
 
 const TABS = [
-  { key: "today", label: "Сегодня", icon: Sun, accent: "brand" },
-  { key: "habits", label: "Привычки", icon: HeartPulse, accent: "habits" },
-  {
-    key: "nutrition",
-    label: "Питание",
-    icon: UtensilsCrossed,
-    accent: "nutrition",
-  },
-  { key: "home", label: "Дом", icon: Home, accent: "home" },
-  { key: "goals", label: "Цели", icon: Target, accent: "goals" },
+  { key: "today", label: "Сегодня", icon: Sun },
+  { key: "habits", label: "Привычки", icon: HeartPulse },
+  { key: "nutrition", label: "Питание", icon: UtensilsCrossed },
+  { key: "home", label: "Дом", icon: Home },
+  { key: "goals", label: "Цели", icon: Target },
 ];
 
 export default function BottomNav({
@@ -27,7 +22,7 @@ export default function BottomNav({
 }) {
   return (
     <nav className="bottom-nav" aria-label="Основная навигация">
-      {TABS.map(({ key, label, icon: Icon, accent }) => {
+      {TABS.map(({ key, label, icon: Icon }) => {
         const isActive = activeTab === key;
         const badgeCount = badges?.[key];
         const hasBadge = typeof badgeCount === "number" && badgeCount > 0;
@@ -36,13 +31,12 @@ export default function BottomNav({
             key={key}
             type="button"
             className={`bottom-nav-item${isActive ? " is-active" : ""}`}
-            data-accent={accent}
             aria-current={isActive ? "page" : undefined}
             aria-label={hasBadge ? `${label} (${badgeCount})` : label}
             onClick={() => onSelectTab?.(key)}
           >
-            <span className="bottom-nav-pill" aria-hidden="true">
-              <Icon size={20} strokeWidth={isActive ? 2.2 : 1.85} />
+            <span className="bottom-nav-icon" aria-hidden="true">
+              <Icon size={21} strokeWidth={isActive ? 2.2 : 1.75} />
               {hasBadge && (
                 <span className="bottom-nav-badge">
                   {badgeCount > 99 ? "99+" : badgeCount}

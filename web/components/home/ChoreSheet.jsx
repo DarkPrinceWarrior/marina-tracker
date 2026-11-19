@@ -75,25 +75,19 @@ export default function ChoreSheet({
     <Sheet
       open={open}
       onClose={onClose}
-      title={isEditing ? "Редактировать дело" : "Новое дело по дому"}
-      subtitle={
-        isEditing
-          ? "Измените зону или периодичность"
-          : "Добавьте задачу по уборке или уходу за домом"
-      }
+      title={isEditing ? "Дело по дому" : "Новое дело"}
       footer={
-        <div className="mt-stack mt-stack--sm" data-accent="home">
+        <div className="mt-stack mt-stack--sm">
           <button
             type="button"
             className="mt-btn mt-btn--primary mt-btn--wide"
-            data-accent="home"
             disabled={saving}
             onClick={handleSubmit}
           >
             {saving
               ? "Сохраняем..."
               : isEditing
-                ? "Сохранить изменения"
+                ? "Сохранить"
                 : "Добавить дело"}
           </button>
           {isEditing && (
@@ -105,19 +99,19 @@ export default function ChoreSheet({
             >
               <Trash2 size={16} />
               <span>
-                {confirmDelete ? "Точно удалить это дело?" : "Удалить дело"}
+                {confirmDelete ? "Подтвердить удаление" : "Удалить дело"}
               </span>
             </button>
           )}
         </div>
       }
     >
-      <form className="mt-stack" onSubmit={handleSubmit} data-accent="home">
+      <form className="mt-stack" onSubmit={handleSubmit}>
         {error ? <div className="mt-form-error">{error}</div> : null}
 
         <div className="mt-field">
           <label className="mt-label" htmlFor="chore-title-input">
-            Что нужно сделать
+            Название
           </label>
           <input
             id="chore-title-input"
@@ -134,12 +128,12 @@ export default function ChoreSheet({
         </div>
 
         <div className="mt-field">
-          <span className="mt-label">Зона / комната</span>
+          <span className="mt-label">Зона</span>
           <div className="mt-chip-row mt-chip-row--wrap">
             {CHORE_ZONES.map((z) => (
               <Pill
                 key={z.key}
-                tone="home"
+                tone="neutral"
                 active={zone === z.key}
                 onClick={() => setZone(z.key)}
               >
@@ -155,7 +149,7 @@ export default function ChoreSheet({
             {CHORE_FREQUENCIES.map((freq) => (
               <Pill
                 key={freq.key}
-                tone="home"
+                tone="neutral"
                 active={frequency === freq.key}
                 onClick={() => setFrequency(freq.key)}
               >

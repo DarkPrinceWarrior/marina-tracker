@@ -1,19 +1,14 @@
 import React, { useEffect, useMemo, useState } from "react";
-import {
-  Activity,
-  Award,
-  CalendarHeart,
-  CheckCircle2,
-  Droplets,
-  Flame,
-  Flower2,
-  Home,
-  Sparkles,
-  Target,
-  Wind,
-} from "lucide-react";
+import { Award, ChevronRight } from "lucide-react";
 import Sheet from "./Sheet.jsx";
-import { EmptyState, Pill, ProgressRing } from "./UiPrimitives.jsx";
+import {
+  CompactProgress,
+  EmptyState,
+  GroupHeader,
+  GroupList,
+  ListRow,
+  MetricStrip,
+} from "./UiPrimitives.jsx";
 import api from "../api.js";
 import { parseISODate, todayISO } from "../utils/date.js";
 import {
@@ -22,12 +17,7 @@ import {
   formatCountRu,
 } from "../data/presets.js";
 
-const WORKOUT_ROW_ORDER = [
-  { key: "breathing", icon: Wind, tone: "water" },
-  { key: "pilates", icon: Activity, tone: "habits" },
-  { key: "qigong", icon: Flower2, tone: "brand" },
-  { key: "other", icon: Sparkles, tone: "goals" },
-];
+const WORKOUT_ROW_ORDER = ["breathing", "pilates", "qigong", "other"];
 
 export default function YearReviewSheet({
   open = false,
@@ -90,7 +80,7 @@ export default function YearReviewSheet({
 
         const anyLoaded = Object.values(payload).some(Boolean);
         if (!anyLoaded) {
-          setError("Не удалось загрузить статистику года. Попробуйте ещё раз.");
+          setError("Не удалось загрузить итоги года. Попробуйте ещё раз.");
         } else {
           setData(payload);
         }
@@ -112,9 +102,10 @@ export default function YearReviewSheet({
   const metrics = useMemo(() => {
     if (!data) return null;
 
-    // Workouts across up to 365 days
     const recentWorkouts = data.workouts?.recent_items || [];
-    const completedWorkouts = recentWorkouts.filter((w) => w.completed !== false);
+    const completedWorkouts = recentWorkouts.filter(
+      (w) => w.completed !== false,
+    );
     const workoutsByType = {
       breathing: { count: 0, minutes: 0 },
       pilates: { count: 0, minutes: 0 },
@@ -123,14 +114,15 @@ export default function YearReviewSheet({
     };
     let totalWorkoutMinutes = 0;
     completedWorkouts.forEach((item) => {
-      const key = workoutsByType[item.workout_type] ? item.workout_type : "other";
+      const key = workoutsByType[item.workout_type]
+        ? item.workout_type
+        : "other";
       const mins = Number(item.duration_min) || 0;
       workoutsByType[key].count += 1;
       workoutsByType[key].minutes += mins;
       totalWorkoutMinutes += mins;
     });
 
-    // Habits & water streak highlight
     const habitItems = data.habits?.items || [];
     const bestHabit = habitItems.reduce(
       (best, item) =>
@@ -139,14 +131,11 @@ export default function YearReviewSheet({
           : best,
       null,
     );
-    const habitsSummary = data.habits?.summary || data.today?.summary?.habits || {};
     const waterSummary = data.water || data.today?.summary?.water || {};
 
-    // Cycle 12+ months archive
     const cycleStats = data.cycle?.stats || {};
     const cycleHistory = data.cycle?.history_12m || [];
 
-    // Multi-year goals & milestones
     const goalItems = data.goals?.items || [];
     const goalsSummary = data.goals?.summary || data.today?.summary?.goals || {};
     let totalMilestones = 0;
@@ -159,7 +148,6 @@ export default function YearReviewSheet({
       totalCheckins += (g.checkins || []).length;
     });
 
-    // Tasks & home chores
     const tasksSummary = data.today?.summary?.tasks || { done: 0, total: 0 };
     const choresSummary = data.chores?.summary || {
       done_today: data.today?.summary?.chores?.done || 0,
@@ -171,17 +159,20 @@ export default function YearReviewSheet({
       totalWorkoutMinutes,
       workoutsByType,
       bestHabit,
-      habitsDone: habitsSummary.done || 0,
-      habitsTotal: habitsSummary.total || 0,
       waterMl: waterSummary.total_ml || 0,
       waterGoal: waterSummary.goal_ml || 2000,
-      waterPercent: waterSummary.percent || 0,
-      trackedCycles: cycleStats.tracked_cycles_count || cycleHistory.length || 0,
-      avgCycleLen: cycleStats.computed_avg_cycle_length || data.cycle?.settings?.avg_cycle_length || 28,
-      avgPeriodLen: cycleStats.computed_avg_period_length || data.cycle?.settings?.avg_period_length || 5,
+      trackedCycles:
+        cycleStats.tracked_cycles_count || cycleHistory.length || 0,
+      avgCycleLen:
+        cycleStats.computed_avg_cycle_length ||
+        data.cycle?.settings?.avg_cycle_length ||
+        28,
+      avgPeriodLen:
+        cycleStats.computed_avg_period_length ||
+        data.cycle?.settings?.avg_period_length ||
+        5,
       goalItems,
       avgGoalPct: goalsSummary.avg_progress_pct || 0,
-      activeGoals: goalsSummary.active_count || goalItems.filter((g) => g.status === "active").length,
       totalMilestones,
       doneMilestones,
       totalCheckins,
@@ -189,7 +180,6 @@ export default function YearReviewSheet({
       tasksTotal: tasksSummary.total || 0,
       choresDone: choresSummary.done_today ?? choresSummary.done ?? 0,
       choresTotal: choresSummary.total_active ?? choresSummary.total ?? 0,
-      completedFeedCount: (data.today?.completed_feed || []).length,
     };
   }, [data]);
 
@@ -202,22 +192,26 @@ export default function YearReviewSheet({
     <Sheet
       open={open}
       onClose={onClose}
-      title={`Личный рост · ${activeYear}`}
-      subtitle="Достижения, ритм и опора за последний год"
+      title={`Итоги ${activeYear} года`}
+      subtitle="Спокойный обзор практик, цикла и целей"
       footer={
         <button
           type="button"
           className="mt-btn mt-btn--primary mt-btn--wide"
           onClick={() => onClose?.()}
         >
-          Закрыть обзор
+          Готово
         </button>
       }
     >
       {loading && !metrics ? (
-        <div className="mt-card" style={{ textAlign: "center", padding: "28px 16px" }}>
+        <div
+          className="mt-card"
+          style={{ textAlign: "center", padding: "28px 16px" }}
+          aria-busy="true"
+        >
           <p className="mt-card-sub" style={{ margin: 0 }}>
-            Собираем ваши достижения за год…
+            Собираем ваши итоги за год…
           </p>
         </div>
       ) : error && !metrics ? (
@@ -228,226 +222,222 @@ export default function YearReviewSheet({
         />
       ) : metrics ? (
         <div className="mt-stack">
-          {/* Hero retrospective card */}
-          <div className="mt-card mt-card--tinted" data-accent="goals">
-            <div className="mt-row" style={{ gap: "14px", alignItems: "center" }}>
-              <ProgressRing
-                percent={metrics.avgGoalPct}
-                size={76}
-                strokeWidth={7}
-                color="var(--goals)"
-                label={`${metrics.avgGoalPct}%`}
-                sublabel="цели"
-              />
-              <div className="mt-stack mt-stack--xs" style={{ minWidth: 0, flex: 1 }}>
-                <span className="mt-eyebrow" style={{ color: "var(--goals-ink)" }}>
-                  Ретроспектива года
-                </span>
-                <h3 className="mt-card-title" style={{ margin: 0 }}>
-                  {formatCountRu(metrics.totalSessions, "практика", "практики", "практик")} и{" "}
-                  {formatCountRu(metrics.doneMilestones, "веха", "вехи", "вех")}
-                </h3>
-                <p className="mt-card-sub" style={{ margin: 0 }}>
-                  Ведите ритм спокойно: в фокусе{" "}
-                  {formatCountRu(metrics.activeGoals, "долгосрочная цель", "долгосрочные цели", "долгосрочных целей")}.
-                </p>
-              </div>
-            </div>
-          </div>
+          {/* Unified 4-metric Carbon & Cobalt strip */}
+          <MetricStrip
+            items={[
+              {
+                key: "workouts",
+                label: "Практики",
+                value: String(metrics.totalSessions),
+                tone: "cobalt",
+                onClick: onNavigate ? () => jumpTo("habits", "workouts") : undefined,
+              },
+              {
+                key: "streak",
+                label: "Серия",
+                value: `${metrics.bestHabit?.streak_days || 0} дн.`,
+              },
+              {
+                key: "cycles",
+                label: "Циклы",
+                value: String(metrics.trackedCycles),
+                tone: "coral",
+                onClick: onNavigate ? () => jumpTo("habits", "cycle") : undefined,
+              },
+              {
+                key: "milestones",
+                label: "Вехи",
+                value: `${metrics.doneMilestones}/${metrics.totalMilestones}`,
+                onClick: onNavigate ? () => jumpTo("goals") : undefined,
+              },
+            ]}
+          />
 
-          {/* 2x2 Key Year Stats */}
-          <div className="year-review-grid">
-            <div className="year-review-stat">
-              <span className="mt-row" style={{ gap: "5px" }}>
-                <Activity size={13} color="var(--habits)" aria-hidden="true" />
-                <span>Практики тела</span>
-              </span>
-              <strong>{metrics.totalSessions}</strong>
-              <span className="tabular">
-                {metrics.totalWorkoutMinutes} мин за год
-              </span>
-            </div>
-
-            <div className="year-review-stat">
-              <span className="mt-row" style={{ gap: "5px" }}>
-                <Flame size={13} color="var(--water)" aria-hidden="true" />
-                <span>Серия привычек</span>
-              </span>
-              <strong>
-                {metrics.bestHabit?.streak_days || 0}{" "}
-                <small style={{ fontSize: "13px", fontWeight: 600 }}>дн.</small>
-              </strong>
-              <span
-                style={{
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {metrics.bestHabit?.title || `Вода: ${metrics.waterPercent}%`}
-              </span>
-            </div>
-
-            <div className="year-review-stat">
-              <span className="mt-row" style={{ gap: "5px" }}>
-                <CalendarHeart size={13} color="var(--cycle)" aria-hidden="true" />
-                <span>Архив цикла</span>
-              </span>
-              <strong>{metrics.trackedCycles}</strong>
-              <span className="tabular">
-                ср. {metrics.avgCycleLen} дн. · менстр. {metrics.avgPeriodLen} дн.
-              </span>
-            </div>
-
-            <div className="year-review-stat">
-              <span className="mt-row" style={{ gap: "5px" }}>
-                <Target size={13} color="var(--goals)" aria-hidden="true" />
-                <span>Вехи целей</span>
-              </span>
-              <strong className="tabular">
-                {metrics.doneMilestones}/{metrics.totalMilestones}
-              </strong>
-              <span className="tabular">
-                {formatCountRu(metrics.totalCheckins, "чек-ин", "чек-ина", "чек-инов")}
-              </span>
-            </div>
+          {/* Compact overall goals progress */}
+          <div className="mt-card mt-card--compact">
+            <CompactProgress
+              value={metrics.avgGoalPct}
+              max={100}
+              label="Средний прогресс целей"
+              meta={`${metrics.avgGoalPct}% · ${formatCountRu(metrics.totalCheckins, "чек-ин", "чек-ина", "чек-инов")}`}
+              tone="cobalt"
+            />
           </div>
 
           {/* Workouts breakdown by type */}
-          <div className="mt-card mt-card--compact">
-            <div className="mt-card-head">
-              <span className="mt-card-title">Практики за год</span>
-              {onNavigate && (
-                <button
-                  type="button"
-                  className="mt-btn mt-btn--ghost mt-btn--sm"
-                  onClick={() => jumpTo("habits", "workouts")}
-                >
-                  К практикам
-                </button>
-              )}
-            </div>
-            <div className="mt-stack mt-stack--sm">
-              {WORKOUT_ROW_ORDER.filter(
-                (row) => row.key !== "other" || metrics.workoutsByType.other.count > 0,
-              ).map((row) => {
-                const stat = metrics.workoutsByType[row.key];
-                const meta = WORKOUT_TYPE_MAP[row.key];
-                const Icon = row.icon;
-                return (
-                  <div key={row.key} className="year-review-row">
-                    <span className="mt-row" style={{ gap: "8px", minWidth: 0 }}>
-                      <Pill tone={row.tone} icon={<Icon size={13} />}>
-                        {meta?.shortLabel || row.key}
-                      </Pill>
-                    </span>
-                    <span className="tabular" style={{ fontWeight: 600, color: "var(--ink)" }}>
-                      {formatCountRu(stat.count, "раз", "раза", "раз")} · {stat.minutes} мин
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Multi-year goals progress */}
-          {metrics.goalItems.length > 0 && (
-            <div className="mt-card mt-card--compact">
-              <div className="mt-card-head">
-                <span className="mt-card-title">Долгосрочные цели</span>
-                {onNavigate && (
+          <div className="mt-stack mt-stack--xs">
+            <GroupHeader
+              title="Практики за год"
+              meta={`${metrics.totalWorkoutMinutes} мин`}
+              action={
+                onNavigate ? (
                   <button
                     type="button"
                     className="mt-btn mt-btn--ghost mt-btn--sm"
-                    onClick={() => jumpTo("goals")}
+                    onClick={() => jumpTo("habits", "workouts")}
                   >
-                    Открыть цели
+                    Открыть
                   </button>
-                )}
-              </div>
-              <div className="mt-stack mt-stack--sm">
+                ) : null
+              }
+            />
+            <GroupList>
+              {WORKOUT_ROW_ORDER.filter(
+                (key) =>
+                  key !== "other" || metrics.workoutsByType.other.count > 0,
+              ).map((key) => {
+                const stat = metrics.workoutsByType[key];
+                const meta = WORKOUT_TYPE_MAP[key];
+                return (
+                  <ListRow
+                    key={key}
+                    title={meta?.label || key}
+                    meta={`${stat.minutes} мин`}
+                    trailing={
+                      <span
+                        className="tabular"
+                        style={{
+                          fontSize: "13.5px",
+                          fontWeight: 600,
+                          color: "var(--ink)",
+                        }}
+                      >
+                        {formatCountRu(stat.count, "раз", "раза", "раз")}
+                      </span>
+                    }
+                    onClick={
+                      onNavigate ? () => jumpTo("habits", "workouts") : undefined
+                    }
+                  />
+                );
+              })}
+            </GroupList>
+          </div>
+
+          {/* Multi-year goals */}
+          {metrics.goalItems.length > 0 ? (
+            <div className="mt-stack mt-stack--xs">
+              <GroupHeader
+                title="Долгосрочные цели"
+                meta={String(metrics.goalItems.length)}
+                action={
+                  onNavigate ? (
+                    <button
+                      type="button"
+                      className="mt-btn mt-btn--ghost mt-btn--sm"
+                      onClick={() => jumpTo("goals")}
+                    >
+                      Все цели
+                    </button>
+                  ) : null
+                }
+              />
+              <GroupList>
                 {metrics.goalItems.slice(0, 4).map((goal) => {
                   const pace =
                     GOAL_PACE_META[goal.pace_status] || GOAL_PACE_META.on_track;
-                  const msDone = (goal.milestones || []).filter((m) => m.completed).length;
+                  const msDone = (goal.milestones || []).filter(
+                    (m) => m.completed,
+                  ).length;
                   const msTotal = (goal.milestones || []).length;
+                  const metaParts = [
+                    formatCountRu(goal.horizon_years || 1, "год", "года", "лет"),
+                    msTotal > 0 ? `вехи ${msDone}/${msTotal}` : null,
+                    pace.shortLabel || pace.label,
+                  ].filter(Boolean);
+
                   return (
-                    <div
+                    <ListRow
                       key={goal.id}
-                      className="year-review-row"
-                      style={{ flexDirection: "column", alignItems: "stretch", gap: "6px" }}
-                    >
-                      <div className="mt-row mt-row--between" style={{ gap: "8px" }}>
-                        <strong
+                      title={goal.title}
+                      meta={metaParts.join(" · ")}
+                      trailing={
+                        <span
+                          className="mt-row tabular"
                           style={{
+                            gap: "4px",
                             fontSize: "13.5px",
-                            color: "var(--ink)",
-                            minWidth: 0,
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
+                            fontWeight: 600,
+                            color: "var(--cobalt)",
                           }}
                         >
-                          {goal.title}
-                        </strong>
-                        <span
-                          className="tabular"
-                          style={{ fontWeight: 700, color: "var(--goals-ink)", flexShrink: 0 }}
-                        >
-                          {goal.progress_pct}%
+                          <span>{goal.progress_pct}%</span>
+                          {onNavigate ? (
+                            <ChevronRight size={15} color="var(--subtle)" />
+                          ) : null}
                         </span>
-                      </div>
-                      <div className="mt-row mt-row--between" style={{ gap: "6px" }}>
-                        <span className="mt-card-sub tabular" style={{ fontSize: "12px" }}>
-                          Горизонт {formatCountRu(goal.horizon_years || 1, "год", "года", "лет")}
-                          {msTotal > 0 ? ` · вехи ${msDone}/${msTotal}` : ""}
-                        </span>
-                        <Pill tone={pace.tone}>{pace.label}</Pill>
-                      </div>
-                    </div>
+                      }
+                      onClick={onNavigate ? () => jumpTo("goals") : undefined}
+                    />
                   );
                 })}
-              </div>
+              </GroupList>
             </div>
-          )}
+          ) : null}
 
-          {/* Daily rhythm snapshot (Water, Tasks, Home Chores) */}
-          <div className="mt-card mt-card--compact">
-            <div className="mt-card-head">
-              <span className="mt-card-title">Ритм дня и дома</span>
-              <span className="mt-card-sub tabular">
-                {formatCountRu(metrics.completedFeedCount, "действие", "действия", "действий")}
-              </span>
-            </div>
-            <div className="mt-stack mt-stack--sm">
-              <div className="year-review-row">
-                <span className="mt-row" style={{ gap: "8px" }}>
-                  <Droplets size={15} color="var(--water)" />
-                  <span>Водный баланс сегодня</span>
-                </span>
-                <strong className="tabular">
-                  {metrics.waterMl} / {metrics.waterGoal} мл
-                </strong>
-              </div>
-              <div className="year-review-row">
-                <span className="mt-row" style={{ gap: "8px" }}>
-                  <CheckCircle2 size={15} color="var(--brand)" />
-                  <span>Задачи дня</span>
-                </span>
-                <strong className="tabular">
-                  {metrics.tasksDone} из {metrics.tasksTotal}
-                </strong>
-              </div>
-              <div className="year-review-row">
-                <span className="mt-row" style={{ gap: "8px" }}>
-                  <Home size={15} color="var(--home)" />
-                  <span>Дела по дому</span>
-                </span>
-                <strong className="tabular">
-                  {metrics.choresDone} из {metrics.choresTotal}
-                </strong>
-              </div>
-            </div>
+          {/* Cycle & daily rhythm */}
+          <div className="mt-stack mt-stack--xs">
+            <GroupHeader title="Ритм и архив" />
+            <GroupList>
+              <ListRow
+                title="Архив цикла"
+                meta={`Цикл ${metrics.avgCycleLen} дн. · менструация ${metrics.avgPeriodLen} дн.`}
+                trailing={
+                  <span
+                    className="mt-row tabular"
+                    style={{ gap: "4px", fontSize: "13.5px", fontWeight: 600 }}
+                  >
+                    <span>
+                      {formatCountRu(
+                        metrics.trackedCycles,
+                        "цикл",
+                        "цикла",
+                        "циклов",
+                      )}
+                    </span>
+                    {onNavigate ? (
+                      <ChevronRight size={15} color="var(--subtle)" />
+                    ) : null}
+                  </span>
+                }
+                onClick={
+                  onNavigate ? () => jumpTo("habits", "cycle") : undefined
+                }
+              />
+              {metrics.bestHabit ? (
+                <ListRow
+                  title="Лучшая серия привычки"
+                  meta={metrics.bestHabit.title}
+                  trailing={
+                    <span
+                      className="tabular"
+                      style={{ fontSize: "13.5px", fontWeight: 600 }}
+                    >
+                      {metrics.bestHabit.streak_days} дн.
+                    </span>
+                  }
+                  onClick={
+                    onNavigate ? () => jumpTo("habits", "habits") : undefined
+                  }
+                />
+              ) : null}
+              <ListRow
+                title="Водный баланс сегодня"
+                meta={`Цель ${metrics.waterGoal} мл`}
+                trailing={
+                  <span
+                    className="tabular"
+                    style={{ fontSize: "13.5px", fontWeight: 600 }}
+                  >
+                    {metrics.waterMl} мл
+                  </span>
+                }
+              />
+              <ListRow
+                title="Задачи и дом сегодня"
+                meta={`Задачи ${metrics.tasksDone}/${metrics.tasksTotal} · Дом ${metrics.choresDone}/${metrics.choresTotal}`}
+              />
+            </GroupList>
           </div>
         </div>
       ) : null}

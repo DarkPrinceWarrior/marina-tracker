@@ -96,6 +96,35 @@ def test_seed_is_idempotent(client: TestClient):
     assert len(client.get("/api/goals").json()["items"]) == before_goals
 
 
+def test_seeded_copy_has_no_english_leaks(client: TestClient):
+    """Ensure all user-visible Russian seeded content is free of leaked English tokens."""
+    import re
+
+    today = client.get("/api/health").json()["today"]
+    corpus_parts: list[str] = []
+
+    for h in client.get(f"/api/habits?date={today}").json()["items"]:
+        corpus_parts.extend([h["title"], h.get("dose_or_note", "")])
+    for t in client.get(f"/api/tasks?date={today}").json()["items"]:
+        corpus_parts.append(t["title"])
+    for g in client.get("/api/goals").json()["items"]:
+        corpus_parts.extend([g["title"], g.get("description", ""), g.get("category", "")])
+        for m in g.get("milestones", []):
+            corpus_parts.append(m["title"])
+        for c in g.get("checkins", []):
+            corpus_parts.append(c.get("note", ""))
+    for m in client.get("/api/nutrition/menu").json()["items"]:
+        corpus_parts.extend([m["name"], m.get("category", "")])
+    for ch in client.get(f"/api/home/chores?date={today}").json()["items"]:
+        corpus_parts.extend([ch["title"], ch.get("zone", "")])
+    for sh in client.get("/api/home/shopping").json()["items"]:
+        corpus_parts.extend([sh["name"], sh.get("category", "")])
+
+    corpus = "\n".join(corpus_parts)
+    leaked = re.findall(r"\b(?:Q[1-4]|A[12]|B[12]|C[12]|CILS|PWA|Todo|Failed to fetch)\b", corpus)
+    assert not leaked, f"Leaked English tokens in seeded Russian data: {leaked}"
+
+
 # ---------------------------------------------------------------------------
 # 1. Today Overview & Reflection
 # ---------------------------------------------------------------------------

@@ -1,189 +1,182 @@
 /* ==========================================================================
-   Marina Tracker («Ритм») — Design Tokens & Motion Primitives
-   Single source of truth aligned with docs/DESIGN_SYSTEM.md
-   Target: iPhone 14 Pro (393×852pt) Standalone PWA + Desktop 430px Preview
+   Marina Tracker («Ритм») — 2026 Carbon & Cobalt Figma Studio Design Tokens
+   Ported directly from ashna_express_pos/web/styles.css
+   Targets: iPhone 13 (390×844), iPhone 14 Pro (393×852), Desktop (430px frame)
    ========================================================================== */
 
 :root {
   color-scheme: light;
   font-synthesis: none;
 
-  /* Typography — Offline Variable Fonts with Native Cyrillic */
+  /* Typography — Offline Variable Fonts with Crisp Native Cyrillic */
   --font-heading: 'Manrope Variable', 'Manrope', -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
   --font-sans: 'Inter Variable', 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;
 
-  /* Warm Alabaster Paper & Pure White Card Surfaces */
-  --canvas: #F7F5F0;
-  --desktop-backdrop: #EAE5DC;
+  /* 2026 Studio Surfaces & Neutral Architecture */
+  --canvas: #F7F8FA;
+  --desktop-backdrop: #ECEEF2;
   --surface: #FFFFFF;
-  --surface-subtle: #F2EFE8;
-  --surface-hover: #EAE6DC;
-  --surface-frosted: rgba(247, 245, 240, 0.86);
-  --scrim: rgba(28, 38, 33, 0.42);
+  --surface-subtle: #F3F4F7;
+  --surface-hover: #F3F5F9;
+  --chip-bg: #EEF0F5;
+  --surface-frosted: rgba(255, 255, 255, 0.90);
+  --scrim: rgba(17, 19, 24, 0.42);
 
-  /* High-Contrast Botanical Ink & Hairline Borders */
-  --ink: #1C2621;
-  --ink-secondary: #43534B;
-  --muted: #6A7870;
-  --subtle: #8F9C95;
-  --border: #E5E0D6;
-  --border-subtle: #EFECE4;
-  --border-strong: #CFC9BC;
+  /* 2026 Carbon Obsidian Typography & Crisp Hairlines */
+  --ink: #111318;
+  --ink-secondary: #3B3F4A;
+  --muted: #666C7A;
+  --subtle: #8E96A4;
+  --border: #E4E7EC;
+  --divider: #EEF0F4;
+  --border-subtle: #EEF0F4;
+  --border-strong: #CBD5E1;
 
-  /* Domain 1: Today / Primary Brand (Deep Botanical Pine) */
-  --brand: #1F634C;
-  --brand-hover: #174E3B;
-  --brand-active: #123D2E;
-  --brand-soft: #E9F3EE;
-  --brand-border: #C4DFD2;
-  --brand-ink: #144434;
-  --brand-ring: rgba(31, 99, 76, 0.18);
+  /* Primary Interactive — Carbon & Cobalt */
+  --brand: #18181B;
+  --brand-hover: #27272A;
+  --brand-active: #09090B;
+  --brand-soft: #F3F4F7;
+  --brand-border: #E4E7EC;
+  --brand-ink: #111318;
+  --brand-ring: rgba(37, 99, 235, 0.18);
 
-  /* Domain 2: Habits, Vitamins & Body (Fresh Sage-Emerald) */
-  --habits: #2D7A5B;
-  --habits-soft: #EAF5EF;
-  --habits-border: #C3E2D1;
-  --habits-ink: #1B543D;
+  --cobalt: #2563EB;
+  --cobalt-hover: #1D4ED8;
+  --cobalt-soft: #EFF6FF;
+  --cobalt-border: #BFDBFE;
+  --cobalt-ink: #1E40AF;
+  --link: #2563EB;
 
-  /* Domain 2b: Water Tracker (Clear Mineral Sky) */
-  --water: #1D7EA8;
-  --water-soft: #E8F5FA;
-  --water-border: #BEE0EE;
-  --water-ink: #135573;
+  /* Restrained Coral — ONLY for Female Cycle Period Days & High-Priority Dot */
+  --coral: #FF335F;
+  --coral-hover: #E6244F;
+  --coral-soft: #FFF1F4;
+  --coral-border: #FECDD3;
+  --coral-ink: #BE123C;
 
-  /* Domain 2c: Female Cycle Tracker (Warm Rose-Terracotta) */
-  --cycle: #C85A66;
-  --cycle-hover: #B04854;
-  --cycle-soft: #FDF0F1;
-  --cycle-border: #F2C9CE;
-  --cycle-ink: #8E303B;
-  --cycle-fertile: #D4844A;
-  --cycle-fertile-soft: #FDF4EB;
-  --cycle-fertile-border: #F2D6BA;
+  /* Subtle Semantic Status Pills (Used Sparingly) */
+  --success: #059669;
+  --success-soft: #ECFDF5;
+  --success-border: #A7F3D0;
+  --success-ink: #065F46;
 
-  /* Domain 3: Nutrition & Menu (Warm Amber-Olive) */
-  --nutrition: #A66E1B;
-  --nutrition-olive: #5B7334;
-  --nutrition-soft: #FCF5E6;
-  --nutrition-border: #EED9AE;
-  --nutrition-ink: #734A0E;
+  --warning: #D97706;
+  --warning-soft: #FFFBEB;
+  --warning-border: #FDE68A;
+  --warning-ink: #92400E;
 
-  /* Domain 4: Home Chores & Shopping (Warm Terracotta-Sand) */
-  --home: #8B634B;
-  --home-soft: #F7F0EA;
-  --home-border: #E3D1C3;
-  --home-ink: #5E402E;
+  --danger: #E11D48;
+  --danger-soft: #FFF1F2;
+  --danger-border: #FECDD3;
+  --danger-ink: #9F1239;
 
-  /* Domain 5: Multi-Year Goals (Deep Indigo-Plum) */
-  --goals: #55488E;
-  --goals-soft: #F1EFF9;
-  --goals-border: #D5CEEC;
-  --goals-ink: #3B3068;
+  /* Backwards-Compatible Domain Token Aliases — Unified to Carbon & Cobalt */
+  --habits: var(--cobalt);
+  --habits-soft: var(--cobalt-soft);
+  --habits-border: var(--cobalt-border);
+  --habits-ink: var(--cobalt-ink);
 
-  /* Semantic Statuses */
-  --success: #256F52;
-  --success-soft: #EAF6F0;
-  --success-border: #C2E2D2;
-  --warning: #B36B16;
-  --warning-soft: #FEF5E6;
-  --warning-border: #F0D6A8;
-  --danger: #BF3B4B;
-  --danger-soft: #FDF0F1;
-  --danger-border: #F0C6CB;
+  --water: var(--cobalt);
+  --water-soft: var(--cobalt-soft);
+  --water-border: var(--cobalt-border);
+  --water-ink: var(--cobalt-ink);
 
-  /* Default Dynamic Accent (bound via data-accent attribute) */
-  --accent: var(--brand);
-  --accent-soft: var(--brand-soft);
-  --accent-border: var(--brand-border);
-  --accent-ink: var(--brand-ink);
+  --cycle: var(--coral);
+  --cycle-hover: var(--coral-hover);
+  --cycle-soft: var(--coral-soft);
+  --cycle-border: var(--coral-border);
+  --cycle-ink: var(--coral-ink);
+  --cycle-fertile: var(--cobalt);
+  --cycle-fertile-soft: var(--cobalt-soft);
+  --cycle-fertile-border: var(--cobalt-border);
 
-  /* Geometry, Safe Areas, Radii & Spacing */
+  --nutrition: var(--cobalt);
+  --nutrition-olive: var(--cobalt);
+  --nutrition-soft: var(--cobalt-soft);
+  --nutrition-border: var(--cobalt-border);
+  --nutrition-ink: var(--cobalt-ink);
+
+  --home: var(--brand);
+  --home-soft: var(--surface-subtle);
+  --home-border: var(--border);
+  --home-ink: var(--ink);
+
+  --goals: var(--cobalt);
+  --goals-soft: var(--cobalt-soft);
+  --goals-border: var(--cobalt-border);
+  --goals-ink: var(--cobalt-ink);
+
+  /* Default Dynamic Accent — Unified Cobalt */
+  --accent: var(--cobalt);
+  --accent-soft: var(--cobalt-soft);
+  --accent-border: var(--cobalt-border);
+  --accent-ink: var(--cobalt-ink);
+
+  /* 2026 Spatial Grid, Safe Areas & Radii */
   --app-max-width: 430px;
   --page-px: 16px;
-  --card-p: 16px;
+  --card-p: 14px;
   --section-gap: 14px;
-  --nav-height: 64px;
+  --nav-height: 60px;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-left: env(safe-area-inset-left, 0px);
   --safe-right: env(safe-area-inset-right, 0px);
 
-  --radius-card: 18px;
-  --radius-sheet: 24px;
-  --radius-md: 14px;
-  --radius-control: 12px;
+  --radius-card: 14px;
+  --radius-sheet: 20px;
+  --radius-md: 12px;
+  --radius-control: 10px;
   --radius-sm: 8px;
   --radius-pill: 999px;
 
-  /* Whisper-Thin Tactile Paper Elevation */
-  --shadow-card: 0 1px 2px rgba(28, 38, 33, 0.035), 0 2px 6px rgba(28, 38, 33, 0.018);
-  --shadow-control: 0 1px 2px rgba(28, 38, 33, 0.05);
-  --shadow-fab: 0 6px 18px rgba(31, 99, 76, 0.22), 0 2px 5px rgba(28, 38, 33, 0.08);
-  --shadow-sheet: 0 -8px 32px rgba(28, 38, 33, 0.13);
-  --shadow-toast: 0 8px 24px rgba(28, 38, 33, 0.16), 0 2px 6px rgba(28, 38, 33, 0.08);
-  --shadow-device: 0 24px 60px rgba(28, 38, 33, 0.14), 0 4px 14px rgba(28, 38, 33, 0.06);
+  /* 2026 Whisper-Light Studio Elevation */
+  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.03);
+  --shadow-control: 0 1px 2px rgba(15, 23, 42, 0.05);
+  --shadow-fab: 0 6px 18px rgba(17, 19, 24, 0.18), 0 2px 5px rgba(15, 23, 42, 0.08);
+  --shadow-sheet: 0 -8px 30px rgba(15, 23, 42, 0.12);
+  --shadow-toast: 0 8px 24px rgba(15, 23, 42, 0.16), 0 2px 6px rgba(15, 23, 42, 0.08);
+  --shadow-device: 0 20px 50px -12px rgba(15, 23, 42, 0.14), 0 4px 16px rgba(15, 23, 42, 0.06);
 
   /* Scrollbars */
-  --scroll-thumb: #CFC9BC;
-  --scroll-thumb-active: #9B9588;
+  --bezel-stroke: #DCE0E8;
+  --scroll-thumb: #C5CBD6;
+  --scroll-thumb-active: #8E96A4;
 
-  /* Motion Curves */
+  /* Motion */
   --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
 }
 
-/* ==========================================================================
-   Domain Accent Bindings via data-accent="..."
-   ========================================================================== */
+/* Unified Accent Bindings — Only Coral stays distinct for Cycle */
+[data-accent="cycle"],
+[data-accent="coral"] {
+  --accent: var(--coral);
+  --accent-soft: var(--coral-soft);
+  --accent-border: var(--coral-border);
+  --accent-ink: var(--coral-ink);
+}
 
 [data-accent="brand"],
-[data-accent="today"] {
+[data-accent="carbon"] {
   --accent: var(--brand);
-  --accent-soft: var(--brand-soft);
-  --accent-border: var(--brand-border);
-  --accent-ink: var(--brand-ink);
+  --accent-soft: var(--surface-subtle);
+  --accent-border: var(--border);
+  --accent-ink: var(--ink);
 }
 
-[data-accent="habits"] {
-  --accent: var(--habits);
-  --accent-soft: var(--habits-soft);
-  --accent-border: var(--habits-border);
-  --accent-ink: var(--habits-ink);
-}
-
-[data-accent="water"] {
-  --accent: var(--water);
-  --accent-soft: var(--water-soft);
-  --accent-border: var(--water-border);
-  --accent-ink: var(--water-ink);
-}
-
-[data-accent="cycle"] {
-  --accent: var(--cycle);
-  --accent-soft: var(--cycle-soft);
-  --accent-border: var(--cycle-border);
-  --accent-ink: var(--cycle-ink);
-}
-
-[data-accent="nutrition"] {
-  --accent: var(--nutrition);
-  --accent-soft: var(--nutrition-soft);
-  --accent-border: var(--nutrition-border);
-  --accent-ink: var(--nutrition-ink);
-}
-
-[data-accent="home"] {
-  --accent: var(--home);
-  --accent-soft: var(--home-soft);
-  --accent-border: var(--home-border);
-  --accent-ink: var(--home-ink);
-}
-
+[data-accent="cobalt"],
+[data-accent="today"],
+[data-accent="habits"],
+[data-accent="water"],
+[data-accent="nutrition"],
+[data-accent="home"],
 [data-accent="goals"] {
-  --accent: var(--goals);
-  --accent-soft: var(--goals-soft);
-  --accent-border: var(--goals-border);
-  --accent-ink: var(--goals-ink);
+  --accent: var(--cobalt);
+  --accent-soft: var(--cobalt-soft);
+  --accent-border: var(--cobalt-border);
+  --accent-ink: var(--cobalt-ink);
 }
 
 /* ==========================================================================
@@ -195,7 +188,7 @@
     transform: scale(0.84);
   }
   55% {
-    transform: scale(1.1);
+    transform: scale(1.08);
   }
   100% {
     transform: scale(1);
@@ -204,7 +197,7 @@
 
 @keyframes mt-sheet-up {
   from {
-    transform: translateY(28px);
+    transform: translateY(24px);
     opacity: 0;
   }
   to {
@@ -233,6 +226,7 @@
   }
 }
 
+/* Opacity-only section enter: NEVER creates a transform containing block */
 @keyframes mt-section-enter {
   from {
     opacity: 0;
@@ -248,12 +242,6 @@
   }
   100% {
     background-position: 200% 0;
-  }
-}
-
-@keyframes mt-spin {
-  to {
-    transform: rotate(360deg);
   }
 }
 

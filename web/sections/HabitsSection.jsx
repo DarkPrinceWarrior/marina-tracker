@@ -2,25 +2,19 @@ import React, { useEffect, useState } from "react";
 import { Plus } from "lucide-react";
 import {
   DateStrip,
-  SectionHeader,
+  PageHeader,
   SegmentedControl,
 } from "../components/UiPrimitives.jsx";
 import HabitsVitaminsTab from "../components/habits/HabitsVitaminsTab.jsx";
 import WorkoutsTab from "../components/habits/WorkoutsTab.jsx";
 import CycleTrackerTab from "../components/habits/CycleTrackerTab.jsx";
-import { formatDateFullRu, todayISO } from "../utils/date.js";
+import { formatDateShortRu, todayISO } from "../utils/date.js";
 
 function normalizeSubTab(raw) {
   if (raw === "workouts" || raw === "cycle" || raw === "habits") return raw;
   if (raw === "water" || raw === "vitamins") return "habits";
   return "habits";
 }
-
-const SUBTAB_SUBTITLES = {
-  habits: "Вода, витамины и ритуалы на утро, обед и вечер",
-  workouts: "Дыхательная практика, пилатес, цигун и ритм недели",
-  cycle: "Календарь и полная история циклов за последний год",
-};
 
 export default function HabitsSection({
   selectedDate,
@@ -46,16 +40,15 @@ export default function HabitsSection({
 
   return (
     <div className="mt-section">
-      <SectionHeader
-        eyebrow={formatDateFullRu(activeDate)}
-        title="Привычки и Тело"
-        subtitle={SUBTAB_SUBTITLES[subTab]}
+      <PageHeader
+        title="Привычки"
+        subtitle={formatDateShortRu(activeDate)}
         action={
           subTab === "habits" ? (
             <button
               type="button"
               className="mt-btn mt-btn--primary mt-btn--sm"
-              data-accent="habits"
+              aria-label="Добавить привычку или витамин"
               onClick={() => setCreateHabitTrigger((n) => n + 1)}
             >
               <Plus size={15} />
@@ -74,7 +67,6 @@ export default function HabitsSection({
       <SegmentedControl
         value={subTab}
         onChange={setSubTab}
-        accent={subTab === "cycle" ? "cycle" : "habits"}
         options={[
           {
             value: "habits",

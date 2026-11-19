@@ -1,29 +1,23 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { ChevronRight, Sparkles, Zap } from "lucide-react";
+import Sheet from "../Sheet.jsx";
 import {
-  Activity,
-  Award,
-  Check,
-  CheckCircle2,
-  CheckSquare,
-  ChevronDown,
-  Droplets,
-  Home,
-  Pill as CapsuleIcon,
-  Sparkles,
-  UtensilsCrossed,
-  Zap,
-} from "lucide-react";
-import { EmptyState, Pill } from "../UiPrimitives.jsx";
+  EmptyState,
+  GroupHeader,
+  GroupList,
+  ListRow,
+  Pill,
+} from "../UiPrimitives.jsx";
 import { DAY_MOODS, ENERGY_LEVELS, formatCountRu } from "../../data/presets.js";
 
-const DOMAIN_META = {
-  habit: { icon: CheckCircle2, tone: "habits", label: "Привычка" },
-  vitamin: { icon: CapsuleIcon, tone: "brand", label: "Витамин" },
-  water: { icon: Droplets, tone: "water", label: "Вода" },
-  workout: { icon: Activity, tone: "habits", label: "Практика" },
-  meal: { icon: UtensilsCrossed, tone: "nutrition", label: "Питание" },
-  chore: { icon: Home, tone: "home", label: "Дом" },
-  task: { icon: CheckSquare, tone: "brand", label: "Задача" },
+const DOMAIN_LABELS = {
+  habit: "Привычка",
+  vitamin: "Витамин",
+  water: "Вода",
+  workout: "Практика",
+  meal: "Питание",
+  chore: "Дом",
+  task: "Задача",
 };
 
 function normalizeMood(rawMood) {
@@ -36,25 +30,22 @@ function normalizeMood(rawMood) {
   return matched ? matched.key : trimmed;
 }
 
-const INITIAL_FEED_LIMIT = 4;
-
 export default function DailyAccomplishments({
   feed = [],
   reflection = null,
   selectedDate,
   onSaveReflection,
-  onOpenYearReview,
+  doneSheetOpen = false,
+  onOpenDoneSheet,
+  onCloseDoneSheet,
+  reflectionSheetOpen = false,
+  onOpenReflectionSheet,
+  onCloseReflectionSheet,
 }) {
-  const [expanded, setExpanded] = useState(false);
   const [note, setNote] = useState("");
   const [mood, setMood] = useState("");
   const [energy, setEnergy] = useState(null);
   const [saving, setSaving] = useState(false);
-  const [savedNotice, setSavedNotice] = useState(false);
-
-  useEffect(() => {
-    setExpanded(false);
-  }, [selectedDate]);
 
   useEffect(() => {
     setNote(reflection?.summary_note || "");
@@ -64,7 +55,6 @@ export default function DailyAccomplishments({
         ? reflection.energy_level
         : null
     );
-    setSavedNotice(false);
   }, [
     selectedDate,
     reflection?.log_date,
@@ -73,14 +63,25 @@ export default function DailyAccomplishments({
     reflection?.energy_level,
   ]);
 
-  const visibleFeed = useMemo(
-    () => (expanded ? feed : feed.slice(0, INITIAL_FEED_LIMIT)),
-    [feed, expanded]
-  );
+  const moodLabel = useMemo(() => {
+    if (!mood) return "";
+    return DAY_MOODS.find((m) => m.key === mood)?.label || mood;
+  }, [mood]);
 
-  const hiddenCount = Math.max(0, feed.length - INITIAL_FEED_LIMIT);
+  const reflectionMeta = useMemo(() => {
+    const parts = [];
+    if (moodLabel) parts.push(moodLabel);
+    if (energy) parts.push(`энергия ${energy}/5`);
+    const trimmedNote = String(reflection?.summary_note || "").trim();
+    if (trimmedNote) {
+      parts.push(
+        trimmedNote.length > 36 ? `${trimmedNote.slice(0, 35)}…` : trimmedNote
+      );
+    }
+    return parts.length > 0 ? parts.join(" · ") : "Настроение, энергия и заметка";
+  }, [moodLabel, energy, reflection?.summary_note]);
 
-  const commitReflection = async (nextValues, { silent = false } = {}) => {
+  const commitReflection = async (nextValues, { silent = false, close = false } = {}) => {
     if (!onSaveReflection) return;
     setSaving(true);
     try {
@@ -93,7 +94,7 @@ export default function DailyAccomplishments({
         },
         { silent }
       );
-      setSavedNotice(true);
+      if (close) onCloseReflectionSheet?.();
     } finally {
       setSaving(false);
     }
@@ -113,168 +114,170 @@ export default function DailyAccomplishments({
 
   const handleSaveNote = (event) => {
     event?.preventDefault();
-    commitReflection({ note, mood, energy }, { silent: false });
+    commitReflection({ note, mood, energy }, { silent: false, close: true });
   };
 
-  const isDirty =
-    note.trim() !== String(reflection?.summary_note || "").trim() ||
-    mood !== normalizeMood(reflection?.mood) ||
-    energy !==
-      (typeof reflection?.energy_level === "number"
-        ? reflection.energy_level
-        : null);
-
   return (
-    <div className="mt-stack">
-      <section className="mt-card" aria-label="Что сделано за день">
-        <div className="mt-card-head">
-          <div>
-            <h2 className="mt-card-title">Что сделано за день</h2>
-            <p className="mt-card-sub">
-              {feed.length > 0
-                ? `${formatCountRu(feed.length, "выполненный шаг", "выполненных шага", "выполненных шагов")} по всем разделам`
-                : "Каждое отмеченное действие появится здесь"}
-            </p>
-          </div>
-          {onOpenYearReview ? (
-            <Pill
-              tone="goals"
-              icon={<Award size={13} />}
-              onClick={onOpenYearReview}
-            >
-              Итоги года
-            </Pill>
-          ) : feed.length > 0 ? (
-            <Pill tone="success">{feed.length}</Pill>
-          ) : null}
-        </div>
+    <section className="mt-group-block" aria-label="Итоги дня">
+      <GroupHeader title="Итоги дня" />
 
+      <GroupList>
+        <ListRow
+          title="Выполнено за день"
+          meta={
+            feed.length > 0
+              ? formatCountRu(
+                  feed.length,
+                  "шаг по всем разделам",
+                  "шага по всем разделам",
+                  "шагов по всем разделам"
+                )
+              : "Отмеченные дела появятся здесь"
+          }
+          trailing={
+            <span className="mt-row" style={{ gap: 4 }}>
+              <span
+                className="muted tabular"
+                style={{ fontSize: 13.5, fontWeight: 600 }}
+              >
+                {feed.length}
+              </span>
+              <ChevronRight size={16} className="muted" aria-hidden="true" />
+            </span>
+          }
+          onClick={onOpenDoneSheet}
+        />
+
+        <ListRow
+          title="Итог дня и заметка"
+          meta={reflectionMeta}
+          trailing={
+            <ChevronRight size={16} className="muted" aria-hidden="true" />
+          }
+          onClick={onOpenReflectionSheet}
+        />
+      </GroupList>
+
+      {/* Bottom Sheet: «Выполнено за день» */}
+      <Sheet
+        open={doneSheetOpen}
+        onClose={onCloseDoneSheet}
+        title="Выполнено за день"
+        subtitle={
+          feed.length > 0
+            ? formatCountRu(feed.length, "выполненный шаг", "выполненных шага", "выполненных шагов")
+            : "Лента выполненных дел"
+        }
+      >
         {feed.length === 0 ? (
           <EmptyState
-            icon={<Sparkles size={22} />}
-            title="День только начинается"
-            description="Отметьте стакан воды, привычку, приём пищи или задачу — всё соберётся в тёплую ленту дня."
+            icon={<Sparkles size={20} />}
+            title="Пока нет отмеченных шагов"
+            description="Отметьте воду, привычку, приём пищи или задачу — всё соберётся здесь."
           />
         ) : (
-          <div className="mt-stack mt-stack--sm">
-            <div className="today-done-feed">
-              {visibleFeed.map((item) => {
-                const meta = DOMAIN_META[item.domain] || DOMAIN_META.task;
-                const Icon = meta.icon;
-                return (
-                  <div key={item.id} className="today-done-item">
-                    <Pill tone={meta.tone} aria-label={meta.label}>
-                      <Icon size={13} aria-hidden="true" />
-                    </Pill>
-                    <div
-                      className="mt-stack mt-stack--xs"
-                      style={{ flex: "1 1 auto", gap: 1 }}
-                    >
-                      <strong>{item.title}</strong>
-                      {item.subtitle ? (
-                        <span className="muted" style={{ fontSize: 12 }}>
-                          {item.subtitle}
-                        </span>
-                      ) : null}
-                    </div>
-                    {item.time ? <time>{item.time}</time> : null}
-                  </div>
-                );
-              })}
-            </div>
-
-            {hiddenCount > 0 ? (
-              <button
-                type="button"
-                className="mt-disclosure-btn"
-                aria-expanded={expanded}
-                onClick={() => setExpanded((prev) => !prev)}
-              >
-                <span>
-                  {expanded ? "Свернуть ленту" : `Показать все ${feed.length}`}
-                </span>
-                <ChevronDown
-                  size={16}
-                  className="mt-disclosure-chevron"
-                  aria-hidden="true"
+          <GroupList>
+            {feed.map((item) => {
+              const domainLabel = DOMAIN_LABELS[item.domain] || "Дело";
+              const meta = [domainLabel, item.subtitle]
+                .filter(Boolean)
+                .join(" · ");
+              return (
+                <ListRow
+                  key={item.id}
+                  title={item.title}
+                  meta={meta}
+                  trailing={
+                    item.time ? (
+                      <span
+                        className="muted tabular"
+                        style={{ fontSize: 12.5, fontWeight: 500 }}
+                      >
+                        {item.time}
+                      </span>
+                    ) : null
+                  }
                 />
-              </button>
-            ) : null}
-          </div>
+              );
+            })}
+          </GroupList>
         )}
-      </section>
+      </Sheet>
 
-      <section
-        className="today-reflection-card"
-        aria-label="Итог дня и самочувствие"
+      {/* Bottom Sheet: «Итог дня и заметка» */}
+      <Sheet
+        open={reflectionSheetOpen}
+        onClose={onCloseReflectionSheet}
+        title="Итог дня и заметка"
+        subtitle="Настроение, энергия и главные мысли"
+        footer={
+          <button
+            type="button"
+            className="mt-btn mt-btn--primary mt-btn--wide"
+            disabled={saving}
+            onClick={handleSaveNote}
+          >
+            {saving ? "Сохраняем..." : "Сохранить итог"}
+          </button>
+        }
       >
-        <div className="mt-card-head">
-          <div>
-            <h2 className="mt-card-title">Итог дня и заметка</h2>
-            <p className="mt-card-sub">
-              Коротко зафиксируйте настроение и главное за день
-            </p>
+        <form className="mt-stack" onSubmit={handleSaveNote}>
+          <div className="mt-field">
+            <span className="mt-label">Настроение дня</span>
+            <div
+              className="today-mood-row"
+              role="group"
+              aria-label="Настроение дня"
+            >
+              {DAY_MOODS.map((item) => (
+                <Pill
+                  key={item.key}
+                  tone="cobalt"
+                  active={mood === item.key}
+                  onClick={() => handleSelectMood(item.key)}
+                >
+                  {item.label}
+                </Pill>
+              ))}
+            </div>
           </div>
-          {savedNotice && !isDirty ? (
-            <Pill tone="success" icon={<Check size={12} />}>
-              Сохранено
-            </Pill>
-          ) : null}
-        </div>
 
-        <div className="mt-field">
-          <span className="mt-label">Настроение дня</span>
-          <div className="today-mood-row" role="group" aria-label="Настроение дня">
-            {DAY_MOODS.map((item) => (
-              <Pill
-                key={item.key}
-                tone="brand"
-                active={mood === item.key}
-                onClick={() => handleSelectMood(item.key)}
-              >
-                {item.label}
-              </Pill>
-            ))}
-          </div>
-        </div>
-
-        <div className="mt-field">
-          <span className="mt-label">
-            <span className="mt-row" style={{ gap: 5 }}>
-              <Zap size={13} aria-hidden="true" />
-              <span>
-                Уровень энергии
-                {energy
-                  ? ` · ${ENERGY_LEVELS.find((e) => e.value === energy)?.label || energy}`
-                  : ""}
+          <div className="mt-field">
+            <span className="mt-label">
+              <span className="mt-row" style={{ gap: 5 }}>
+                <Zap size={13} aria-hidden="true" />
+                <span>
+                  Уровень энергии
+                  {energy
+                    ? ` · ${ENERGY_LEVELS.find((e) => e.value === energy)?.label || energy}`
+                    : ""}
+                </span>
               </span>
             </span>
-          </span>
-          <div
-            role="group"
-            aria-label="Уровень энергии"
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(5, minmax(0, 1fr))",
-              gap: 6,
-            }}
-          >
-            {ENERGY_LEVELS.map((lvl) => (
-              <Pill
-                key={lvl.value}
-                tone="habits"
-                active={energy === lvl.value}
-                aria-label={`${lvl.value} — ${lvl.label}`}
-                style={{ width: "100%", paddingInline: 0 }}
-                onClick={() => handleSelectEnergy(lvl.value)}
-              >
-                {lvl.value}
-              </Pill>
-            ))}
+            <div
+              role="group"
+              aria-label="Уровень энергии"
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(5, minmax(0, 1fr))",
+                gap: 6,
+              }}
+            >
+              {ENERGY_LEVELS.map((lvl) => (
+                <Pill
+                  key={lvl.value}
+                  tone="cobalt"
+                  active={energy === lvl.value}
+                  aria-label={`${lvl.value} — ${lvl.label}`}
+                  style={{ width: "100%", paddingInline: 0 }}
+                  onClick={() => handleSelectEnergy(lvl.value)}
+                >
+                  {lvl.value}
+                </Pill>
+              ))}
+            </div>
           </div>
-        </div>
 
-        <form className="mt-stack mt-stack--sm" onSubmit={handleSaveNote}>
           <div className="mt-field">
             <label className="mt-label" htmlFor="today-reflection-note">
               Заметка о дне
@@ -283,30 +286,15 @@ export default function DailyAccomplishments({
               id="today-reflection-note"
               className="mt-textarea"
               rows={4}
-              style={{ minHeight: 108 }}
+              style={{ minHeight: 112 }}
               placeholder="Что сегодня порадовало, за что хочется поблагодарить себя?"
               value={note}
               maxLength={2500}
-              onChange={(e) => {
-                setNote(e.target.value);
-                if (savedNotice) setSavedNotice(false);
-              }}
+              onChange={(e) => setNote(e.target.value)}
             />
           </div>
-          <div className="mt-row mt-row--between">
-            <span className="muted" style={{ fontSize: 12 }}>
-              {isDirty ? "Есть несохранённые изменения" : "Все заметки сохранены"}
-            </span>
-            <button
-              type="submit"
-              className="mt-btn mt-btn--primary mt-btn--sm"
-              disabled={saving}
-            >
-              {saving ? "Сохраняем..." : "Сохранить итог"}
-            </button>
-          </div>
         </form>
-      </section>
-    </div>
+      </Sheet>
+    </section>
   );
 }

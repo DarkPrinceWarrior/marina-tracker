@@ -40,6 +40,21 @@ export const MONTH_SHORT_RU = [
   "дек",
 ];
 
+const MONTH_SHORT_GENITIVE_RU = [
+  "янв",
+  "фев",
+  "мар",
+  "апр",
+  "мая",
+  "июн",
+  "июл",
+  "авг",
+  "сен",
+  "окт",
+  "ноя",
+  "дек",
+];
+
 export const MONTH_GENITIVE_RU = [
   "января",
   "февраля",
@@ -227,7 +242,7 @@ export function formatDateRu(iso) {
 
 export function formatDateShortRu(iso) {
   const dt = parseISODate(iso);
-  return `${dt.getDate()} ${MONTH_SHORT_RU[dt.getMonth()]}`;
+  return `${dt.getDate()} ${MONTH_SHORT_GENITIVE_RU[dt.getMonth()]}`;
 }
 
 export function formatDateWithYearRu(iso) {
@@ -259,7 +274,7 @@ export function formatShortRangeRu(startISO, endISO) {
   const a = parseISODate(startISO);
   const b = parseISODate(endISO);
   if (a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth()) {
-    return `${a.getDate()}–${b.getDate()} ${MONTH_SHORT_RU[a.getMonth()]}`;
+    return `${a.getDate()}–${b.getDate()} ${MONTH_SHORT_GENITIVE_RU[a.getMonth()]}`;
   }
   return `${formatDateShortRu(startISO)} – ${formatDateShortRu(endISO)}`;
 }

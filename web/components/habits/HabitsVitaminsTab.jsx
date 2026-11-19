@@ -1,13 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  ChevronDown,
-  ChevronUp,
-  CloudSun,
-  Droplets,
-  Flame,
-  Moon,
-  Pencil,
-  Pill as PillIcon,
   Plus,
   RotateCcw,
   Settings2,
@@ -17,8 +9,10 @@ import {
 import api from "../../api.js";
 import Sheet from "../Sheet.jsx";
 import {
-  CheckRow,
   EmptyState,
+  GroupHeader,
+  GroupList,
+  ListRow,
   Pill,
   SegmentedControl,
 } from "../UiPrimitives.jsx";
@@ -27,13 +21,7 @@ import {
   WATER_GOAL_PRESETS,
   WATER_QUICK_AMOUNTS,
 } from "../../data/presets.js";
-import { formatCountRu, nowTimeHHMM } from "../../utils/date.js";
-
-const PERIOD_ICONS = {
-  morning: Sun,
-  afternoon: CloudSun,
-  evening: Moon,
-};
+import { nowTimeHHMM } from "../../utils/date.js";
 
 const EMPTY_FORM = {
   id: null,
@@ -77,10 +65,9 @@ export default function HabitsVitaminsTab({
   const [error, setError] = useState("");
   const [filter, setFilter] = useState("all"); // 'all' | 'habit' | 'vitamin'
 
-  // Water UI state
-  const [waterLogsOpen, setWaterLogsOpen] = useState(false);
+  // Water sheet state (goal + timestamped logs)
   const [waterBusy, setWaterBusy] = useState(false);
-  const [goalSheetOpen, setGoalSheetOpen] = useState(false);
+  const [waterSheetOpen, setWaterSheetOpen] = useState(false);
   const [goalInput, setGoalInput] = useState("2000");
   const [savingGoal, setSavingGoal] = useState(false);
 
@@ -120,8 +107,6 @@ export default function HabitsVitaminsTab({
     setLoading(true);
     loadData();
   }, [loadData]);
-
-  const summary = useMemo(() => recomputeSummary(habits), [habits]);
 
   const counts = useMemo(() => {
     const habitCount = habits.filter((h) => h.category !== "vitamin").length;
@@ -183,7 +168,7 @@ export default function HabitsVitaminsTab({
         logs: Array.isArray(res.logs) ? res.logs : [],
       });
       onDataChanged?.();
-      notify?.(`+${amountMl} мл воды записано`, "success");
+      notify?.(`+${amountMl} мл воды`, "success");
     } catch (err) {
       setWater(prevWater);
       notify?.(err?.message || "Не удалось записать воду", "error");
@@ -198,7 +183,10 @@ export default function HabitsVitaminsTab({
     setWaterBusy(true);
     const prevWater = water;
     const nextLogs = prevWater.logs.filter((l) => l.id !== logItem.id);
-    const nextTotal = Math.max(0, prevWater.total_ml - (Number(logItem.amount_ml) || 0));
+    const nextTotal = Math.max(
+      0,
+      prevWater.total_ml - (Number(logItem.amount_ml) || 0),
+    );
     const nextPercent = prevWater.goal_ml
       ? Math.min(100, Math.round((nextTotal / prevWater.goal_ml) * 100))
       : 0;
@@ -222,20 +210,20 @@ export default function HabitsVitaminsTab({
       notify?.(
         isUndo
           ? `Отменено −${logItem.amount_ml} мл`
-          : `Запись ${logItem.amount_ml} мл удалена`,
+          : `Удалено ${logItem.amount_ml} мл`,
         "info",
       );
     } catch (err) {
       setWater(prevWater);
-      notify?.(err?.message || "Не удалось удалить запись воды", "error");
+      notify?.(err?.message || "Не удалось удалить запись", "error");
     } finally {
       setWaterBusy(false);
     }
   };
 
-  const openGoalSheet = () => {
+  const openWaterSheet = () => {
     setGoalInput(String(water.goal_ml || 2000));
-    setGoalSheetOpen(true);
+    setWaterSheetOpen(true);
   };
 
   const handleSaveGoal = async (e) => {
@@ -252,9 +240,11 @@ export default function HabitsVitaminsTab({
       setWater((prev) => ({
         ...prev,
         goal_ml: nextGoal,
-        percent: nextGoal ? Math.min(100, Math.round((prev.total_ml / nextGoal) * 100)) : 0,
+        percent: nextGoal
+          ? Math.min(100, Math.round((prev.total_ml / nextGoal) * 100))
+          : 0,
       }));
-      setGoalSheetOpen(false);
+      setWaterSheetOpen(false);
       onDataChanged?.();
       notify?.(`Цель по воде: ${nextGoal} мл`, "success");
     } catch (err) {
@@ -343,7 +333,7 @@ export default function HabitsVitaminsTab({
     if (!title) {
       setFormError(
         habitForm.category === "vitamin"
-          ? "Введите название витамина или добавки"
+          ? "Введите название витамина"
           : "Введите название привычки",
       );
       return;
@@ -367,8 +357,8 @@ export default function HabitsVitaminsTab({
         await api.createHabit(payload);
         notify?.(
           payload.category === "vitamin"
-            ? "Витамин добавлен в расписание"
-            : "Новая привычка добавлена",
+            ? "Витамин добавлен"
+            : "Привычка добавлена",
           "success",
         );
       }
@@ -398,59 +388,47 @@ export default function HabitsVitaminsTab({
     }
   };
 
-  const waterRemaining = Math.max(0, (water.goal_ml || 2000) - (water.total_ml || 0));
   const waterPct = Math.min(
     100,
     water.goal_ml > 0 ? Math.round((water.total_ml / water.goal_ml) * 100) : 0,
   );
-  const lastWaterLog = water.logs.length > 0 ? water.logs[water.logs.length - 1] : null;
+  const lastWaterLog =
+    water.logs.length > 0 ? water.logs[water.logs.length - 1] : null;
 
   return (
     <div className="mt-stack">
-      {/* 1. Water Tracker Hero Card */}
-      <section className="mt-card water-card" data-accent="water" aria-label="Трекер воды">
-        <div className="mt-card-head">
-          <div className="mt-row" style={{ gap: "8px" }}>
-            <Pill tone="water" icon={<Droplets size={13} />}>
+      {/* 1. Compact Water Card (~96px tall) */}
+      <section className="water-card" aria-label="Трекер воды">
+        <div className="water-card-head">
+          <div className="mt-row" style={{ gap: "6px", alignItems: "baseline", minWidth: 0 }}>
+            <span style={{ fontSize: "14px", fontWeight: 600, color: "var(--ink)" }}>
               Вода
-            </Pill>
-            <span className="mt-card-sub tabular">
-              {waterRemaining > 0
-                ? `Осталось ${waterRemaining} мл`
-                : "Дневная цель выполнена"}
             </span>
-          </div>
-          <button
-            type="button"
-            className="mt-icon-btn"
-            aria-label="Изменить дневную цель воды"
-            onClick={openGoalSheet}
-          >
-            <Settings2 size={18} />
-          </button>
-        </div>
-
-        <div className="mt-row mt-row--between" style={{ alignItems: "baseline" }}>
-          <div style={{ display: "flex", alignItems: "baseline", gap: "6px" }}>
+            <span style={{ color: "var(--subtle)" }} aria-hidden="true">·</span>
             <strong
               className="tabular"
               style={{
                 fontFamily: "var(--font-heading)",
-                fontSize: "26px",
-                lineHeight: "30px",
-                letterSpacing: "-0.025em",
+                fontSize: "16px",
+                fontWeight: 700,
                 color: "var(--ink)",
               }}
             >
               {water.total_ml}
             </strong>
-            <span className="mt-card-sub tabular" style={{ fontSize: "14px" }}>
+            <span className="mt-card-sub tabular" style={{ fontSize: "13px" }}>
               / {water.goal_ml} мл
             </span>
           </div>
-          <Pill tone={waterPct >= 100 ? "success" : "water"} className="tabular">
-            {waterPct}%
-          </Pill>
+          <button
+            type="button"
+            className="mt-icon-btn"
+            style={{ width: "36px", height: "36px", minWidth: "36px", minHeight: "36px" }}
+            aria-label="Цель и записи воды"
+            onClick={openWaterSheet}
+          >
+            <Settings2 size={17} />
+          </button>
         </div>
 
         <div
@@ -472,115 +450,58 @@ export default function HabitsVitaminsTab({
             <button
               key={preset.amount_ml}
               type="button"
-              className="mt-btn mt-btn--soft mt-btn--sm tabular"
-              data-accent="water"
+              className="mt-btn mt-btn--secondary tabular"
               disabled={waterBusy}
               onClick={() => handleAddWater(preset.amount_ml)}
             >
-              {preset.label}
+              +{preset.amount_ml}
             </button>
           ))}
+          <button
+            type="button"
+            className="mt-icon-btn mt-icon-btn--bordered"
+            style={{ width: "38px", height: "36px", minWidth: "38px", minHeight: "36px", flexShrink: 0 }}
+            aria-label={
+              lastWaterLog
+                ? `Отменить последнюю запись воды ${lastWaterLog.amount_ml} мл`
+                : "Нет записей воды для отмены"
+            }
+            disabled={waterBusy || !lastWaterLog}
+            onClick={() => handleDeleteWaterLog(lastWaterLog, true)}
+          >
+            <RotateCcw size={15} />
+          </button>
         </div>
-
-        {water.logs.length > 0 ? (
-          <div className="mt-stack mt-stack--sm">
-            <div className="mt-row mt-row--between" style={{ gap: "8px" }}>
-              <button
-                type="button"
-                className="mt-btn mt-btn--ghost mt-btn--sm"
-                style={{ paddingInline: "6px" }}
-                aria-expanded={waterLogsOpen}
-                onClick={() => setWaterLogsOpen((v) => !v)}
-              >
-                <span className="mt-card-sub tabular">
-                  Записи за день ({water.logs.length})
-                </span>
-                {waterLogsOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-              </button>
-
-              {lastWaterLog ? (
-                <button
-                  type="button"
-                  className="mt-btn mt-btn--ghost mt-btn--sm"
-                  aria-label={`Отменить последнюю запись воды ${lastWaterLog.amount_ml} мл`}
-                  disabled={waterBusy}
-                  onClick={() => handleDeleteWaterLog(lastWaterLog, true)}
-                >
-                  <RotateCcw size={14} />
-                  <span>Отменить</span>
-                </button>
-              ) : null}
-            </div>
-
-            {waterLogsOpen ? (
-              <div className="water-log-list">
-                {[...water.logs].reverse().map((log) => (
-                  <div key={log.id} className="water-log-item">
-                    <div className="mt-row" style={{ gap: "10px" }}>
-                      <span className="mt-pill mt-pill--water tabular">
-                        {log.logged_at || "—"}
-                      </span>
-                      <span className="tabular" style={{ fontWeight: 600, color: "var(--ink)" }}>
-                        +{log.amount_ml} мл
-                      </span>
-                    </div>
-                    <button
-                      type="button"
-                      className="mt-icon-btn"
-                      aria-label={`Удалить запись ${log.amount_ml} мл`}
-                      disabled={waterBusy}
-                      onClick={() => handleDeleteWaterLog(log, false)}
-                    >
-                      <Trash2 size={15} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            ) : null}
-          </div>
-        ) : null}
       </section>
 
-      {/* 2. Balanced Single-Row Filter Bar */}
+      {/* 2. Single Calm Filter Row */}
       <div
         className="mt-chip-row"
         role="group"
         aria-label="Фильтр привычек и витаминов"
       >
         <Pill
-          tone="habits"
+          tone="neutral"
           active={filter === "all"}
           onClick={() => setFilter("all")}
         >
           Все ({counts.all})
         </Pill>
         <Pill
-          tone="habits"
+          tone="neutral"
           active={filter === "habit"}
           onClick={() => setFilter("habit")}
         >
           Привычки ({counts.habit})
         </Pill>
         <Pill
-          tone="brand"
+          tone="neutral"
           active={filter === "vitamin"}
           onClick={() => setFilter("vitamin")}
         >
           Витамины ({counts.vitamin})
         </Pill>
       </div>
-
-      {/* Compact Day Summary Line */}
-      {!loading && habits.length > 0 ? (
-        <div className="mt-row mt-row--between" style={{ paddingInline: "2px" }}>
-          <span className="mt-card-sub tabular">
-            Выполнено за день: <strong>{summary.done} из {summary.total}</strong>
-          </span>
-          <span className="mt-card-sub tabular">
-            Витамины: <strong>{summary.vitamins_done}/{summary.vitamins_total}</strong>
-          </span>
-        </div>
-      ) : null}
 
       {error ? (
         <div className="mt-card mt-card--compact">
@@ -595,25 +516,25 @@ export default function HabitsVitaminsTab({
         </div>
       ) : null}
 
-      {/* 3. Morning / Afternoon / Evening Blocks */}
+      {/* 3. Morning / Afternoon / Evening iOS Grouped Lists */}
       {loading && habits.length === 0 ? (
-        <div className="mt-card">
-          <p className="mt-card-sub">Загружаем расписание привычек и витаминов…</p>
+        <div className="mt-card mt-card--compact">
+          <p className="mt-card-sub">Загружаем расписание…</p>
         </div>
       ) : habits.length === 0 ? (
         <div className="mt-card">
           <EmptyState
-            icon={<Sun size={24} />}
-            title="Пока нет привычек и витаминов"
-            description="Добавьте утренние, дневные или вечерние ритуалы и приём витаминов."
+            icon={<Sun size={22} />}
+            title="Пока нет привычек"
+            description="Добавьте утренние, дневные или вечерние ритуалы и витамины."
             action={
               <button
                 type="button"
                 className="mt-btn mt-btn--primary"
                 onClick={() => openCreateSheet("morning", "habit")}
               >
-                <Plus size={17} />
-                <span>Добавить первую запись</span>
+                <Plus size={16} />
+                <span>Добавить</span>
               </button>
             }
           />
@@ -623,123 +544,98 @@ export default function HabitsVitaminsTab({
           const periodItems = groupedHabits[period.key] || [];
           const doneCount = periodItems.filter((h) => h.completed).length;
           const totalCount = periodItems.length;
-          const allDone = totalCount > 0 && doneCount === totalCount;
-          const PeriodIcon = PERIOD_ICONS[period.key] || Sun;
 
           return (
             <section
               key={period.key}
-              className="mt-card habits-period-card"
+              className="mt-stack mt-stack--xs"
               aria-label={`Блок ${period.label}`}
             >
-              <div className="habits-period-head">
-                <div className="mt-row" style={{ gap: "10px", minWidth: 0 }}>
-                  <span
-                    className="mt-pill mt-pill--habits"
-                    aria-hidden="true"
-                    style={{ paddingInline: "8px" }}
-                  >
-                    <PeriodIcon size={15} />
-                  </span>
-                  <div style={{ minWidth: 0 }}>
-                    <h2 className="mt-card-title">{period.label}</h2>
-                    <p className="mt-card-sub tabular">{period.window}</p>
-                  </div>
-                </div>
-
-                <div className="mt-row" style={{ gap: "6px" }}>
-                  <Pill tone={allDone ? "success" : "neutral"} className="tabular">
-                    {doneCount}/{totalCount}
-                  </Pill>
+              <GroupHeader
+                title={period.label}
+                meta={`${doneCount}/${totalCount}`}
+                action={
                   <button
                     type="button"
                     className="mt-icon-btn"
                     aria-label={`Добавить в блок ${period.label}`}
                     onClick={() =>
-                      openCreateSheet(period.key, filter === "vitamin" ? "vitamin" : "habit")
+                      openCreateSheet(
+                        period.key,
+                        filter === "vitamin" ? "vitamin" : "habit",
+                      )
                     }
                   >
-                    <Plus size={17} />
+                    <Plus size={16} />
                   </button>
-                </div>
-              </div>
+                }
+              />
 
-              {periodItems.length === 0 ? (
-                <p className="mt-card-sub" style={{ paddingTop: "4px" }}>
-                  {filter === "vitamin"
-                    ? "Нет витаминов на это время дня."
-                    : filter === "habit"
-                      ? "Нет привычек на это время дня."
-                      : "Пока ничего не запланировано."}
-                </p>
-              ) : (
-                <div className="mt-stack mt-stack--sm">
-                  {periodItems.map((item) => {
+              <GroupList>
+                {periodItems.length === 0 ? (
+                  <ListRow
+                    title={
+                      filter === "vitamin"
+                        ? "Нет витаминов"
+                        : filter === "habit"
+                          ? "Нет привычек"
+                          : "Добавить запись"
+                    }
+                    meta="Нажмите, чтобы запланировать"
+                    onClick={() =>
+                      openCreateSheet(
+                        period.key,
+                        filter === "vitamin" ? "vitamin" : "habit",
+                      )
+                    }
+                  />
+                ) : (
+                  periodItems.map((item) => {
                     const isVitamin = item.category === "vitamin";
                     const metaParts = [];
+                    if (isVitamin) metaParts.push("Витамин");
                     if (item.dose_or_note) metaParts.push(item.dose_or_note);
                     if (item.completed && item.completed_at) {
-                      metaParts.push(`Отмечено в ${item.completed_at}`);
+                      metaParts.push(item.completed_at);
                     }
-                    const subtitle = metaParts.join(" · ");
+                    const meta = metaParts.join(" · ");
 
                     return (
-                      <CheckRow
+                      <ListRow
                         key={item.id}
                         checked={Boolean(item.completed)}
                         onToggle={() => handleToggleHabit(item)}
-                        accent={isVitamin ? "brand" : "habits"}
+                        onClick={() => openEditSheet(item)}
+                        accent="cobalt"
                         title={item.title}
-                        subtitle={subtitle || undefined}
-                        badge={
-                          <span className="mt-row" style={{ gap: "6px", flexWrap: "wrap" }}>
-                            {isVitamin ? (
-                              <Pill tone="brand" icon={<PillIcon size={11} />}>
-                                Витамин
-                              </Pill>
-                            ) : null}
-                            {item.streak_days > 0 ? (
-                              <span
-                                className="habit-streak tabular"
-                                title={`Серия: ${formatCountRu(item.streak_days, "день", "дня", "дней")}`}
-                              >
-                                <Flame size={12} />
-                                {item.streak_days} дн.
-                              </span>
-                            ) : null}
-                          </span>
-                        }
+                        meta={meta || undefined}
                         trailing={
-                          <button
-                            type="button"
-                            className="mt-icon-btn"
-                            aria-label={`Редактировать «${item.title}»`}
-                            onClick={() => openEditSheet(item)}
-                          >
-                            <Pencil size={15} />
-                          </button>
+                          item.streak_days > 0 ? (
+                            <span className="habit-streak tabular">
+                              {item.streak_days} дн.
+                            </span>
+                          ) : null
                         }
                       />
                     );
-                  })}
-                </div>
-              )}
+                  })
+                )}
+              </GroupList>
             </section>
           );
         })
       )}
 
-      {/* Water Daily Goal Bottom Sheet */}
+      {/* Water Goal & Timestamped Logs Bottom Sheet */}
       <Sheet
-        open={goalSheetOpen}
-        onClose={() => setGoalSheetOpen(false)}
-        title="Дневная цель по воде"
-        subtitle="Комфортный ориентир на каждый день"
+        open={waterSheetOpen}
+        onClose={() => setWaterSheetOpen(false)}
+        title="Вода"
+        subtitle={`Выпито ${water.total_ml} из ${water.goal_ml} мл`}
         footer={
           <button
             type="button"
             className="mt-btn mt-btn--primary mt-btn--wide"
-            data-accent="water"
             disabled={savingGoal}
             onClick={handleSaveGoal}
           >
@@ -747,31 +643,30 @@ export default function HabitsVitaminsTab({
           </button>
         }
       >
-        <form className="mt-stack" onSubmit={handleSaveGoal}>
-          <div className="mt-field">
-            <label className="mt-label" htmlFor="water-goal-input">
-              Цель в миллилитрах (мл)
-            </label>
-            <input
-              id="water-goal-input"
-              type="number"
-              inputMode="numeric"
-              min={200}
-              max={10000}
-              step={50}
-              className="mt-input tabular"
-              value={goalInput}
-              onChange={(e) => setGoalInput(e.target.value)}
-            />
-          </div>
+        <div className="mt-stack">
+          <form className="mt-stack" onSubmit={handleSaveGoal}>
+            <div className="mt-field">
+              <label className="mt-label" htmlFor="water-goal-input">
+                Дневная цель (мл)
+              </label>
+              <input
+                id="water-goal-input"
+                type="number"
+                inputMode="numeric"
+                min={200}
+                max={10000}
+                step={50}
+                className="mt-input tabular"
+                value={goalInput}
+                onChange={(e) => setGoalInput(e.target.value)}
+              />
+            </div>
 
-          <div className="mt-field">
-            <span className="mt-label">Быстрый выбор</span>
             <div className="mt-chip-row">
               {WATER_GOAL_PRESETS.map((ml) => (
                 <Pill
                   key={ml}
-                  tone="water"
+                  tone="cobalt"
                   active={Number(goalInput) === ml}
                   onClick={() => setGoalInput(String(ml))}
                   className="tabular"
@@ -780,8 +675,39 @@ export default function HabitsVitaminsTab({
                 </Pill>
               ))}
             </div>
-          </div>
-        </form>
+          </form>
+
+          {water.logs.length > 0 ? (
+            <div className="mt-stack mt-stack--xs">
+              <GroupHeader
+                title="Записи за день"
+                meta={String(water.logs.length)}
+              />
+              <GroupList>
+                {[...water.logs].reverse().map((log) => (
+                  <ListRow
+                    key={log.id}
+                    title={`+${log.amount_ml} мл`}
+                    meta={log.logged_at || "Сегодня"}
+                    trailing={
+                      <button
+                        type="button"
+                        className="mt-icon-btn"
+                        aria-label={`Удалить запись ${log.amount_ml} мл`}
+                        disabled={waterBusy}
+                        onClick={() => handleDeleteWaterLog(log, false)}
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    }
+                  />
+                ))}
+              </GroupList>
+            </div>
+          ) : (
+            <p className="mt-card-sub">За сегодня ещё нет записей воды.</p>
+          )}
+        </div>
       </Sheet>
 
       {/* Add / Edit Habit or Vitamin Bottom Sheet */}
@@ -790,12 +716,11 @@ export default function HabitsVitaminsTab({
         onClose={() => setHabitSheetOpen(false)}
         title={
           habitForm.id
-            ? "Редактировать запись"
+            ? "Редактировать"
             : habitForm.category === "vitamin"
               ? "Новый витамин"
               : "Новая привычка"
         }
-        subtitle="Выберите время дня и удобную заметку или дозировку"
         footer={
           <div className="mt-row" style={{ gap: "10px" }}>
             {habitForm.id ? (
@@ -813,7 +738,6 @@ export default function HabitsVitaminsTab({
             <button
               type="button"
               className="mt-btn mt-btn--primary mt-btn--wide"
-              data-accent="habits"
               disabled={savingHabit}
               onClick={handleSaveHabit}
             >
@@ -828,13 +752,12 @@ export default function HabitsVitaminsTab({
       >
         <form className="mt-stack" onSubmit={handleSaveHabit}>
           <div className="mt-field">
-            <span className="mt-label">Тип записи</span>
+            <span className="mt-label">Тип</span>
             <SegmentedControl
               value={habitForm.category}
               onChange={(val) =>
                 setHabitForm((prev) => ({ ...prev, category: val }))
               }
-              accent="habits"
               options={[
                 { value: "habit", label: "Привычка" },
                 { value: "vitamin", label: "Витамин" },
@@ -849,7 +772,6 @@ export default function HabitsVitaminsTab({
               onChange={(val) =>
                 setHabitForm((prev) => ({ ...prev, period_of_day: val }))
               }
-              accent="habits"
               options={HABIT_PERIODS.map((p) => ({
                 value: p.key,
                 label: p.label,
@@ -859,9 +781,7 @@ export default function HabitsVitaminsTab({
 
           <div className="mt-field">
             <label className="mt-label" htmlFor="habit-title-input">
-              {habitForm.category === "vitamin"
-                ? "Название витамина или добавки"
-                : "Название привычки"}
+              Название
             </label>
             <input
               id="habit-title-input"
@@ -869,8 +789,8 @@ export default function HabitsVitaminsTab({
               className="mt-input"
               placeholder={
                 habitForm.category === "vitamin"
-                  ? "Например: Витамин D3 2000 МЕ"
-                  : "Например: Прогулка 20 минут"
+                  ? "Например: Витамин Д3 2000 МЕ"
+                  : "Например: прогулка 20 минут"
               }
               value={habitForm.title}
               onChange={(e) =>
@@ -882,8 +802,8 @@ export default function HabitsVitaminsTab({
           <div className="mt-field">
             <label className="mt-label" htmlFor="habit-dose-input">
               {habitForm.category === "vitamin"
-                ? "Дозировка и правило приёма"
-                : "Заметка или ориентир (необязательно)"}
+                ? "Дозировка и приём"
+                : "Заметка (необязательно)"}
             </label>
             <input
               id="habit-dose-input"
@@ -902,15 +822,18 @@ export default function HabitsVitaminsTab({
           </div>
 
           <div className="mt-field">
-            <span className="mt-label">Цель дней в неделю</span>
+            <span className="mt-label">Дней в неделю</span>
             <div className="mt-chip-row">
               {[3, 4, 5, 6, 7].map((days) => (
                 <Pill
                   key={days}
-                  tone="habits"
+                  tone="cobalt"
                   active={Number(habitForm.target_days_per_week) === days}
                   onClick={() =>
-                    setHabitForm((prev) => ({ ...prev, target_days_per_week: days }))
+                    setHabitForm((prev) => ({
+                      ...prev,
+                      target_days_per_week: days,
+                    }))
                   }
                   className="tabular"
                 >

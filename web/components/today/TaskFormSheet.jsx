@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Clock, Target, Trash2 } from "lucide-react";
+import { ArrowRight, Clock, Target, Trash2 } from "lucide-react";
 import Sheet from "../Sheet.jsx";
 import { Pill } from "../UiPrimitives.jsx";
 import { TASK_PRIORITIES, TASK_SECTIONS } from "../../data/presets.js";
@@ -14,6 +14,7 @@ export default function TaskFormSheet({
   selectedDate,
   goals = [],
   onSave,
+  onReschedule,
   onDelete,
   saving = false,
 }) {
@@ -67,7 +68,9 @@ export default function TaskFormSheet({
     }
   };
 
-  const dayLabel = formatRelativeDayRu(task?.task_date || selectedDate).toLowerCase();
+  const dayLabel = formatRelativeDayRu(
+    task?.task_date || selectedDate
+  ).toLowerCase();
 
   return (
     <Sheet
@@ -89,16 +92,31 @@ export default function TaskFormSheet({
                 ? "Сохранить изменения"
                 : "Добавить задачу"}
           </button>
-          {isEditing && onDelete ? (
-            <button
-              type="button"
-              className="mt-btn mt-btn--danger mt-btn--wide"
-              disabled={saving}
-              onClick={() => onDelete(task)}
-            >
-              <Trash2 size={16} />
-              <span>Удалить задачу</span>
-            </button>
+          {isEditing ? (
+            <div className="mt-row">
+              {!task.completed && onReschedule ? (
+                <button
+                  type="button"
+                  className="mt-btn mt-btn--secondary mt-btn--wide"
+                  disabled={saving}
+                  onClick={() => onReschedule(task)}
+                >
+                  <span>На завтра</span>
+                  <ArrowRight size={15} />
+                </button>
+              ) : null}
+              {onDelete ? (
+                <button
+                  type="button"
+                  className="mt-btn mt-btn--danger mt-btn--wide"
+                  disabled={saving}
+                  onClick={() => onDelete(task)}
+                >
+                  <Trash2 size={15} />
+                  <span>Удалить</span>
+                </button>
+              ) : null}
+            </div>
           ) : null}
         </div>
       }
@@ -166,13 +184,15 @@ export default function TaskFormSheet({
             {TASK_PRIORITIES.map((item) => (
               <Pill
                 key={item.key}
-                tone={item.tone}
+                tone={item.key === "high" ? "coral" : "neutral"}
                 active={priority === item.key}
                 icon={
-                  <span
-                    className={`today-priority-dot today-priority-dot--${item.key}`}
-                    aria-hidden="true"
-                  />
+                  item.key === "high" ? (
+                    <span
+                      className="today-priority-dot today-priority-dot--high"
+                      aria-hidden="true"
+                    />
+                  ) : null
                 }
                 onClick={() => setPriority(item.key)}
               >
@@ -188,7 +208,7 @@ export default function TaskFormSheet({
             {TASK_SECTIONS.map((sec) => (
               <Pill
                 key={sec.key}
-                tone={sec.tone}
+                tone="neutral"
                 active={sectionTag === sec.key}
                 onClick={() => setSectionTag(sec.key)}
               >
@@ -202,7 +222,7 @@ export default function TaskFormSheet({
           <label className="mt-label" htmlFor="today-task-goal">
             <span className="mt-row" style={{ gap: 6 }}>
               <Target size={14} />
-              <span>Привязать к долгосрочной цели</span>
+              <span>Привязать к цели</span>
             </span>
           </label>
           <select

@@ -3,8 +3,7 @@ import {
   Activity,
   Check,
   ChevronDown,
-  Clock,
-  Flame,
+  ChevronRight,
   Flower2,
   Play,
   SlidersHorizontal,
@@ -13,8 +12,15 @@ import {
   Wind,
 } from "lucide-react";
 import api from "../../api.js";
+import Sheet from "../Sheet.jsx";
 import PracticeTimerSheet from "../PracticeTimerSheet.jsx";
-import { CheckRow, EmptyState, Pill } from "../UiPrimitives.jsx";
+import {
+  GroupHeader,
+  GroupList,
+  ListRow,
+  MetricStrip,
+  Pill,
+} from "../UiPrimitives.jsx";
 import {
   WORKOUT_DURATIONS,
   WORKOUT_INTENSITIES,
@@ -89,11 +95,12 @@ export default function WorkoutsTab({
   const [note, setNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  // Guided timer sheet & minimalist disclosures
+  // Guided timer, disclosures & inspect sheet
   const [timerOpen, setTimerOpen] = useState(false);
   const [timerPresetId, setTimerPresetId] = useState(null);
   const [showExtras, setShowExtras] = useState(false);
   const [showAllHistory, setShowAllHistory] = useState(false);
+  const [inspectItem, setInspectItem] = useState(null);
 
   const loadWorkouts = useCallback(async () => {
     setError("");
@@ -180,7 +187,10 @@ export default function WorkoutsTab({
         selectedType === "other"
           ? payload.custom_label
           : WORKOUT_TYPE_MAP[selectedType]?.label || "Тренировка";
-      notify?.(`Тренировка «${label}» (${payload.duration_min} мин) отмечена!`, "success");
+      notify?.(
+        `Тренировка «${label}» (${payload.duration_min} мин) отмечена!`,
+        "success",
+      );
     } catch (err) {
       notify?.(err?.message || "Не удалось сохранить тренировку", "error");
     } finally {
@@ -210,7 +220,9 @@ export default function WorkoutsTab({
   };
 
   const handleDeleteWorkout = async (item) => {
+    if (!item) return;
     const prev = data;
+    setInspectItem(null);
     setData({
       ...prev,
       day_items: prev.day_items.filter((w) => w.id !== item.id),
@@ -269,124 +281,103 @@ export default function WorkoutsTab({
     };
   }, [data.recent_items]);
 
-  const activeTypeMeta = WORKOUT_TYPE_MAP[selectedType] || WORKOUT_TYPES[0];
   const presetsForType = WORKOUT_PRESETS[selectedType] || [];
   const activeWeekDaysCount = weekDays.filter((d) => d.activity.count > 0).length;
+  const visibleHistory = showAllHistory
+    ? data.recent_items
+    : data.recent_items.slice(0, 5);
+
+  const openTimer = () => {
+    const matchedPreset =
+      presetsForType.find((p) => p.title === note) || presetsForType[0];
+    setTimerPresetId(matchedPreset?.id || null);
+    setTimerOpen(true);
+  };
 
   return (
     <div className="mt-stack">
-      {/* 1. Practice Picker & Quick Log Card */}
-      <section className="mt-card" aria-label="Отметить тренировку или практику">
-        <div className="mt-card-head">
-          <div>
-            <h2 className="mt-card-title">Выберите практику</h2>
-            <p className="mt-card-sub">
-              Дыхание, пилатес, цигун или своя активность
-            </p>
-          </div>
-          <button
-            type="button"
-            className="mt-btn mt-btn--soft mt-btn--sm"
-            data-accent={activeTypeMeta.accent}
-            onClick={() => {
-              const matchedPreset =
-                presetsForType.find((p) => p.title === note) || presetsForType[0];
-              setTimerPresetId(matchedPreset?.id || null);
-              setTimerOpen(true);
-            }}
-          >
-            <Play size={14} />
-            <span>Таймер</span>
-          </button>
-        </div>
-
-        {/* 2x2 Tactile Practice Grid (clean on 393px iPhone) */}
-        <div
-          className="workout-type-grid"
-          style={{ gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}
-          role="radiogroup"
-          aria-label="Тип практики"
-        >
-          {WORKOUT_TYPES.map((wType) => {
-            const Icon = TYPE_ICONS[wType.key] || Sparkles;
-            const isSelected = selectedType === wType.key;
-            return (
-              <button
-                key={wType.key}
-                type="button"
-                role="radio"
-                aria-checked={isSelected}
-                className={`workout-type-card${isSelected ? " is-selected" : ""}`}
-                data-accent={wType.accent}
-                onClick={() => handleSelectType(wType.key)}
-              >
-                <span className="workout-type-icon" aria-hidden="true">
-                  <Icon size={18} />
-                </span>
-                <div className="mt-stack mt-stack--xs" style={{ gap: "2px" }}>
-                  <strong>{wType.label}</strong>
-                  <small className="tabular">от {wType.defaultDuration} мин</small>
-                </div>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Guided presets strip for selected type */}
-        {presetsForType.length > 0 ? (
-          <div className="mt-field">
-            <span className="mt-label">Готовые сценарии ({activeTypeMeta.shortLabel})</span>
-            <div className="mt-chip-row">
-              {presetsForType.map((preset) => (
-                <Pill
-                  key={preset.id}
-                  tone={activeTypeMeta.accent}
-                  active={note === preset.title}
-                  onClick={() => applyPreset(preset)}
-                >
-                  {preset.title} · {preset.durationMin}м
-                </Pill>
-              ))}
-            </div>
-          </div>
-        ) : null}
-
-        {/* Form controls for selected practice */}
+      {/* 1. Clean Minimalist Workout Logger Card */}
+      <section className="mt-card" aria-label="Отметить тренировку">
         <form className="mt-stack" onSubmit={handleLogWorkout}>
+          {/* 4 Compact Equal Practice Buttons */}
+          <div
+            className="workout-type-grid"
+            role="radiogroup"
+            aria-label="Тип практики"
+          >
+            {WORKOUT_TYPES.map((wType) => {
+              const Icon = TYPE_ICONS[wType.key] || Sparkles;
+              const isSelected = selectedType === wType.key;
+              return (
+                <button
+                  key={wType.key}
+                  type="button"
+                  role="radio"
+                  aria-checked={isSelected}
+                  className={`workout-type-card${isSelected ? " is-selected" : ""}`}
+                  onClick={() => handleSelectType(wType.key)}
+                >
+                  <span className="workout-type-icon" aria-hidden="true">
+                    <Icon size={16} />
+                  </span>
+                  <strong>{wType.shortLabel}</strong>
+                </button>
+              );
+            })}
+          </div>
+
           {selectedType === "other" ? (
-            <div className="mt-field">
-              <label className="mt-label" htmlFor="workout-custom-label">
-                Название практики
-              </label>
-              <input
-                id="workout-custom-label"
-                type="text"
-                className="mt-input"
-                placeholder="Например: йога, прогулка, растяжка"
-                value={customLabel}
-                onChange={(e) => setCustomLabel(e.target.value)}
-              />
-            </div>
+            <input
+              id="workout-custom-label"
+              type="text"
+              className="mt-input"
+              aria-label="Название своей практики"
+              placeholder="Например: йога, прогулка, растяжка"
+              value={customLabel}
+              onChange={(e) => setCustomLabel(e.target.value)}
+            />
           ) : null}
 
-          <div className="mt-field">
-            <span className="mt-label">Длительность</span>
-            <div className="mt-chip-row mt-chip-row--wrap">
-              {WORKOUT_DURATIONS.map((mins) => (
-                <Pill
-                  key={mins}
-                  tone="habits"
-                  active={durationMin === mins}
-                  onClick={() => setDurationMin(mins)}
-                  className="tabular"
-                >
-                  {mins} мин
-                </Pill>
-              ))}
-            </div>
+          {/* Single Row of Duration Pills */}
+          <div
+            className="mt-chip-row"
+            role="group"
+            aria-label="Длительность тренировки"
+          >
+            {WORKOUT_DURATIONS.map((mins) => (
+              <Pill
+                key={mins}
+                tone="cobalt"
+                active={durationMin === mins}
+                onClick={() => setDurationMin(mins)}
+                className="tabular"
+              >
+                {mins} мин
+              </Pill>
+            ))}
           </div>
 
-          {/* Collapsible secondary details (Intensity, Mood, Time, Note) */}
+          {/* 2 Balanced Action Buttons: Отметить + Таймер */}
+          <div className="mt-grid-2">
+            <button
+              type="submit"
+              className="mt-btn mt-btn--primary"
+              disabled={submitting}
+            >
+              <Check size={16} strokeWidth={2.5} />
+              <span>{submitting ? "Сохраняем…" : "Отметить"}</span>
+            </button>
+            <button
+              type="button"
+              className="mt-btn mt-btn--soft"
+              onClick={openTimer}
+            >
+              <Play size={15} />
+              <span>Таймер</span>
+            </button>
+          </div>
+
+          {/* Quiet Collapsible Disclosure: Presets, Intensity, Mood, Time, Note */}
           <button
             type="button"
             className="mt-disclosure-btn"
@@ -396,35 +387,43 @@ export default function WorkoutsTab({
             <span className="mt-row" style={{ gap: "7px", minWidth: 0 }}>
               <SlidersHorizontal size={14} aria-hidden="true" />
               <span style={{ fontWeight: 600, color: "var(--ink)" }}>
-                Дополнительно
+                Сценарий и параметры
               </span>
-              {!showExtras ? (
-                <span
-                  className="mt-card-sub tabular"
-                  style={{
-                    fontSize: "12px",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {INTENSITY_LABELS[intensity] || intensity} · {formatMoodRu(mood)} · {loggedAt}
-                  {note ? " · заметка" : ""}
-                </span>
-              ) : null}
             </span>
-            <ChevronDown size={16} className="mt-disclosure-chevron" aria-hidden="true" />
+            <ChevronDown
+              size={16}
+              className="mt-disclosure-chevron"
+              aria-hidden="true"
+            />
           </button>
 
           {showExtras ? (
             <div className="mt-disclosure-panel">
+              {presetsForType.length > 0 ? (
+                <div className="mt-field">
+                  <span className="mt-label">Готовые сценарии</span>
+                  <div className="mt-chip-row">
+                    {presetsForType.map((preset) => (
+                      <Pill
+                        key={preset.id}
+                        tone="cobalt"
+                        active={note === preset.title}
+                        onClick={() => applyPreset(preset)}
+                      >
+                        {preset.title} · {preset.durationMin}м
+                      </Pill>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
               <div className="mt-field">
                 <span className="mt-label">Интенсивность</span>
                 <div className="mt-chip-row mt-chip-row--wrap">
                   {WORKOUT_INTENSITIES.map((item) => (
                     <Pill
                       key={item.key}
-                      tone="habits"
+                      tone="cobalt"
                       active={intensity === item.key}
                       onClick={() => setIntensity(item.key)}
                     >
@@ -435,7 +434,7 @@ export default function WorkoutsTab({
               </div>
 
               <div className="mt-field">
-                <span className="mt-label">Самочувствие после</span>
+                <span className="mt-label">Самочувствие</span>
                 <div className="mt-chip-row">
                   {WORKOUT_MOODS.map((m) => (
                     <Pill
@@ -479,18 +478,6 @@ export default function WorkoutsTab({
               </div>
             </div>
           ) : null}
-
-          <button
-            type="submit"
-            className="mt-btn mt-btn--primary mt-btn--wide"
-            data-accent="habits"
-            disabled={submitting}
-          >
-            <Check size={18} strokeWidth={2.5} />
-            <span>
-              {submitting ? "Сохраняем…" : "Отметить тренировку сделанной"}
-            </span>
-          </button>
         </form>
       </section>
 
@@ -500,209 +487,135 @@ export default function WorkoutsTab({
         </div>
       ) : null}
 
-      {/* 2. Today's Completed Workouts */}
-      <section className="mt-card" aria-label="Тренировки выбранного дня">
-        <div className="mt-card-head">
-          <div>
-            <h2 className="mt-card-title">
-              Практики · {formatRelativeDayRu(selectedDate)}
-            </h2>
-            <p className="mt-card-sub tabular">
-              {data.day_items.length > 0
-                ? `${formatCountRu(data.day_items.length, "занятие", "занятия", "занятий")} · ${data.day_items.reduce((s, w) => s + (Number(w.duration_min) || 0), 0)} мин`
-                : "Ещё нет отмеченных практик за этот день"}
-            </p>
+      {/* 2. Slim 7-Day Weekly Dots Strip */}
+      <section className="mt-stack mt-stack--xs" aria-label="Активность за неделю">
+        <GroupHeader
+          title="Неделя"
+          meta={`${formatCountRu(activeWeekDaysCount, "день", "дня", "дней")} · ${data.weekly_summary?.total_minutes || 0} мин`}
+        />
+        <div className="mt-card mt-card--compact">
+          <div className="workout-week-strip">
+            {weekDays.map((d) => {
+              const isActive = d.activity.count > 0;
+              return (
+                <div
+                  key={d.iso}
+                  className={`workout-week-day${isActive ? " is-active" : ""}`}
+                  title={
+                    isActive
+                      ? `${d.weekdayFull}: ${d.activity.minutes} мин`
+                      : `${d.weekdayFull}: без тренировок`
+                  }
+                >
+                  <span>{d.weekdayShort}</span>
+                  <span
+                    className={`workout-week-dot${isActive ? " is-active" : ""}`}
+                    aria-hidden="true"
+                  />
+                  <span className="workout-week-val tabular">
+                    {isActive ? `${d.activity.minutes}м` : d.day}
+                  </span>
+                </div>
+              );
+            })}
           </div>
-          {data.day_items.length > 0 ? (
-            <Pill tone="success" className="tabular">
-              {data.day_items.filter((w) => w.completed !== false).length} выполн.
-            </Pill>
-          ) : null}
         </div>
+      </section>
 
-        {loading && data.day_items.length === 0 ? (
-          <p className="mt-card-sub">Загружаем тренировки…</p>
-        ) : data.day_items.length === 0 ? (
-          <EmptyState
-            icon={<Flower2 size={22} />}
-            title="Тихий день для тела"
-            description="Выберите практику выше или запустите спокойный таймер дыхания, пилатеса или цигуна."
+      {/* 3. Selected Day Workouts (Grouped List) */}
+      {data.day_items.length > 0 ? (
+        <section className="mt-stack mt-stack--xs" aria-label="Тренировки выбранного дня">
+          <GroupHeader
+            title={formatRelativeDayRu(selectedDate)}
+            meta={`${data.day_items.reduce((s, w) => s + (Number(w.duration_min) || 0), 0)} мин`}
           />
-        ) : (
-          <div className="mt-stack mt-stack--sm">
+          <GroupList>
             {data.day_items.map((w) => {
               const typeMeta = WORKOUT_TYPE_MAP[w.workout_type] || WORKOUT_TYPES[3];
               const metaParts = [
                 `${w.duration_min} мин`,
                 INTENSITY_LABELS[w.intensity] || w.intensity,
-                w.logged_at ? w.logged_at : null,
-                w.mood ? formatMoodRu(w.mood) : null,
+                w.logged_at || null,
               ].filter(Boolean);
-              const subtitle = w.note
-                ? `${metaParts.join(" · ")} — ${w.note}`
-                : metaParts.join(" · ");
 
               return (
-                <CheckRow
+                <ListRow
                   key={w.id}
                   checked={w.completed !== false}
                   onToggle={() => handleToggleWorkout(w)}
-                  accent={typeMeta.accent}
+                  onClick={() => setInspectItem(w)}
+                  accent="cobalt"
                   title={w.label || typeMeta.label}
-                  subtitle={subtitle}
-                  badge={
-                    <Pill tone={typeMeta.accent} className="tabular">
-                      {w.duration_min} мин
-                    </Pill>
-                  }
+                  meta={metaParts.join(" · ")}
                   trailing={
-                    <button
-                      type="button"
-                      className="mt-icon-btn mt-icon-btn--danger"
-                      aria-label={`Удалить тренировку «${w.label || typeMeta.label}»`}
-                      onClick={() => handleDeleteWorkout(w)}
-                    >
-                      <Trash2 size={15} />
-                    </button>
+                    <ChevronRight
+                      size={16}
+                      style={{ color: "var(--subtle)" }}
+                      aria-hidden="true"
+                    />
                   }
                 />
               );
             })}
-          </div>
-        )}
-      </section>
+          </GroupList>
+        </section>
+      ) : null}
 
-      {/* 3. Compact Weekly Activity Strip */}
-      <section className="mt-card" aria-label="Активность за неделю">
-        <div className="mt-card-head">
-          <div>
-            <h2 className="mt-card-title">Ритм недели</h2>
-            <p className="mt-card-sub tabular">
-              {formatCountRu(activeWeekDaysCount, "активный день", "активных дня", "активных дней")} ·{" "}
-              {data.weekly_summary?.total_minutes || 0} мин
-            </p>
-          </div>
-          <Pill tone="habits" icon={<Flame size={12} />} className="tabular">
-            {data.weekly_summary?.total_sessions || 0} за 7 дн.
-          </Pill>
-        </div>
+      {/* 4. 30-Day Totals & Grouped History */}
+      <section className="mt-stack mt-stack--xs" aria-label="История тренировок за 30 дней">
+        <GroupHeader
+          title="За 30 дней"
+          meta={`${formatCountRu(totals30d.totalSessions, "практика", "практики", "практик")} · ${totals30d.totalMinutes} мин`}
+        />
 
-        <div className="workout-week-strip">
-          {weekDays.map((d) => {
-            const isActive = d.activity.count > 0;
-            return (
-              <div
-                key={d.iso}
-                className={`workout-week-day${isActive ? " is-active" : ""}`}
-                title={
-                  isActive
-                    ? `${d.weekdayFull}: ${d.activity.minutes} мин`
-                    : `${d.weekdayFull}: без тренировок`
-                }
-              >
-                <span>{d.weekdayShort}</span>
-                <span className="tabular" style={{ fontSize: "12.5px", fontWeight: 700 }}>
-                  {isActive ? `${d.activity.minutes}м` : d.day}
-                </span>
-              </div>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* 4. 30-Day Totals & History */}
-      <section className="mt-card" aria-label="История тренировок за 30 дней">
-        <div className="mt-card-head">
-          <div>
-            <h2 className="mt-card-title">История за 30 дней</h2>
-            <p className="mt-card-sub tabular">
-              Всего: {formatCountRu(totals30d.totalSessions, "тренировка", "тренировки", "тренировок")} ·{" "}
-              {totals30d.totalMinutes} мин
-            </p>
-          </div>
-        </div>
-
-        {/* Breakdown by Breathing / Pilates / Qigong */}
-        <div className="cycle-stats-grid">
-          {["breathing", "pilates", "qigong"].map((key) => {
+        <MetricStrip
+          items={["breathing", "pilates", "qigong"].map((key) => {
             const meta = WORKOUT_TYPE_MAP[key];
             const stat = totals30d.breakdown[key];
-            return (
-              <div key={key} className="cycle-stat-box">
-                <span>{meta.shortLabel}</span>
-                <strong>{stat.sessions} зан.</strong>
-                <span className="tabular">{stat.minutes} мин</span>
-              </div>
-            );
+            return {
+              key,
+              value: `${stat.sessions} · ${stat.minutes}м`,
+              label: meta.shortLabel,
+            };
           })}
-        </div>
-        {totals30d.breakdown.other.sessions > 0 ? (
-          <p className="mt-card-sub tabular">
-            Свои практики: {totals30d.breakdown.other.sessions} зан. ·{" "}
-            {totals30d.breakdown.other.minutes} мин
-          </p>
-        ) : null}
+        />
 
-        {data.recent_items.length === 0 ? (
-          <p className="mt-card-sub">За последние 30 дней записей пока нет.</p>
+        {loading && data.recent_items.length === 0 ? (
+          <div className="mt-card mt-card--compact">
+            <p className="mt-card-sub">Загружаем историю…</p>
+          </div>
+        ) : data.recent_items.length === 0 ? (
+          <div className="mt-card mt-card--compact">
+            <p className="mt-card-sub">За последние 30 дней записей пока нет.</p>
+          </div>
         ) : (
-          <div className="mt-stack mt-stack--sm">
-            {(showAllHistory ? data.recent_items : data.recent_items.slice(0, 5)).map((item) => {
-              const typeMeta = WORKOUT_TYPE_MAP[item.workout_type] || WORKOUT_TYPES[3];
-              const Icon = TYPE_ICONS[item.workout_type] || Sparkles;
-              return (
-                <div
-                  key={item.id}
-                  className="mt-row mt-row--between"
-                  style={{
-                    padding: "10px 12px",
-                    borderRadius: "14px",
-                    background: "var(--canvas)",
-                    border: "1px solid var(--border-subtle)",
-                    gap: "10px",
-                  }}
-                >
-                  <div className="mt-row" style={{ gap: "10px", minWidth: 0, flex: "1 1 auto" }}>
-                    <span
-                      className="workout-type-icon"
-                      style={{ width: "32px", height: "32px" }}
-                      aria-hidden="true"
-                    >
-                      <Icon size={16} />
-                    </span>
-                    <div style={{ minWidth: 0 }}>
-                      <div className="mt-row mt-row--wrap" style={{ gap: "6px" }}>
-                        <strong style={{ fontSize: "14px", color: "var(--ink)" }}>
-                          {item.label || typeMeta.label}
-                        </strong>
-                        <span className="mt-card-sub tabular" style={{ fontSize: "12px" }}>
-                          {formatDateShortRu(item.log_date)}
-                          {item.logged_at ? ` · ${item.logged_at}` : ""}
-                        </span>
-                      </div>
-                      <p className="mt-card-sub" style={{ fontSize: "12.5px" }}>
-                        <Clock
-                          size={11}
-                          style={{ display: "inline", verticalAlign: "-1px", marginRight: "4px" }}
-                        />
-                        <span className="tabular">{item.duration_min} мин</span>
-                        {item.intensity ? ` · ${INTENSITY_LABELS[item.intensity] || item.intensity}` : ""}
-                        {item.mood ? ` · ${formatMoodRu(item.mood)}` : ""}
-                        {item.note ? ` — ${item.note}` : ""}
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    className="mt-icon-btn"
-                    aria-label={`Удалить запись ${item.label || typeMeta.label}`}
-                    onClick={() => handleDeleteWorkout(item)}
-                  >
-                    <Trash2 size={15} />
-                  </button>
-                </div>
-              );
-            })}
+          <div className="mt-stack mt-stack--xs">
+            <GroupList>
+              {visibleHistory.map((item) => {
+                const typeMeta = WORKOUT_TYPE_MAP[item.workout_type] || WORKOUT_TYPES[3];
+                const metaParts = [
+                  formatDateShortRu(item.log_date),
+                  `${item.duration_min} мин`,
+                  item.intensity ? INTENSITY_LABELS[item.intensity] || item.intensity : null,
+                ].filter(Boolean);
+
+                return (
+                  <ListRow
+                    key={item.id}
+                    title={item.label || typeMeta.label}
+                    meta={metaParts.join(" · ")}
+                    onClick={() => setInspectItem(item)}
+                    trailing={
+                      <ChevronRight
+                        size={16}
+                        style={{ color: "var(--subtle)" }}
+                        aria-hidden="true"
+                      />
+                    }
+                  />
+                );
+              })}
+            </GroupList>
 
             {data.recent_items.length > 5 ? (
               <button
@@ -716,12 +629,84 @@ export default function WorkoutsTab({
                     ? "Свернуть историю"
                     : `Показать все ${data.recent_items.length} за 30 дней`}
                 </span>
-                <ChevronDown size={16} className="mt-disclosure-chevron" aria-hidden="true" />
+                <ChevronDown
+                  size={16}
+                  className="mt-disclosure-chevron"
+                  aria-hidden="true"
+                />
               </button>
             ) : null}
           </div>
         )}
       </section>
+
+      {/* Workout Detail / Delete Sheet */}
+      <Sheet
+        open={Boolean(inspectItem)}
+        onClose={() => setInspectItem(null)}
+        title={
+          inspectItem
+            ? inspectItem.label ||
+              WORKOUT_TYPE_MAP[inspectItem.workout_type]?.label ||
+              "Тренировка"
+            : ""
+        }
+        subtitle={
+          inspectItem
+            ? `${formatDateShortRu(inspectItem.log_date)}${inspectItem.logged_at ? ` · ${inspectItem.logged_at}` : ""}`
+            : ""
+        }
+        footer={
+          inspectItem ? (
+            <div className="mt-row" style={{ gap: "10px" }}>
+              <button
+                type="button"
+                className="mt-btn mt-btn--danger"
+                onClick={() => handleDeleteWorkout(inspectItem)}
+              >
+                <Trash2 size={16} />
+                <span>Удалить</span>
+              </button>
+              <button
+                type="button"
+                className="mt-btn mt-btn--primary mt-btn--wide"
+                onClick={() => setInspectItem(null)}
+              >
+                Готово
+              </button>
+            </div>
+          ) : null
+        }
+      >
+        {inspectItem ? (
+          <div className="mt-stack">
+            <MetricStrip
+              items={[
+                { value: `${inspectItem.duration_min} мин`, label: "Время" },
+                {
+                  value:
+                    INTENSITY_LABELS[inspectItem.intensity] ||
+                    inspectItem.intensity ||
+                    "—",
+                  label: "Нагрузка",
+                },
+                {
+                  value: formatMoodRu(inspectItem.mood) || "—",
+                  label: "Состояние",
+                },
+              ]}
+            />
+            {inspectItem.note ? (
+              <div className="mt-card mt-card--compact">
+                <span className="mt-label">Заметка</span>
+                <p style={{ marginTop: "4px", fontSize: "14.5px", color: "var(--ink)" }}>
+                  {inspectItem.note}
+                </p>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+      </Sheet>
 
       {/* Guided Breathing & Practice Timer Sheet */}
       <PracticeTimerSheet

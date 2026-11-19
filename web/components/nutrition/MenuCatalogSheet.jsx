@@ -1,31 +1,18 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  Apple,
   BookOpen,
   Check,
-  Pencil,
   Plus,
   Search,
   ShoppingBag,
   SlidersHorizontal,
   Star,
-  Sun,
-  Sunrise,
-  Sunset,
   Trash2,
-  UtensilsCrossed,
 } from "lucide-react";
 import Sheet from "../Sheet.jsx";
-import { EmptyState, Pill } from "../UiPrimitives.jsx";
+import { EmptyState, GroupHeader, GroupList, Pill } from "../UiPrimitives.jsx";
 import { MEAL_SLOTS, MEAL_SLOT_MAP } from "../../data/presets.js";
 import { formatCountRu } from "../../utils/date.js";
-
-const SLOT_ICONS = {
-  breakfast: Sunrise,
-  lunch: Sun,
-  dinner: Sunset,
-  snack: Apple,
-};
 
 const MENU_CATEGORY_PRESETS = [
   "Завтраки",
@@ -53,7 +40,11 @@ export function inferShoppingCategory(item) {
   if (/(творог|сырник|йогурт|кефир|молок|сыр|омлет|яиц|яйц|фет)/.test(hay)) {
     return "Молочное";
   }
-  if (/(салат|боул|овощ|яблок|груш|ягод|манго|тыкв|кабач|хумус|авокад|шпинат)/.test(hay)) {
+  if (
+    /(салат|боул|овощ|яблок|груш|ягод|манго|тыкв|кабач|хумус|авокад|шпинат)/.test(
+      hay,
+    )
+  ) {
     return "Овощи и фрукты";
   }
   if (/(овсян|киноа|гречк|гранол|круп|рис|паст|хлеб|тост)/.test(hay)) {
@@ -69,6 +60,8 @@ export function MenuItemFormSheet({
   defaultSlot = "breakfast",
   onSave,
   onDelete,
+  onAddToShopping,
+  onCustomizeAndAdd,
 }) {
   const isEditing = Boolean(editingItem?.id);
 
@@ -85,6 +78,8 @@ export function MenuItemFormSheet({
 
   const [submitting, setSubmitting] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [shoppingBusy, setShoppingBusy] = useState(false);
+  const [shoppingDone, setShoppingDone] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -92,6 +87,8 @@ export function MenuItemFormSheet({
     setError("");
     setSubmitting(false);
     setDeleting(false);
+    setShoppingBusy(false);
+    setShoppingDone(false);
 
     if (editingItem) {
       setName(editingItem.name || "");
@@ -99,7 +96,9 @@ export function MenuItemFormSheet({
       setCategory(editingItem.category || "Свои блюда");
       setDefaultPortion(editingItem.default_portion || "1 порция");
       setDefaultGrams(
-        editingItem.default_grams != null ? String(editingItem.default_grams) : "",
+        editingItem.default_grams != null
+          ? String(editingItem.default_grams)
+          : "",
       );
       setKcal(editingItem.kcal != null ? String(editingItem.kcal) : "");
       setProteinG(
@@ -203,12 +202,22 @@ export function MenuItemFormSheet({
     }
   };
 
+  const handleAddShopping = async () => {
+    if (!editingItem || !onAddToShopping) return;
+    setShoppingBusy(true);
+    try {
+      await onAddToShopping(editingItem);
+      setShoppingDone(true);
+    } finally {
+      setShoppingBusy(false);
+    }
+  };
+
   return (
     <Sheet
       open={open}
       onClose={onClose}
-      title={isEditing ? "Редактировать блюдо" : "Новое блюдо в меню"}
-      subtitle="Сохраните любимый рецепт для быстрого добавления в рацион"
+      title={isEditing ? "Блюдо из меню" : "Новое блюдо в меню"}
       footer={
         <div className="mt-row" style={{ width: "100%" }}>
           {isEditing && onDelete ? (
@@ -225,7 +234,6 @@ export function MenuItemFormSheet({
           <button
             type="button"
             className="mt-btn mt-btn--primary mt-btn--wide"
-            data-accent="nutrition"
             disabled={submitting || deleting || !name.trim()}
             onClick={handleSubmit}
           >
@@ -234,7 +242,7 @@ export function MenuItemFormSheet({
               {submitting
                 ? "Сохраняем..."
                 : isEditing
-                  ? "Сохранить изменения"
+                  ? "Сохранить"
                   : "Добавить в меню"}
             </span>
           </button>
@@ -242,15 +250,49 @@ export function MenuItemFormSheet({
       }
     >
       <form className="mt-stack" onSubmit={handleSubmit}>
+        {/* Quick actions when viewing/editing an existing menu dish */}
+        {isEditing && (onAddToShopping || onCustomizeAndAdd) ? (
+          <div className="mt-grid-2">
+            {onCustomizeAndAdd ? (
+              <button
+                type="button"
+                className="mt-btn mt-btn--soft mt-btn--sm"
+                onClick={() => {
+                  onClose?.();
+                  onCustomizeAndAdd(editingItem);
+                }}
+              >
+                <SlidersHorizontal size={15} />
+                <span>В рацион</span>
+              </button>
+            ) : null}
+            {onAddToShopping ? (
+              <button
+                type="button"
+                className="mt-btn mt-btn--secondary mt-btn--sm"
+                disabled={shoppingBusy}
+                onClick={handleAddShopping}
+              >
+                {shoppingDone ? (
+                  <Check size={15} style={{ color: "var(--success)" }} />
+                ) : (
+                  <ShoppingBag size={15} />
+                )}
+                <span>{shoppingDone ? "В покупках" : "В покупки"}</span>
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+
         <div className="mt-field">
           <label className="mt-label" htmlFor="menu-dish-name">
-            Название блюда или рецепта
+            Название блюда
           </label>
           <input
             id="menu-dish-name"
             type="text"
             className="mt-input"
-            placeholder="Например: Киноа с авокадо и яйцом пашот"
+            placeholder="Например: киноа с авокадо"
             value={name}
             onChange={(e) => setName(e.target.value)}
             required
@@ -258,12 +300,12 @@ export function MenuItemFormSheet({
         </div>
 
         <div className="mt-field">
-          <span className="mt-label">Для какого приёма пищи</span>
+          <span className="mt-label">Приём пищи</span>
           <div className="mt-chip-row">
             {MEAL_SLOTS.map((slot) => (
               <Pill
                 key={slot.key}
-                tone="nutrition"
+                tone="cobalt"
                 active={mealSlot === slot.key}
                 onClick={() => setMealSlot(slot.key)}
               >
@@ -271,7 +313,7 @@ export function MenuItemFormSheet({
               </Pill>
             ))}
             <Pill
-              tone="neutral"
+              tone="cobalt"
               active={mealSlot === "any"}
               onClick={() => setMealSlot("any")}
             >
@@ -296,7 +338,7 @@ export function MenuItemFormSheet({
             {MENU_CATEGORY_PRESETS.map((cat) => (
               <Pill
                 key={cat}
-                tone="neutral"
+                tone="cobalt"
                 active={category === cat}
                 onClick={() => setCategory(cat)}
               >
@@ -309,7 +351,7 @@ export function MenuItemFormSheet({
         <div className="mt-form-grid">
           <div className="mt-field">
             <label className="mt-label" htmlFor="menu-default-portion">
-              Порция по умолчанию
+              Порция
             </label>
             <input
               id="menu-default-portion"
@@ -322,7 +364,7 @@ export function MenuItemFormSheet({
           </div>
           <div className="mt-field">
             <label className="mt-label" htmlFor="menu-default-grams">
-              Вес порции (г)
+              Вес (г)
             </label>
             <input
               id="menu-default-grams"
@@ -339,7 +381,7 @@ export function MenuItemFormSheet({
 
         <div className="mt-field">
           <label className="mt-label" htmlFor="menu-kcal">
-            Калорийность порции (ккал)
+            Калорийность (ккал)
           </label>
           <input
             id="menu-kcal"
@@ -354,8 +396,15 @@ export function MenuItemFormSheet({
         </div>
 
         <div className="mt-field">
-          <span className="mt-label">Б / Ж / У на порцию (по желанию, г)</span>
-          <div className="nutrition-macros-row">
+          <span className="mt-label">Белки / жиры / углеводы (г)</span>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+              gap: "8px",
+              minWidth: 0,
+            }}
+          >
             <input
               type="number"
               inputMode="decimal"
@@ -405,14 +454,18 @@ export function MenuItemFormSheet({
             type="checkbox"
             checked={isFavorite}
             onChange={(e) => setIsFavorite(e.target.checked)}
-            style={{ width: "20px", height: "20px", accentColor: "var(--nutrition)" }}
+            style={{
+              width: "20px",
+              height: "20px",
+              accentColor: "var(--cobalt)",
+            }}
           />
           <Star
-            size={16}
-            fill={isFavorite ? "var(--nutrition)" : "none"}
-            color="var(--nutrition)"
+            size={15}
+            fill={isFavorite ? "var(--cobalt)" : "none"}
+            color={isFavorite ? "var(--cobalt)" : "var(--muted)"}
           />
-          <span>Отметить как избранное блюдо</span>
+          <span>Избранное блюдо</span>
         </label>
 
         {error ? <div className="mt-form-error">{error}</div> : null}
@@ -425,20 +478,25 @@ export default function MenuCatalogView({
   menuItems = [],
   loading = false,
   selectedDateLabel = "сегодня",
+  createSignal = 0,
   onQuickAddToDay,
   onCustomizeAndAdd,
   onAddToShopping,
-  onToggleFavorite,
   onSaveMenuItem,
   onDeleteMenuItem,
 }) {
   const [searchQuery, setSearchQuery] = useState("");
-  const [slotFilter, setSlotFilter] = useState("all"); // "all" | "favorites" | "breakfast" | "lunch" | "dinner" | "snack"
+  const [slotFilter, setSlotFilter] = useState("all");
   const [formOpen, setFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [busyAddId, setBusyAddId] = useState(null);
-  const [busyShopId, setBusyShopId] = useState(null);
-  const [addedShopIds, setAddedShopIds] = useState({});
+
+  useEffect(() => {
+    if (createSignal > 0) {
+      setEditingItem(null);
+      setFormOpen(true);
+    }
+  }, [createSignal]);
 
   const filteredItems = useMemo(() => {
     const q = normalizeText(searchQuery);
@@ -466,13 +524,15 @@ export default function MenuCatalogView({
       items: filteredItems.filter((item) => item.meal_slot === slot.key),
     }));
     const anyItems = filteredItems.filter(
-      (item) => !item.meal_slot || item.meal_slot === "any" || !MEAL_SLOT_MAP[item.meal_slot],
+      (item) =>
+        !item.meal_slot ||
+        item.meal_slot === "any" ||
+        !MEAL_SLOT_MAP[item.meal_slot],
     );
     if (anyItems.length > 0) {
       groups.push({
         key: "any",
-        label: "Универсальные блюда",
-        window: "в любое время",
+        label: "Универсальные",
         items: anyItems,
       });
     }
@@ -486,24 +546,6 @@ export default function MenuCatalogView({
       await onQuickAddToDay(item);
     } finally {
       setBusyAddId(null);
-    }
-  };
-
-  const handleShopClick = async (item) => {
-    if (!onAddToShopping) return;
-    setBusyShopId(item.id);
-    try {
-      await onAddToShopping(item);
-      setAddedShopIds((prev) => ({ ...prev, [item.id]: true }));
-      window.setTimeout(() => {
-        setAddedShopIds((prev) => {
-          const next = { ...prev };
-          delete next[item.id];
-          return next;
-        });
-      }, 2200);
-    } finally {
-      setBusyShopId(null);
     }
   };
 
@@ -527,38 +569,18 @@ export default function MenuCatalogView({
 
   return (
     <div className="mt-stack">
-      {/* Search + Add recipe header card */}
-      <div className="mt-card mt-card--compact" data-accent="nutrition">
-        <div className="mt-row mt-row--between">
-          <div className="mt-stack mt-stack--xs">
-            <h2 className="mt-card-title" style={{ fontSize: "16px" }}>
-              Личное меню блюд
-            </h2>
-            <p className="mt-card-sub" style={{ marginTop: 0 }}>
-              {formatCountRu(menuItems.length, "блюдо", "блюда", "блюд")} · быстрое добавление в рацион и покупки
-            </p>
-          </div>
-          <button
-            type="button"
-            className="mt-btn mt-btn--primary mt-btn--sm"
-            data-accent="nutrition"
-            onClick={openCreateForm}
-          >
-            <Plus size={16} />
-            <span>Рецепт</span>
-          </button>
-        </div>
-
+      {/* Clean Search + 1-line filter */}
+      <div className="mt-stack mt-stack--sm">
         <div style={{ position: "relative" }}>
           <Search
-            size={17}
+            size={16}
             aria-hidden="true"
             style={{
               position: "absolute",
               left: "13px",
               top: "50%",
               transform: "translateY(-50%)",
-              color: "var(--subtle)",
+              color: "var(--muted)",
               pointerEvents: "none",
             }}
           />
@@ -574,243 +596,136 @@ export default function MenuCatalogView({
 
         <div className="mt-chip-row" role="group" aria-label="Фильтр меню">
           <Pill
-            tone="nutrition"
+            tone="cobalt"
             active={slotFilter === "all"}
             onClick={() => setSlotFilter("all")}
           >
-            Все ({menuItems.length})
-          </Pill>
-          <Pill
-            tone="nutrition"
-            active={slotFilter === "favorites"}
-            icon={<Star size={13} />}
-            onClick={() => setSlotFilter("favorites")}
-          >
-            Избранное
+            Все
           </Pill>
           {MEAL_SLOTS.map((slot) => (
             <Pill
               key={slot.key}
-              tone="nutrition"
+              tone="cobalt"
               active={slotFilter === slot.key}
               onClick={() => setSlotFilter(slot.key)}
             >
               {slot.label}
             </Pill>
           ))}
+          <Pill
+            tone="cobalt"
+            active={slotFilter === "favorites"}
+            icon={<Star size={12} />}
+            onClick={() => setSlotFilter("favorites")}
+          >
+            Избранное
+          </Pill>
         </div>
       </div>
 
-      {/* Grouped menu catalog */}
+      {/* Grouped iOS Catalog Lists */}
       {loading && menuItems.length === 0 ? (
-        <div className="mt-card">
-          <div className="mt-skeleton" style={{ height: "20px", width: "45%" }} />
-          <div className="mt-skeleton" style={{ height: "74px", width: "100%" }} />
-          <div className="mt-skeleton" style={{ height: "74px", width: "100%" }} />
-        </div>
+        <GroupList>
+          <div className="mt-list-row">
+            <div className="mt-skeleton" style={{ height: "20px", width: "60%" }} />
+          </div>
+          <div className="mt-list-row">
+            <div className="mt-skeleton" style={{ height: "20px", width: "52%" }} />
+          </div>
+        </GroupList>
       ) : groupedSections.length === 0 ? (
         <EmptyState
-          icon={<BookOpen size={24} />}
-          title="В меню пока пусто по этому фильтру"
-          description="Сбросьте поиск или добавьте своё любимое блюдо в личный каталог."
+          icon={<BookOpen size={22} />}
+          title="В меню пока пусто"
+          description="Сбросьте фильтр или добавьте своё любимое блюдо."
           action={
             <button
               type="button"
               className="mt-btn mt-btn--primary mt-btn--sm"
-              data-accent="nutrition"
               onClick={openCreateForm}
             >
               <Plus size={16} />
-              <span>Добавить блюдо в меню</span>
+              <span>Добавить блюдо</span>
             </button>
           }
         />
       ) : (
-        groupedSections.map((group) => {
-          const SlotIcon = SLOT_ICONS[group.key] || UtensilsCrossed;
-          return (
-            <section
-              key={group.key}
-              className="menu-catalog-card"
-              data-accent="nutrition"
-              aria-label={`Меню: ${group.label}`}
-            >
-              <div className="nutrition-slot-head">
-                <div className="mt-row" style={{ gap: "8px" }}>
-                  <span
-                    className="mt-pill mt-pill--nutrition"
-                    style={{ padding: "5px 8px" }}
-                    aria-hidden="true"
-                  >
-                    <SlotIcon size={15} />
-                  </span>
-                  <div>
-                    <h3 className="mt-card-title">{group.label}</h3>
-                    <span className="nutrition-slot-window">
-                      {formatCountRu(group.items.length, "блюдо", "блюда", "блюд")}
-                      {group.window ? ` · ${group.window}` : ""}
-                    </span>
-                  </div>
-                </div>
-              </div>
+        groupedSections.map((group) => (
+          <section
+            key={group.key}
+            className="mt-group-block"
+            aria-label={`Меню: ${group.label}`}
+          >
+            <GroupHeader
+              title={group.label}
+              meta={formatCountRu(group.items.length, "блюдо", "блюда", "блюд")}
+            />
+            <GroupList>
+              {group.items.map((item) => {
+                const isAdding = busyAddId === item.id;
+                const metaParts = [];
+                if (item.default_grams) metaParts.push(`${item.default_grams} г`);
+                else if (item.default_portion) metaParts.push(item.default_portion);
+                if (item.kcal > 0) metaParts.push(`${item.kcal} ккал`);
 
-              <div className="mt-stack mt-stack--sm">
-                {group.items.map((item) => {
-                  const isAdding = busyAddId === item.id;
-                  const isShopping = busyShopId === item.id;
-                  const shopDone = Boolean(addedShopIds[item.id]);
-                  const hasMacros =
-                    (item.protein_g || 0) > 0 ||
-                    (item.fat_g || 0) > 0 ||
-                    (item.carbs_g || 0) > 0;
-
-                  return (
-                    <article
-                      key={item.id}
-                      className="menu-catalog-item"
-                      style={{
-                        flexDirection: "column",
-                        alignItems: "stretch",
-                        gap: "10px",
-                      }}
+                return (
+                  <div key={item.id} className="mt-list-row">
+                    <button
+                      type="button"
+                      className="mt-list-body mt-list-body--clickable"
+                      onClick={() => openEditForm(item)}
                     >
-                      <div
-                        className="mt-row mt-row--between"
-                        style={{ alignItems: "flex-start", gap: "8px" }}
-                      >
-                        <div className="mt-stack mt-stack--xs" style={{ flex: 1 }}>
-                          <strong
+                      <span className="mt-list-title">
+                        {item.name}
+                        {item.is_favorite ? (
+                          <Star
+                            size={12}
+                            fill="var(--cobalt)"
+                            color="var(--cobalt)"
+                            aria-label="Избранное"
                             style={{
-                              fontSize: "14.5px",
-                              lineHeight: "20px",
-                              color: "var(--ink)",
-                              overflowWrap: "anywhere",
+                              display: "inline-block",
+                              verticalAlign: "-1px",
+                              marginLeft: "5px",
                             }}
-                          >
-                            {item.name}
-                          </strong>
-                          <div className="mt-row mt-row--wrap" style={{ gap: "6px" }}>
-                            {item.default_grams ? (
-                              <span className="nutrition-amount-badge">
-                                {item.default_grams} г
-                                {item.default_portion ? ` · ${item.default_portion}` : ""}
-                              </span>
-                            ) : item.default_portion ? (
-                              <span className="nutrition-amount-badge">
-                                {item.default_portion}
-                              </span>
-                            ) : null}
-                            {item.kcal > 0 ? (
-                              <span className="nutrition-kcal-badge">
-                                {item.kcal} ккал
-                              </span>
-                            ) : null}
-                          </div>
-                          {hasMacros ? (
-                            <span
-                              className="muted tabular"
-                              style={{ fontSize: "12px", lineHeight: "16px" }}
-                            >
-                              Б {item.protein_g || 0} г · Ж {item.fat_g || 0} г · У{" "}
-                              {item.carbs_g || 0} г
-                            </span>
-                          ) : null}
-                        </div>
-
-                        <div className="mt-row" style={{ gap: "2px", flexShrink: 0 }}>
-                          <button
-                            type="button"
-                            className="mt-icon-btn"
-                            aria-label={
-                              item.is_favorite
-                                ? "Убрать из избранного"
-                                : "Добавить в избранное"
-                            }
-                            aria-pressed={Boolean(item.is_favorite)}
-                            onClick={() => onToggleFavorite?.(item)}
-                          >
-                            <Star
-                              size={18}
-                              fill={item.is_favorite ? "var(--nutrition)" : "none"}
-                              color={
-                                item.is_favorite ? "var(--nutrition)" : "var(--subtle)"
-                              }
-                            />
-                          </button>
-                          <button
-                            type="button"
-                            className="mt-icon-btn"
-                            aria-label={`Редактировать «${item.name}»`}
-                            onClick={() => openEditForm(item)}
-                          >
-                            <Pencil size={16} />
-                          </button>
-                        </div>
-                      </div>
-
-                      <div className="mt-row" style={{ gap: "6px" }}>
-                        <button
-                          type="button"
-                          className="mt-btn mt-btn--soft mt-btn--sm"
-                          data-accent="nutrition"
-                          style={{ flex: 1, minWidth: 0 }}
-                          disabled={isAdding}
-                          onClick={() => handleQuickAdd(item)}
-                        >
-                          <Plus size={15} />
-                          <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
-                            {isAdding
-                              ? "Добавляем..."
-                              : selectedDateLabel === "сегодня"
-                                ? "В сегодня"
-                                : `На ${selectedDateLabel}`}
-                          </span>
-                        </button>
-
-                        <button
-                          type="button"
-                          className="mt-btn mt-btn--secondary mt-btn--sm"
-                          disabled={isShopping}
-                          onClick={() => handleShopClick(item)}
-                          aria-label={`Добавить «${item.name}» в покупки`}
-                        >
-                          {shopDone ? (
-                            <Check size={15} color="var(--success)" />
-                          ) : (
-                            <ShoppingBag size={15} />
-                          )}
-                          <span>{shopDone ? "В покупках" : "В покупки"}</span>
-                        </button>
-
-                        {onCustomizeAndAdd ? (
-                          <button
-                            type="button"
-                            className="mt-icon-btn mt-icon-btn--bordered"
-                            aria-label={`Настроить порцию и время для «${item.name}»`}
-                            title="Выбрать порцию и время"
-                            onClick={() => onCustomizeAndAdd(item)}
-                          >
-                            <SlidersHorizontal size={16} />
-                          </button>
+                          />
                         ) : null}
-                      </div>
-                    </article>
-                  );
-                })}
-              </div>
-            </section>
-          );
-        })
+                      </span>
+                      {metaParts.length > 0 ? (
+                        <span className="mt-list-meta tabular">
+                          {metaParts.join(" · ")}
+                        </span>
+                      ) : null}
+                    </button>
+
+                    <div className="mt-list-trailing">
+                      <button
+                        type="button"
+                        className="mt-icon-btn"
+                        disabled={isAdding}
+                        aria-label={`Добавить «${item.name}» на ${selectedDateLabel}`}
+                        title={`Добавить на ${selectedDateLabel}`}
+                        onClick={() => handleQuickAdd(item)}
+                        style={{ color: "var(--cobalt)" }}
+                      >
+                        <Plus size={18} />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </GroupList>
+          </section>
+        ))
       )}
 
-      {/* Bottom CTA for adding own dish */}
       <button
         type="button"
         className="mt-btn mt-btn--secondary mt-btn--wide"
         onClick={openCreateForm}
       >
-        <Plus size={17} />
-        <span>Добавить свой рецепт или блюдо в меню</span>
+        <Plus size={16} />
+        <span>Новое блюдо в меню</span>
       </button>
 
       <MenuItemFormSheet
@@ -823,6 +738,8 @@ export default function MenuCatalogView({
         defaultSlot={defaultSlotForNew}
         onSave={onSaveMenuItem}
         onDelete={onDeleteMenuItem}
+        onAddToShopping={onAddToShopping}
+        onCustomizeAndAdd={onCustomizeAndAdd}
       />
     </div>
   );
@@ -834,12 +751,7 @@ export function MenuCatalogSheet({
   ...catalogProps
 }) {
   return (
-    <Sheet
-      open={open}
-      onClose={onClose}
-      title="Меню блюд"
-      subtitle="Выберите блюдо для рациона или добавьте в покупки"
-    >
+    <Sheet open={open} onClose={onClose} title="Меню блюд">
       <MenuCatalogView {...catalogProps} />
     </Sheet>
   );

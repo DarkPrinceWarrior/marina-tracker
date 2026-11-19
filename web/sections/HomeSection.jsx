@@ -1,32 +1,21 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Plus,
-  Pencil,
   Trash2,
   ChevronDown,
-  ChevronUp,
+  ChevronRight,
   Sparkles,
   ShoppingBasket,
-  Clock,
-  CheckCircle2,
-  UtensilsCrossed,
-  Droplets,
-  Sofa,
-  Shirt,
-  Home as HomeIcon,
-  Salad,
-  Milk,
-  Fish,
-  Wheat,
-  SprayCan,
-  Coffee,
-  ShoppingBag,
+  X,
 } from "lucide-react";
 import api, { withOptimistic } from "../api.js";
 import {
-  SectionHeader,
+  PageHeader,
   SegmentedControl,
-  CheckRow,
+  CompactProgress,
+  GroupHeader,
+  GroupList,
+  ListRow,
   Pill,
   EmptyState,
 } from "../components/UiPrimitives.jsx";
@@ -44,39 +33,19 @@ import {
   nowTimeHHMM,
 } from "../utils/date.js";
 
-const SHOPPING_ICON_MAP = {
-  Salad,
-  Milk,
-  Fish,
-  Wheat,
-  SprayCan,
-  Sparkles,
-  Coffee,
-  ShoppingBag,
-};
-
-const ZONE_ICON_MAP = {
-  UtensilsCrossed,
-  Droplets,
-  Sofa,
-  Shirt,
-  Home: HomeIcon,
-};
-
-function formatLastDone(chore, activeDate) {
+function formatShortLastDone(chore, activeDate) {
   if (chore.completed && chore.completed_at) {
     const dayLabel = formatRelativeDayRu(activeDate).toLowerCase();
-    return `Последний раз: ${dayLabel} ${chore.completed_at}`;
+    return `${dayLabel} ${chore.completed_at}`;
   }
   if (chore.last_completed_date) {
     const rel = formatRelativeDayRu(chore.last_completed_date);
-    const dayText =
-      rel === "Сегодня" || rel === "Вчера" || rel === "Завтра"
-        ? rel.toLowerCase()
-        : formatDateShortRu(chore.last_completed_date);
-    return `Последний раз: ${dayText}${chore.last_completed_at ? ` ${chore.last_completed_at}` : ""}`;
+    if (rel === "Сегодня" || rel === "Вчера" || rel === "Завтра") {
+      return rel.toLowerCase();
+    }
+    return formatDateShortRu(chore.last_completed_date);
   }
-  return "Ещё не отмечалось";
+  return "";
 }
 
 function recomputeChoreSummary(items) {
@@ -145,7 +114,7 @@ export default function HomeSection({
   );
   const [addingItem, setAddingItem] = useState(false);
   const [clearingBought, setClearingBought] = useState(false);
-  const [boughtExpanded, setBoughtExpanded] = useState(true);
+  const [boughtExpanded, setBoughtExpanded] = useState(false);
   const quickInputRef = useRef(null);
 
   useEffect(() => {
@@ -190,15 +159,18 @@ export default function HomeSection({
     loadShopping();
   }, [loadShopping]);
 
-  // Chore filter options
+  // Zone filter chips (show Общее only if chores use it)
   const choreFilterOptions = useMemo(() => {
-    const base = [
+    const hasGeneral = chores.some((c) => c.zone === "Общее");
+    const zones = CHORE_ZONES.filter(
+      (z) => z.key !== "Общее" || hasGeneral,
+    ).map((z) => ({ key: z.key, label: z.label }));
+    return [
       { key: "all", label: "Все" },
       { key: "today", label: "Сегодня" },
+      ...zones,
     ];
-    const zoneKeys = CHORE_ZONES.map((z) => ({ key: z.key, label: z.label }));
-    return [...base, ...zoneKeys];
-  }, []);
+  }, [chores]);
 
   const filteredChores = useMemo(() => {
     const list = chores.filter((chore) => {
@@ -228,7 +200,11 @@ export default function HomeSection({
   }, [choresSummary, chores.length]);
 
   const choresPendingCount = useMemo(
-    () => Math.max(0, (choresSummary.total_active || 0) - (choresSummary.done_today || 0)),
+    () =>
+      Math.max(
+        0,
+        (choresSummary.total_active || 0) - (choresSummary.done_today || 0),
+      ),
     [choresSummary],
   );
 
@@ -315,7 +291,7 @@ export default function HomeSection({
         setChoresSummary(recomputeChoreSummary(next));
         return next;
       });
-      notify?.("Дело добавлено в список", "success");
+      notify?.("Дело добавлено", "success");
     }
     onDataChanged?.();
   }
@@ -352,12 +328,7 @@ export default function HomeSection({
     const groups = [];
     for (const [category, items] of grouped.entries()) {
       if (items.length > 0) {
-        const meta = SHOPPING_CATEGORIES.find((c) => c.key === category);
-        groups.push({
-          category,
-          iconName: meta?.icon || "ShoppingBag",
-          items,
-        });
+        groups.push({ category, items });
       }
     }
 
@@ -468,9 +439,10 @@ export default function HomeSection({
         setShoppingSummary(recomputeShoppingSummary(next));
         return next;
       });
+      setBoughtExpanded(false);
       const count = res?.cleared ?? boughtItems.length;
       notify?.(
-        `Очищено ${formatCountRu(count, "купленная позиция", "купленные позиции", "купленных позиций")}`,
+        `Очищено ${formatCountRu(count, "позиция", "позиции", "позиций")}`,
         "success",
       );
       onDataChanged?.();
@@ -482,21 +454,14 @@ export default function HomeSection({
   }
 
   return (
-    <section className="mt-section" data-accent="home" aria-label="Дом">
-      <SectionHeader
-        eyebrow="Дом и уют"
+    <section className="mt-section" aria-label="Дом">
+      <PageHeader
         title="Дом"
-        subtitle={
-          subTab === "chores"
-            ? "Спокойный ритм уборки и бытовых дел"
-            : "Быстрый список продуктов и мелочей для дома"
-        }
         action={
           subTab === "chores" ? (
             <button
               type="button"
               className="mt-btn mt-btn--primary mt-btn--sm"
-              data-accent="home"
               aria-label="Новое дело"
               onClick={() => {
                 setEditingChore(null);
@@ -513,11 +478,10 @@ export default function HomeSection({
       <SegmentedControl
         value={subTab}
         onChange={setSubTab}
-        accent="home"
         options={[
           {
             value: "chores",
-            label: "Уборка и дела",
+            label: "Уборка",
             count: choresPendingCount,
           },
           {
@@ -530,49 +494,16 @@ export default function HomeSection({
 
       {subTab === "chores" ? (
         <div className="mt-stack">
-          {/* Summary Card: Порядок дома */}
-          <div className="home-progress-card" data-accent="home">
-            <div className="mt-card-head">
-              <div>
-                <h2 className="mt-card-title">Порядок дома</h2>
-                <p className="mt-card-sub tabular">
-                  Выполнено {progressStats.done} из {progressStats.total}
-                </p>
-              </div>
-              <Pill tone={progressStats.pct === 100 && progressStats.total > 0 ? "success" : "home"}>
-                {progressStats.pct}%
-              </Pill>
-            </div>
-
-            <div
-              className="home-progress-bar"
-              role="progressbar"
-              aria-valuenow={progressStats.pct}
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-label="Прогресс дел по дому"
-            >
-              <div
-                className="home-progress-fill"
-                style={{ width: `${progressStats.pct}%` }}
-              />
-            </div>
-
-            <div className="mt-row mt-row--wrap" style={{ gap: "6px" }}>
-              {choresSummary.daily_total > 0 && (
-                <Pill tone="neutral">
-                  Ежедневные: {choresSummary.daily_done}/{choresSummary.daily_total}
-                </Pill>
-              )}
-              {choresSummary.weekly_total > 0 && (
-                <Pill tone="neutral">
-                  За неделю: {choresSummary.weekly_done}/{choresSummary.weekly_total}
-                </Pill>
-              )}
-            </div>
+          <div className="mt-card mt-card--compact">
+            <CompactProgress
+              value={progressStats.done}
+              max={Math.max(1, progressStats.total)}
+              label={`Сделано ${progressStats.done} из ${progressStats.total}`}
+              meta={`${progressStats.pct}%`}
+              tone="cobalt"
+            />
           </div>
 
-          {/* Filter Chips by Frequency / Zone */}
           <div
             className="mt-chip-row"
             role="group"
@@ -581,7 +512,7 @@ export default function HomeSection({
             {choreFilterOptions.map((opt) => (
               <Pill
                 key={opt.key}
-                tone="home"
+                tone="neutral"
                 active={choreFilter === opt.key}
                 onClick={() => setChoreFilter(opt.key)}
               >
@@ -590,89 +521,69 @@ export default function HomeSection({
             ))}
           </div>
 
-          {/* Chores List */}
           {choresLoading ? (
             <div className="mt-card mt-card--compact">
               <p className="mt-card-sub">Загружаем список дел...</p>
             </div>
           ) : filteredChores.length === 0 ? (
             <EmptyState
-              icon={<Sparkles size={24} />}
-              title="В этой категории пока чисто"
-              description="Добавьте регулярное или разовое дело, чтобы спокойно держать дом в порядке."
+              icon={<Sparkles size={22} />}
+              title="В этой категории чисто"
+              description="Добавьте регулярное или разовое дело."
               action={
                 <button
                   type="button"
                   className="mt-btn mt-btn--primary"
-                  data-accent="home"
                   onClick={() => {
                     setEditingChore(null);
                     setChoreSheetOpen(true);
                   }}
                 >
-                  <Plus size={18} />
+                  <Plus size={17} />
                   <span>Новое дело</span>
                 </button>
               }
             />
           ) : (
-            <div className="mt-stack mt-stack--sm">
+            <GroupList className="home-chores-list">
               {filteredChores.map((chore) => {
-                const freqMeta = CHORE_FREQUENCY_MAP[chore.frequency];
-                const zoneMeta = CHORE_ZONES.find((z) => z.key === chore.zone);
-                const ZoneIcon = ZONE_ICON_MAP[zoneMeta?.icon] || HomeIcon;
+                const freqLabel =
+                  CHORE_FREQUENCY_MAP[chore.frequency]?.label || "Регулярно";
+                const lastDone = formatShortLastDone(chore, activeDate);
+                const metaParts = [chore.zone || "Общее", freqLabel];
+                if (lastDone) metaParts.push(lastDone);
 
                 return (
-                  <div key={chore.id} className="chore-card" data-accent="home">
-                    <CheckRow
-                      checked={Boolean(chore.completed)}
-                      onToggle={() => handleToggleChore(chore)}
-                      accent="home"
-                      strikethrough={true}
-                      title={chore.title}
-                      subtitle={
-                        <span className="chore-meta">
-                          <Pill tone="home" icon={<ZoneIcon size={12} />}>
-                            {chore.zone || "Общее"}
-                          </Pill>
-                          <Pill tone="neutral">
-                            {freqMeta?.label || "Регулярно"}
-                          </Pill>
-                          <span
-                            className="mt-row"
-                            style={{ gap: "4px", fontSize: "12px" }}
-                          >
-                            <Clock size={12} />
-                            <span>{formatLastDone(chore, activeDate)}</span>
-                          </span>
-                        </span>
-                      }
-                      trailing={
-                        <button
-                          type="button"
-                          className="mt-icon-btn"
-                          aria-label={`Редактировать «${chore.title}»`}
-                          onClick={() => {
-                            setEditingChore(chore);
-                            setChoreSheetOpen(true);
-                          }}
-                        >
-                          <Pencil size={17} />
-                        </button>
-                      }
-                    />
-                  </div>
+                  <ListRow
+                    key={chore.id}
+                    checked={Boolean(chore.completed)}
+                    onToggle={() => handleToggleChore(chore)}
+                    onClick={() => {
+                      setEditingChore(chore);
+                      setChoreSheetOpen(true);
+                    }}
+                    strikethrough={true}
+                    accent="cobalt"
+                    title={chore.title}
+                    meta={metaParts.join(" · ")}
+                    trailing={
+                      <ChevronRight
+                        size={16}
+                        className="muted"
+                        aria-hidden="true"
+                      />
+                    }
+                  />
                 );
               })}
-            </div>
+            </GroupList>
           )}
         </div>
       ) : (
         <div className="mt-stack">
-          {/* Quick-Add Sticky/Top Bar */}
+          {/* Quick-Add Bar */}
           <form
             className="shopping-quick-bar"
-            data-accent="home"
             onSubmit={handleQuickAddShopping}
           >
             <div className="mt-input-row">
@@ -682,7 +593,7 @@ export default function HomeSection({
                 className="mt-input"
                 value={quickName}
                 onChange={(e) => setQuickName(e.target.value)}
-                placeholder="Что купить?"
+                placeholder="Что купить…"
                 aria-label="Название продукта или товара"
                 autoComplete="off"
                 style={{ flex: "1 1 150px" }}
@@ -695,17 +606,16 @@ export default function HomeSection({
                 placeholder="Кол-во"
                 aria-label="Количество (необязательно)"
                 autoComplete="off"
-                style={{ flex: "0 0 88px", width: "88px", paddingInline: "10px" }}
+                style={{ flex: "0 0 84px", width: "84px", paddingInline: "10px" }}
               />
               <button
                 type="submit"
                 className="mt-btn mt-btn--primary"
-                data-accent="home"
                 disabled={!quickName.trim() || addingItem}
                 aria-label="Добавить в покупки"
-                style={{ paddingInline: "13px", minWidth: "46px" }}
+                style={{ paddingInline: "12px", minWidth: "46px" }}
               >
-                <Plus size={20} />
+                <Plus size={19} />
               </button>
             </div>
 
@@ -714,45 +624,18 @@ export default function HomeSection({
               role="group"
               aria-label="Категория покупки"
             >
-              {SHOPPING_CATEGORIES.map((cat) => {
-                const CatIcon = SHOPPING_ICON_MAP[cat.icon] || ShoppingBag;
-                return (
-                  <Pill
-                    key={cat.key}
-                    tone="home"
-                    active={quickCategory === cat.key}
-                    icon={<CatIcon size={13} />}
-                    onClick={() => setQuickCategory(cat.key)}
-                  >
-                    {cat.label}
-                  </Pill>
-                );
-              })}
+              {SHOPPING_CATEGORIES.map((cat) => (
+                <Pill
+                  key={cat.key}
+                  tone="neutral"
+                  active={quickCategory === cat.key}
+                  onClick={() => setQuickCategory(cat.key)}
+                >
+                  {cat.label}
+                </Pill>
+              ))}
             </div>
           </form>
-
-          {/* Remaining Counter + Clear Bought Action */}
-          <div className="mt-row mt-row--between" style={{ gap: "8px" }}>
-            <span className="mt-card-sub tabular" style={{ margin: 0, whiteSpace: "nowrap" }}>
-              {shoppingSummary.remaining > 0
-                ? `Осталось: ${shoppingSummary.remaining}`
-                : shoppingSummary.total > 0
-                  ? "Всё куплено!"
-                  : "Список пуст"}
-            </span>
-            {boughtItems.length > 0 && (
-              <button
-                type="button"
-                className="mt-btn mt-btn--soft mt-btn--sm"
-                data-accent="home"
-                disabled={clearingBought}
-                onClick={handleClearBought}
-              >
-                <Trash2 size={15} />
-                <span>Очистить купленное</span>
-              </button>
-            )}
-          </div>
 
           {/* Categorized Active List */}
           {shoppingLoading ? (
@@ -761,123 +644,122 @@ export default function HomeSection({
             </div>
           ) : activeShoppingGroups.length === 0 && boughtItems.length === 0 ? (
             <EmptyState
-              icon={<ShoppingBasket size={24} />}
-              title="Список покупок пока пуст"
-              description="Введите продукт в строке выше и выберите категорию — добавление займёт секунду."
+              icon={<ShoppingBasket size={22} />}
+              title="Список покупок пуст"
+              description="Введите продукт выше и выберите категорию."
             />
           ) : (
             <div className="mt-stack">
-              {activeShoppingGroups.length === 0 && boughtItems.length > 0 && (
-                <div className="mt-card mt-card--compact mt-card--tinted" data-accent="habits">
-                  <div className="mt-row">
-                    <CheckCircle2 size={20} style={{ color: "var(--success)", flexShrink: 0 }} />
-                    <div>
-                      <p className="mt-card-title">Корзина собрана</p>
-                      <p className="mt-card-sub">
-                        Все пункты отмечены как купленные. Можно очистить список одним нажатием.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {activeShoppingGroups.map((group) => {
-                const GroupIcon = SHOPPING_ICON_MAP[group.iconName] || ShoppingBag;
-                return (
-                  <div key={group.category} className="shopping-group">
-                    <div className="shopping-group-title">
-                      <span className="mt-row" style={{ gap: "7px" }}>
-                        <GroupIcon size={15} />
-                        <span>{group.category}</span>
-                      </span>
-                      <span className="muted tabular" style={{ fontSize: "12px" }}>
-                        {group.items.length}
-                      </span>
-                    </div>
-                    <div className="mt-stack mt-stack--xs">
-                      {group.items.map((item) => (
-                        <CheckRow
-                          key={item.id}
-                          checked={false}
-                          onToggle={() => handleToggleShopping(item)}
-                          accent="home"
-                          strikethrough={true}
-                          title={item.name}
-                          badge={
-                            item.quantity ? (
-                              <Pill tone="neutral">{item.quantity}</Pill>
-                            ) : null
-                          }
-                          trailing={
+              {activeShoppingGroups.map((group) => (
+                <div key={group.category} className="mt-stack mt-stack--xs">
+                  <GroupHeader
+                    title={group.category}
+                    meta={String(group.items.length)}
+                  />
+                  <GroupList>
+                    {group.items.map((item) => (
+                      <ListRow
+                        key={item.id}
+                        checked={false}
+                        onToggle={() => handleToggleShopping(item)}
+                        strikethrough={true}
+                        accent="cobalt"
+                        title={item.name}
+                        trailing={
+                          <span className="mt-row" style={{ gap: "4px" }}>
+                            {item.quantity ? (
+                              <span
+                                className="muted tabular"
+                                style={{ fontSize: "13px", whiteSpace: "nowrap" }}
+                              >
+                                {item.quantity}
+                              </span>
+                            ) : null}
                             <button
                               type="button"
-                              className="mt-icon-btn mt-icon-btn--danger"
+                              className="mt-icon-btn"
                               aria-label={`Удалить «${item.name}»`}
-                              onClick={() => handleDeleteShopping(item)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteShopping(item);
+                              }}
                             >
-                              <Trash2 size={16} />
+                              <X size={15} />
                             </button>
-                          }
-                        />
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
+                          </span>
+                        }
+                      />
+                    ))}
+                  </GroupList>
+                </div>
+              ))}
 
-              {/* Collapsible «Куплено» Footer */}
+              {/* Collapsible «Куплено (N)» Footer */}
               {boughtItems.length > 0 && (
                 <div className="mt-stack mt-stack--sm">
-                  <button
-                    type="button"
-                    className="shopping-bought-toggle"
-                    aria-expanded={boughtExpanded}
-                    onClick={() => setBoughtExpanded((prev) => !prev)}
-                  >
-                    <span className="mt-row" style={{ gap: "8px" }}>
-                      <CheckCircle2 size={16} style={{ color: "var(--success)" }} />
+                  <div className="mt-row mt-row--between" style={{ gap: "8px" }}>
+                    <button
+                      type="button"
+                      className="mt-disclosure-btn"
+                      aria-expanded={boughtExpanded}
+                      onClick={() => setBoughtExpanded((prev) => !prev)}
+                      style={{ flex: "1 1 auto" }}
+                    >
                       <span className="tabular">
                         Куплено ({boughtItems.length})
                       </span>
-                    </span>
-                    {boughtExpanded ? (
-                      <ChevronUp size={18} />
-                    ) : (
-                      <ChevronDown size={18} />
-                    )}
-                  </button>
+                      <ChevronDown size={17} className="mt-disclosure-chevron" />
+                    </button>
+
+                    <button
+                      type="button"
+                      className="mt-btn mt-btn--soft mt-btn--sm"
+                      disabled={clearingBought}
+                      aria-label="Очистить купленное"
+                      onClick={handleClearBought}
+                    >
+                      <Trash2 size={15} />
+                      <span>Очистить</span>
+                    </button>
+                  </div>
 
                   {boughtExpanded && (
-                    <div className="shopping-group" style={{ opacity: 0.9 }}>
-                      <div className="mt-stack mt-stack--xs">
-                        {boughtItems.map((item) => (
-                          <CheckRow
-                            key={item.id}
-                            checked={true}
-                            onToggle={() => handleToggleShopping(item)}
-                            accent="home"
-                            strikethrough={true}
-                            title={item.name}
-                            subtitle={item.category}
-                            badge={
-                              item.quantity ? (
-                                <Pill tone="neutral">{item.quantity}</Pill>
-                              ) : null
-                            }
-                            trailing={
+                    <GroupList>
+                      {boughtItems.map((item) => (
+                        <ListRow
+                          key={item.id}
+                          checked={true}
+                          onToggle={() => handleToggleShopping(item)}
+                          strikethrough={true}
+                          accent="cobalt"
+                          title={item.name}
+                          meta={item.category}
+                          trailing={
+                            <span className="mt-row" style={{ gap: "4px" }}>
+                              {item.quantity ? (
+                                <span
+                                  className="muted tabular"
+                                  style={{ fontSize: "13px", whiteSpace: "nowrap" }}
+                                >
+                                  {item.quantity}
+                                </span>
+                              ) : null}
                               <button
                                 type="button"
-                                className="mt-icon-btn mt-icon-btn--danger"
+                                className="mt-icon-btn"
                                 aria-label={`Удалить «${item.name}»`}
-                                onClick={() => handleDeleteShopping(item)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteShopping(item);
+                                }}
                               >
-                                <Trash2 size={16} />
+                                <X size={15} />
                               </button>
-                            }
-                          />
-                        ))}
-                      </div>
-                    </div>
+                            </span>
+                          }
+                        />
+                      ))}
+                    </GroupList>
                   )}
                 </div>
               )}

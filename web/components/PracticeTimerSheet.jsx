@@ -1,17 +1,20 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Activity,
   Check,
   CheckCircle2,
-  Flower2,
   Pause,
   Play,
   RotateCcw,
-  Sparkles,
-  Wind,
 } from "lucide-react";
 import Sheet from "./Sheet.jsx";
-import { Pill, ProgressRing } from "./UiPrimitives.jsx";
+import {
+  GroupHeader,
+  GroupList,
+  ListRow,
+  Pill,
+  ProgressRing,
+  SegmentedControl,
+} from "./UiPrimitives.jsx";
 import api from "../api.js";
 import { nowTimeHHMM, todayISO } from "../utils/date.js";
 import {
@@ -19,34 +22,6 @@ import {
   WORKOUT_TYPE_MAP,
   formatCountRu,
 } from "../data/presets.js";
-
-const TYPE_ICONS = {
-  breathing: Wind,
-  pilates: Activity,
-  qigong: Flower2,
-  other: Sparkles,
-};
-
-const TYPE_COLORS = {
-  breathing: "var(--water)",
-  pilates: "var(--habits)",
-  qigong: "var(--brand)",
-  other: "var(--goals)",
-};
-
-const TYPE_SOFT_BG = {
-  breathing: "var(--water-soft)",
-  pilates: "var(--habits-soft)",
-  qigong: "var(--brand-soft)",
-  other: "var(--goals-soft)",
-};
-
-const TYPE_BORDER = {
-  breathing: "var(--water-border)",
-  pilates: "var(--habits-border)",
-  qigong: "var(--brand-border)",
-  other: "var(--goals-border)",
-};
 
 function formatMMSS(totalSeconds) {
   const safe = Math.max(0, Math.floor(totalSeconds));
@@ -138,9 +113,6 @@ export default function PracticeTimerSheet({
   }, [availablePresets, presetId]);
 
   const isBreathing = practiceType === "breathing";
-  const accentColor = TYPE_COLORS[practiceType] || "var(--brand)";
-  const accentSoft = TYPE_SOFT_BG[practiceType] || "var(--brand-soft)";
-  const accentBorder = TYPE_BORDER[practiceType] || "var(--brand-border)";
 
   const breathingInfo = useMemo(() => {
     if (!isBreathing) return null;
@@ -158,7 +130,6 @@ export default function PracticeTimerSheet({
     return getStageProgress(activePreset, elapsedSec, totalSec);
   }, [isBreathing, activePreset, elapsedSec, totalSec]);
 
-  // Reset state cleanly when sheet opens or initial props change
   useEffect(() => {
     if (!open) {
       setIsRunning(false);
@@ -178,7 +149,6 @@ export default function PracticeTimerSheet({
     autoLoggedRef.current = false;
   }, [open, initialType, initialPresetId]);
 
-  // Timer tick
   useEffect(() => {
     if (!open || !isRunning || savedWorkout) return undefined;
     const id = window.setInterval(() => {
@@ -194,7 +164,6 @@ export default function PracticeTimerSheet({
     return () => window.clearInterval(id);
   }, [open, isRunning, totalSec, savedWorkout]);
 
-  // Auto-log when timer reaches 100%
   useEffect(() => {
     if (!open || savedWorkout || saving || autoLoggedRef.current) return;
     if (totalSec > 0 && elapsedSec >= totalSec) {
@@ -244,7 +213,8 @@ export default function PracticeTimerSheet({
     const payload = {
       log_date: selectedDate || todayISO(),
       workout_type: practiceType,
-      custom_label: practiceType === "other" ? activePreset?.title || "Своя практика" : "",
+      custom_label:
+        practiceType === "other" ? activePreset?.title || "Своя практика" : "",
       duration_min: loggedMin,
       intensity: activePreset?.intensity || "light",
       mood: activePreset?.mood || "calm",
@@ -272,18 +242,21 @@ export default function PracticeTimerSheet({
   }
 
   const remainingSec = Math.max(0, totalSec - elapsedSec);
-  const progressPct = totalSec > 0 ? Math.min(100, Math.round((elapsedSec / totalSec) * 100)) : 0;
-  const TypeIcon = TYPE_ICONS[practiceType] || Wind;
+  const progressPct =
+    totalSec > 0 ? Math.min(100, Math.round((elapsedSec / totalSec) * 100)) : 0;
 
-  const orbStateClass = !isRunning || !breathingInfo
-    ? ""
-    : breathingInfo.activePhase.key === "inhale"
-      ? "is-inhale"
-      : breathingInfo.activePhase.key === "exhale"
-        ? "is-exhale"
-        : "is-hold";
+  const orbStateClass =
+    !isRunning || !breathingInfo
+      ? ""
+      : breathingInfo.activePhase.key === "inhale"
+        ? "is-inhale"
+        : breathingInfo.activePhase.key === "exhale"
+          ? "is-exhale"
+          : "is-hold";
   const orbTransitionSec =
-    isRunning && breathingInfo ? Math.max(0.6, breathingInfo.activePhase.seconds) : 0.45;
+    isRunning && breathingInfo
+      ? Math.max(0.6, breathingInfo.activePhase.seconds)
+      : 0.45;
 
   return (
     <Sheet
@@ -347,32 +320,25 @@ export default function PracticeTimerSheet({
       }
     >
       <div className="mt-stack">
-        {/* Practice type selector */}
-        <div className="mt-chip-row" role="tablist" aria-label="Тип практики">
-          {["breathing", "pilates", "qigong", "other"].map((key) => {
-            const meta = WORKOUT_TYPE_MAP[key];
-            const Icon = TYPE_ICONS[key];
-            return (
-              <Pill
-                key={key}
-                tone={meta.accent}
-                active={practiceType === key}
-                icon={<Icon size={14} />}
-                onClick={() => handleSelectType(key)}
-              >
-                {meta.shortLabel}
-              </Pill>
-            );
-          })}
-        </div>
+        {/* Practice type switch */}
+        <SegmentedControl
+          value={practiceType}
+          onChange={handleSelectType}
+          options={[
+            { value: "breathing", label: "Дыхание" },
+            { value: "pilates", label: "Пилатес" },
+            { value: "qigong", label: "Цигун" },
+            { value: "other", label: "Своя" },
+          ]}
+        />
 
-        {/* Preset selector chips */}
+        {/* Guided preset selector when multiple presets exist */}
         {availablePresets.length > 1 ? (
           <div className="mt-chip-row" aria-label="Выбор программы">
             {availablePresets.map((preset) => (
               <Pill
                 key={preset.id}
-                tone={WORKOUT_TYPE_MAP[practiceType]?.accent || "brand"}
+                tone="cobalt"
                 active={activePreset?.id === preset.id}
                 onClick={() => handleSelectPreset(preset)}
               >
@@ -382,58 +348,30 @@ export default function PracticeTimerSheet({
           </div>
         ) : null}
 
-        {/* Completion celebration card */}
+        {/* Completion state */}
         {savedWorkout ? (
-          <div
-            className="mt-card mt-card--tinted"
-            data-accent={WORKOUT_TYPE_MAP[practiceType]?.accent || "habits"}
-            style={{
-              textAlign: "center",
-              padding: "24px 16px",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              gap: "10px",
-            }}
-          >
-            <div
-              style={{
-                width: 52,
-                height: 52,
-                borderRadius: "999px",
-                background: accentSoft,
-                border: `1px solid ${accentBorder}`,
-                color: accentColor,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <CheckCircle2 size={28} />
+          <div className="mt-card timer-stage">
+            <CheckCircle2 size={32} color="var(--cobalt)" aria-hidden="true" />
+            <div className="mt-stack mt-stack--xs" style={{ alignItems: "center" }}>
+              <h3 className="mt-card-title" style={{ margin: 0 }}>
+                Практика отмечена
+              </h3>
+              <p className="mt-card-sub tabular" style={{ margin: 0 }}>
+                {activePreset?.title} · {savedWorkout.duration_min} мин ·{" "}
+                {savedWorkout.logged_at}
+              </p>
             </div>
-            <h3 className="mt-card-title" style={{ margin: 0 }}>
-              Практика завершена и отмечена
-            </h3>
-            <p className="mt-card-sub" style={{ margin: 0 }}>
-              {activePreset?.title} · {savedWorkout.duration_min} мин ·{" "}
-              {savedWorkout.logged_at}
-            </p>
-            <p className="muted" style={{ fontSize: "13px", margin: 0 }}>
-              Запись появилась в «Тренировках» и в ленте «Что сделано за день».
-            </p>
           </div>
         ) : (
           <>
-            {/* Main visual pacer or countdown ring */}
+            {/* Breathing pacer or Countdown ring */}
             <div className="mt-card timer-stage">
               {isBreathing && breathingInfo ? (
                 <>
                   <div className="timer-orb-wrap" aria-live="polite">
                     <div
                       className={`timer-orb ${orbStateClass}`.trim()}
-                      style={{
-                        transitionDuration: `${orbTransitionSec}s`,
-                      }}
+                      style={{ transitionDuration: `${orbTransitionSec}s` }}
                     />
                     <div
                       style={{
@@ -448,38 +386,42 @@ export default function PracticeTimerSheet({
                       <span className="timer-clock">
                         {isRunning
                           ? breathingInfo.phaseRemaining
-                          : activePreset?.patternLabel?.split("·")[0]?.trim() || "4"}
+                          : activePreset?.patternLabel?.split("·")[0]?.trim() ||
+                            "4"}
                       </span>
                       <span className="timer-phase">
                         {isRunning
                           ? breathingInfo.activePhase.label
-                          : "Готовы начать"}
+                          : "Готово к старту"}
                       </span>
                     </div>
                   </div>
 
-                  <div className="mt-stack mt-stack--sm" style={{ alignItems: "center" }}>
-                    <div className="mt-row mt-row--wrap" style={{ gap: "6px", justifyContent: "center" }}>
-                      <Pill tone="water">{activePreset?.patternLabel}</Pill>
-                      <Pill tone="neutral">
-                        Цикл {breathingInfo.cycleNumber} из {breathingInfo.totalCycles}
-                      </Pill>
-                      <Pill tone="neutral">{formatMMSS(remainingSec)}</Pill>
-                    </div>
-                    {activePreset?.tip && (
-                      <p className="mt-card-sub" style={{ margin: 0, maxWidth: "300px" }}>
-                        {activePreset.tip}
-                      </p>
-                    )}
-                  </div>
+                  <p className="mt-card-sub tabular" style={{ margin: 0 }}>
+                    {activePreset?.patternLabel} · Цикл{" "}
+                    {breathingInfo.cycleNumber} из {breathingInfo.totalCycles} ·{" "}
+                    {formatMMSS(remainingSec)}
+                  </p>
+                  {activePreset?.tip ? (
+                    <p
+                      className="muted"
+                      style={{
+                        margin: 0,
+                        fontSize: "13px",
+                        maxWidth: "290px",
+                      }}
+                    >
+                      {activePreset.tip}
+                    </p>
+                  ) : null}
                 </>
               ) : (
                 <>
                   <ProgressRing
                     percent={progressPct}
-                    size={168}
-                    strokeWidth={9}
-                    color={accentColor}
+                    size={160}
+                    strokeWidth={8}
+                    color="var(--cobalt)"
                     label={formatMMSS(remainingSec)}
                     sublabel={
                       stageInfo.items[stageInfo.activeIndex]?.title
@@ -488,27 +430,32 @@ export default function PracticeTimerSheet({
                     }
                   />
 
-                  <div className="mt-stack mt-stack--sm" style={{ alignItems: "center" }}>
-                    <div className="mt-row" style={{ gap: "6px", justifyContent: "center" }}>
-                      <TypeIcon size={15} color={accentColor} />
-                      <strong style={{ fontSize: "15px", color: "var(--ink)" }}>
-                        {activePreset?.title}
-                      </strong>
-                    </div>
-                    <p className="mt-card-sub" style={{ margin: 0 }}>
-                      {activePreset?.subtitle}
-                    </p>
+                  <div
+                    className="mt-stack mt-stack--xs"
+                    style={{ alignItems: "center" }}
+                  >
+                    <strong style={{ fontSize: "15px", color: "var(--ink)" }}>
+                      {activePreset?.title}
+                    </strong>
+                    {activePreset?.subtitle ? (
+                      <p className="mt-card-sub" style={{ margin: 0 }}>
+                        {activePreset.subtitle}
+                      </p>
+                    ) : null}
                   </div>
 
-                  {/* Quick duration adjust before starting */}
-                  {elapsedSec === 0 && (
-                    <div className="mt-chip-row mt-chip-row--wrap" style={{ justifyContent: "center" }}>
+                  {elapsedSec === 0 ? (
+                    <div
+                      className="mt-chip-row mt-chip-row--wrap"
+                      style={{ justifyContent: "center" }}
+                    >
                       {[10, 15, 20, 25, 30, 45].map((mins) => {
-                        const selectedMin = customMinutes || activePreset?.durationMin;
+                        const selectedMin =
+                          customMinutes || activePreset?.durationMin;
                         return (
                           <Pill
                             key={mins}
-                            tone={WORKOUT_TYPE_MAP[practiceType]?.accent || "habits"}
+                            tone="cobalt"
                             active={selectedMin === mins}
                             onClick={() => setCustomMinutes(mins)}
                           >
@@ -517,88 +464,70 @@ export default function PracticeTimerSheet({
                         );
                       })}
                     </div>
-                  )}
+                  ) : null}
                 </>
               )}
             </div>
 
-            {/* Structured stages for Pilates / Qigong */}
-            {!isBreathing && stageInfo.items.length > 0 && (
-              <div className="mt-card mt-card--compact">
-                <div className="mt-card-head">
-                  <span className="mt-card-title">Этапы практики</span>
-                  <span className="mt-card-sub tabular">
-                    {formatCountRu(stageInfo.items.length, "этап", "этапа", "этапов")}
-                  </span>
-                </div>
-                <div className="mt-stack mt-stack--sm">
+            {/* Structured stages as crisp iOS GroupList */}
+            {!isBreathing && stageInfo.items.length > 0 ? (
+              <div className="mt-stack mt-stack--xs">
+                <GroupHeader
+                  title="Этапы практики"
+                  meta={formatCountRu(
+                    stageInfo.items.length,
+                    "этап",
+                    "этапа",
+                    "этапов",
+                  )}
+                />
+                <GroupList>
                   {stageInfo.items.map((stage, idx) => {
-                    const isActive = stage.status === "active" && (isRunning || elapsedSec > 0);
+                    const isActive =
+                      stage.status === "active" &&
+                      (isRunning || elapsedSec > 0);
                     const isDone = stage.status === "done";
                     return (
-                      <div
+                      <ListRow
                         key={stage.title}
-                        style={{
-                          display: "flex",
-                          alignItems: "flex-start",
-                          gap: "10px",
-                          padding: "8px 10px",
-                          borderRadius: "var(--radius-control)",
-                          background: isActive ? accentSoft : "transparent",
-                          border: isActive
-                            ? `1px solid ${accentBorder}`
-                            : "1px solid transparent",
-                          opacity: isDone ? 0.65 : 1,
-                        }}
-                      >
-                        <span
-                          className="tabular"
-                          style={{
-                            width: 24,
-                            height: 24,
-                            borderRadius: "999px",
-                            flexShrink: 0,
-                            display: "inline-flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            fontSize: "12px",
-                            fontWeight: 700,
-                            background: isDone || isActive ? accentColor : "var(--surface-subtle)",
-                            color: isDone || isActive ? "#FFFFFF" : "var(--muted)",
-                          }}
-                        >
-                          {isDone ? <Check size={13} /> : idx + 1}
-                        </span>
-                        <div style={{ minWidth: 0, flex: 1 }}>
-                          <div className="mt-row mt-row--between" style={{ gap: "8px" }}>
-                            <span
-                              style={{
-                                fontSize: "14px",
-                                fontWeight: 600,
-                                color: "var(--ink)",
-                              }}
-                            >
-                              {stage.title}
-                            </span>
-                            <span className="mt-card-sub tabular" style={{ flexShrink: 0 }}>
-                              ~{stage.durationMin} мин
-                            </span>
-                          </div>
-                          {stage.hint && (
-                            <p
-                              className="mt-card-sub"
-                              style={{ margin: "2px 0 0", fontSize: "12.5px" }}
-                            >
-                              {stage.hint}
-                            </p>
-                          )}
-                        </div>
-                      </div>
+                        title={stage.title}
+                        meta={stage.hint}
+                        leading={
+                          <span
+                            className="tabular"
+                            style={{
+                              width: 24,
+                              height: 24,
+                              borderRadius: "999px",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              fontSize: "12px",
+                              fontWeight: 600,
+                              background:
+                                isDone || isActive
+                                  ? "var(--cobalt)"
+                                  : "var(--surface-subtle)",
+                              color:
+                                isDone || isActive
+                                  ? "#FFFFFF"
+                                  : "var(--muted)",
+                            }}
+                          >
+                            {isDone ? <Check size={13} /> : idx + 1}
+                          </span>
+                        }
+                        trailing={
+                          <span className="muted tabular" style={{ fontSize: "12.5px" }}>
+                            {stage.durationMin} мин
+                          </span>
+                        }
+                      />
                     );
                   })}
-                </div>
+                </GroupList>
               </div>
-            )}
+            ) : null}
           </>
         )}
       </div>

@@ -1,19 +1,19 @@
 #!/usr/bin/env python3
-"""Generate brand-accurate PWA PNG & SVG icons for Marina Tracker («Ритм»).
+"""Generate brand-accurate 2026 Carbon & Cobalt PWA PNG & SVG icons for «Ритм».
 
 Pure Python standard library (zero Pillow/Cairo dependencies) using analytic
-signed-distance-field (SDF) anti-aliasing to produce crisp, high-resolution
-icons aligned with docs/DESIGN_SYSTEM.md:
-  - Background: deep botanical forest (#29795E -> #1F634C -> #174D3B)
-  - Emblem: minimalist alabaster (#FAF8F5) twin concentric rhythm arcs
-  - Zenith accent: warm rose-terracotta dot (#DF7B70)
+signed-distance-field (SDF) anti-aliasing:
+  - Background: sleek studio Carbon (#27272A -> #18181B -> #111318)
+  - Outer rhythm arc: crisp pure white (#FFFFFF)
+  - Inner rhythm arc: vibrant Cobalt (#3B82F6 -> #2563EB)
+  - Zenith accent dot: restrained Coral (#FF335F)
 
 Outputs into public/icons/:
-  - apple-touch-icon.png (180x180, full-bleed square for iOS squircle mask)
-  - icon-192.png         (192x192)
-  - icon-512.png         (512x512)
-  - icon-512-maskable.png (512x512, >= 20% safe padding on all sides)
-  - icon.svg             (scalable vector favicon matching the PNG icons)
+  - apple-touch-icon.png  (180x180, full-bleed square for iOS squircle mask)
+  - icon-192.png          (192x192)
+  - icon-512.png          (512x512)
+  - icon-512-maskable.png (512x512, >= 21% safe padding on all sides)
+  - icon.svg              (scalable vector favicon matching the PNG icons)
 """
 
 from __future__ import annotations
@@ -26,13 +26,15 @@ import zlib
 ROOT = Path(__file__).resolve().parent.parent
 OUT_DIR = ROOT / "public" / "icons"
 
-# Brand palette from docs/DESIGN_SYSTEM.md
-BG_LIGHT = (41.0, 121.0, 94.0)    # #29795E top-left radial warmth
-BG_MID = (31.0, 99.0, 76.0)       # #1F634C core botanical forest
-BG_DEEP = (23.0, 77.0, 59.0)      # #174D3B deep corner shadow
-ALABASTER = (250.0, 248.0, 245.0) # #FAF8F5 twin concentric arcs
-ROSE_DOT = (223.0, 123.0, 112.0)  # #DF7B70 zenith accent dot
-ROSE_HI = (238.0, 152.0, 141.0)   # subtle specular highlight on zenith dot
+# 2026 Carbon & Cobalt studio palette
+BG_LIGHT = (39.0, 39.0, 42.0)      # #27272A subtle top-left studio sheen
+BG_MID = (24.0, 24.0, 27.0)        # #18181B core Carbon
+BG_DEEP = (17.0, 19.0, 24.0)       # #111318 deep Graphite edge
+WHITE = (255.0, 255.0, 255.0)      # #FFFFFF outer trajectory arc
+COBALT = (59.0, 130.0, 246.0)      # #3B82F6 luminous Cobalt inner arc
+COBALT_DEEP = (37.0, 99.0, 235.0)  # #2563EB deep Cobalt core
+CORAL = (255.0, 51.0, 95.0)        # #FF335F restrained Coral zenith dot
+CORAL_HI = (255.0, 107.0, 138.0)   # #FF6B8A soft highlight on zenith dot
 
 
 def clamp(v: float, lo: float = 0.0, hi: float = 1.0) -> float:
@@ -72,7 +74,7 @@ def sdf_symmetric_bottom_arc(
     """Exact Euclidean SDF for a circular arc symmetric around +Y (bottom) with round caps."""
     ux = abs(px - cx)
     uy = py - cy
-    theta = math.atan2(ux, uy)  # 0 at bottom (+Y), pi at top (-Y)
+    theta = math.atan2(ux, uy)
     if theta <= half_span_rad:
         dist = abs(math.hypot(ux, uy) - radius)
     else:
@@ -88,22 +90,18 @@ def render_icon_rgb(size: int, maskable: bool = False) -> bytes:
     cx = 0.5
     cy = 0.525
 
-    # Twin concentric arcs (outer = long-term trajectory, inner = daily rhythm)
     r_outer = 0.295 * scale
     hw_outer = 0.0285 * scale
-    span_outer = math.radians(136.0)  # 272 deg sweep, 88 deg zenith opening
+    span_outer = math.radians(136.0)
 
     r_inner = 0.175 * scale
-    hw_inner = 0.0245 * scale
-    span_inner = math.radians(112.0)  # 224 deg sweep, calm inner cradle
+    hw_inner = 0.0255 * scale
+    span_inner = math.radians(112.0)
 
-    # Warm rose-terracotta dot at the zenith apex
     dot_x = cx
     dot_y = cy - r_outer
     dot_r = 0.056 * scale
-
-    # Subtle ambient glow behind the zenith dot for depth
-    glow_r = 0.135 * scale
+    glow_r = 0.145 * scale
 
     aa = 1.15 / size
     inv_size = 1.0 / size
@@ -112,17 +110,17 @@ def render_icon_rgb(size: int, maskable: bool = False) -> bytes:
     pos = 0
 
     for y in range(size):
-        raw[pos] = 0  # PNG filter type None
+        raw[pos] = 0
         pos += 1
         py = (y + 0.5) * inv_size
-        dy_hi = py - 0.22
+        dy_hi = py - 0.20
         dy_dot = py - dot_y
 
         for x in range(size):
             px = (x + 0.5) * inv_size
 
-            # Smooth two-stop radial botanical forest background
-            d_hi = math.hypot(px - 0.26, dy_hi)
+            # Crisp two-stop radial Carbon background
+            d_hi = math.hypot(px - 0.25, dy_hi)
             t = clamp(d_hi / 1.05, 0.0, 1.0)
             t = t * t * (3.0 - 2.0 * t)
             if t < 0.45:
@@ -140,34 +138,40 @@ def render_icon_rgb(size: int, maskable: bool = False) -> bytes:
                     lerp(BG_MID[2], BG_DEEP[2], k),
                 )
 
-            # Soft warm halo behind zenith dot (subtle, natural, never neon)
+            # Subtle Coral aura behind zenith dot
             d_dot = math.hypot(px - dot_x, dy_dot)
             if d_dot < glow_r:
                 g = 1.0 - (d_dot / glow_r)
-                col = blend_rgb(col, ROSE_DOT, 0.12 * g * g)
+                col = blend_rgb(col, CORAL, 0.14 * g * g)
 
-            # Outer rhythm arc (alabaster, 98% opacity)
+            # Outer rhythm arc (pure crisp white)
             sdf_out = sdf_symmetric_bottom_arc(px, py, cx, cy, r_outer, span_outer, hw_outer)
             if sdf_out < aa:
                 a_out = clamp(0.5 - sdf_out / aa, 0.0, 1.0) * 0.98
-                col = blend_rgb(col, ALABASTER, a_out)
+                col = blend_rgb(col, WHITE, a_out)
 
-            # Inner concentric arc (alabaster, 82% opacity for gentle hierarchy)
+            # Inner rhythm arc (vibrant Cobalt gradient)
             sdf_in = sdf_symmetric_bottom_arc(px, py, cx, cy, r_inner, span_inner, hw_inner)
             if sdf_in < aa:
-                a_in = clamp(0.5 - sdf_in / aa, 0.0, 1.0) * 0.82
-                col = blend_rgb(col, ALABASTER, a_in)
+                a_in = clamp(0.5 - sdf_in / aa, 0.0, 1.0)
+                c_k = clamp((py - (cy - r_inner)) / (2.0 * r_inner), 0.0, 1.0)
+                arc_col = (
+                    lerp(COBALT[0], COBALT_DEEP[0], c_k),
+                    lerp(COBALT[1], COBALT_DEEP[1], c_k),
+                    lerp(COBALT[2], COBALT_DEEP[2], c_k),
+                )
+                col = blend_rgb(col, arc_col, a_in)
 
-            # Zenith rose-terracotta dot with soft top-left warmth
+            # Zenith Coral dot
             sdf_dot = d_dot - dot_r
             if sdf_dot < aa:
                 a_dot = clamp(0.5 - sdf_dot / aa, 0.0, 1.0)
                 hi_dist = math.hypot(px - (dot_x - 0.015 * scale), py - (dot_y - 0.016 * scale))
                 hi_k = clamp(1.0 - hi_dist / (dot_r * 1.45), 0.0, 1.0)
                 dot_col = (
-                    lerp(ROSE_DOT[0], ROSE_HI[0], hi_k * 0.55),
-                    lerp(ROSE_DOT[1], ROSE_HI[1], hi_k * 0.55),
-                    lerp(ROSE_DOT[2], ROSE_HI[2], hi_k * 0.55),
+                    lerp(CORAL[0], CORAL_HI[0], hi_k * 0.55),
+                    lerp(CORAL[1], CORAL_HI[1], hi_k * 0.55),
+                    lerp(CORAL[2], CORAL_HI[2], hi_k * 0.55),
                 )
                 col = blend_rgb(col, dot_col, a_dot)
 
@@ -195,13 +199,12 @@ def encode_png_rgb(width: int, height: int, scanlines: bytes) -> bytes:
 
 
 def build_svg() -> str:
-    """Generate matching SVG favicon (512x512 viewBox)."""
+    """Generate matching Carbon & Cobalt SVG favicon (512x512 viewBox)."""
     cx = 256.0
     cy = 268.8
 
     def arc_path(r: float, half_span_deg: float) -> str:
         rad = math.radians(half_span_deg)
-        # Start on right side of zenith gap, sweep clockwise around bottom to left side
         x1 = cx + r * math.sin(rad)
         y1 = cy + r * math.cos(rad)
         x2 = cx - r * math.sin(rad)
@@ -215,19 +218,23 @@ def build_svg() -> str:
 
     return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Ритм">
   <defs>
-    <radialGradient id="ritm-bg" cx="26%" cy="22%" r="95%">
-      <stop offset="0%" stop-color="#29795E"/>
-      <stop offset="46%" stop-color="#1F634C"/>
-      <stop offset="100%" stop-color="#174D3B"/>
+    <radialGradient id="ritm-bg" cx="25%" cy="20%" r="95%">
+      <stop offset="0%" stop-color="#27272A"/>
+      <stop offset="46%" stop-color="#18181B"/>
+      <stop offset="100%" stop-color="#111318"/>
     </radialGradient>
+    <linearGradient id="ritm-cobalt" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#3B82F6"/>
+      <stop offset="100%" stop-color="#2563EB"/>
+    </linearGradient>
     <radialGradient id="ritm-dot" cx="35%" cy="32%" r="70%">
-      <stop offset="0%" stop-color="#EE988D"/>
-      <stop offset="100%" stop-color="#DF7B70"/>
+      <stop offset="0%" stop-color="#FF6B8A"/>
+      <stop offset="100%" stop-color="#FF335F"/>
     </radialGradient>
   </defs>
   <rect width="512" height="512" rx="112" fill="url(#ritm-bg)"/>
-  <path d="{outer_d}" fill="none" stroke="#FAF8F5" stroke-opacity="0.98" stroke-width="29.2" stroke-linecap="round"/>
-  <path d="{inner_d}" fill="none" stroke="#FAF8F5" stroke-opacity="0.82" stroke-width="25.1" stroke-linecap="round"/>
+  <path d="{outer_d}" fill="none" stroke="#FFFFFF" stroke-opacity="0.98" stroke-width="29.2" stroke-linecap="round"/>
+  <path d="{inner_d}" fill="none" stroke="url(#ritm-cobalt)" stroke-width="26.1" stroke-linecap="round"/>
   <circle cx="{cx:.2f}" cy="{dot_y:.2f}" r="28.7" fill="url(#ritm-dot)"/>
 </svg>
 """

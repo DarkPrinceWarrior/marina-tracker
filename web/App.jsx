@@ -95,21 +95,18 @@ export default function App() {
     setToasts((prev) => prev.filter((item) => item.id !== id));
   }, []);
 
-  const notify = useCallback(
-    (message, tone = "success") => {
-      if (!message) return;
-      toastTimersRef.current.forEach((timer) => window.clearTimeout(timer));
-      toastTimersRef.current.clear();
-      const id = ++toastSeqRef.current;
-      setToasts([{ id, message: String(message), tone }]);
-      const timer = window.setTimeout(() => {
-        toastTimersRef.current.delete(id);
-        setToasts((prev) => prev.filter((item) => item.id !== id));
-      }, tone === "error" ? 4200 : 2800);
-      toastTimersRef.current.set(id, timer);
-    },
-    []
-  );
+  const notify = useCallback((message, tone = "success") => {
+    if (!message) return;
+    toastTimersRef.current.forEach((timer) => window.clearTimeout(timer));
+    toastTimersRef.current.clear();
+    const id = ++toastSeqRef.current;
+    setToasts([{ id, message: String(message), tone }]);
+    const timer = window.setTimeout(() => {
+      toastTimersRef.current.delete(id);
+      setToasts((prev) => prev.filter((item) => item.id !== id));
+    }, tone === "error" ? 4200 : 2600);
+    toastTimersRef.current.set(id, timer);
+  }, []);
 
   useEffect(() => {
     return () => {

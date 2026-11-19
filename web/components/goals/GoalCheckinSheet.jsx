@@ -5,20 +5,20 @@ import { Pill } from "../UiPrimitives.jsx";
 import { todayISO } from "../../utils/date.js";
 
 export const CHECKIN_FEELINGS = [
-  { key: "inspired", label: "Вдохновляет", tone: "goals" },
-  { key: "calm", label: "Ровный ритм", tone: "habits" },
-  { key: "focused", label: "Собранность", tone: "brand" },
+  { key: "inspired", label: "Вдохновляет", tone: "cobalt" },
+  { key: "calm", label: "Ровный ритм", tone: "neutral" },
+  { key: "focused", label: "Собранность", tone: "cobalt" },
   { key: "happy", label: "Радость", tone: "success" },
   { key: "proud", label: "Горжусь шагом", tone: "success" },
   { key: "thoughtful", label: "Надо подумать", tone: "warning" },
-  { key: "tired", label: "Немного устала", tone: "warning" },
+  { key: "tired", label: "Усталость", tone: "warning" },
 ];
 
 const EXTRA_FEELING_LABELS = {
   needs_focus: { key: "needs_focus", label: "Нужен фокус", tone: "neutral" },
-  energized: { key: "energized", label: "Прилив энергии", tone: "habits" },
-  balanced: { key: "balanced", label: "Баланс", tone: "habits" },
-  strong: { key: "strong", label: "Уверенность", tone: "goals" },
+  energized: { key: "energized", label: "Прилив энергии", tone: "cobalt" },
+  balanced: { key: "balanced", label: "Баланс", tone: "neutral" },
+  strong: { key: "strong", label: "Уверенность", tone: "cobalt" },
 };
 
 export const CHECKIN_FEELING_MAP = {
@@ -55,14 +55,17 @@ export default function GoalCheckinSheet({
   const expected = Number(goal.expected_progress_pct) || 0;
   const previewPace =
     progressPct >= 100 || progressPct >= expected + 8
-      ? { label: "Опережаю план", tone: "goals", Icon: TrendingUp }
+      ? { label: "Опережаю", tone: "cobalt", Icon: TrendingUp }
       : progressPct <= expected - 10
-        ? { label: "Нужно внимание", tone: "warning", Icon: AlertTriangle }
+        ? { label: "Внимание", tone: "warning", Icon: AlertTriangle }
         : { label: "В графике", tone: "success", Icon: CheckCircle2 };
 
   async function handleSave(event) {
     event?.preventDefault();
-    const clamped = Math.max(0, Math.min(100, Math.round(Number(progressPct) || 0)));
+    const clamped = Math.max(
+      0,
+      Math.min(100, Math.round(Number(progressPct) || 0)),
+    );
     setSaving(true);
     setError("");
     try {
@@ -90,24 +93,16 @@ export default function GoalCheckinSheet({
         <button
           type="button"
           className="mt-btn mt-btn--primary mt-btn--wide"
-          data-accent="goals"
           disabled={saving}
           onClick={handleSave}
         >
-          <Sparkles size={17} />
+          <Sparkles size={16} />
           <span>{saving ? "Сохраняем..." : "Сохранить чек-ин"}</span>
         </button>
       }
     >
-      <form className="mt-stack" onSubmit={handleSave} data-accent="goals">
+      <form className="mt-stack" onSubmit={handleSave}>
         {error ? <div className="mt-form-error">{error}</div> : null}
-
-        <div className="mt-card mt-card--compact mt-card--tinted" data-accent="goals">
-          <p style={{ fontSize: "13.5px", lineHeight: "19px", color: "var(--goals-ink)" }}>
-            Как продвигается цель? Обновите прогресс и запишите важный шаг — так цель
-            будет точно следить за вашим темпом.
-          </p>
-        </div>
 
         {/* Progress Slider + Live Pace Comparison */}
         <div className="mt-field">
@@ -115,7 +110,10 @@ export default function GoalCheckinSheet({
             <label className="mt-label" htmlFor="checkin-progress-range">
               Текущий прогресс
             </label>
-            <span className="mt-card-title tabular" style={{ color: "var(--goals)" }}>
+            <span
+              className="mt-card-title tabular"
+              style={{ color: "var(--cobalt)" }}
+            >
               {progressPct}%
             </span>
           </div>
@@ -131,13 +129,16 @@ export default function GoalCheckinSheet({
             style={{
               width: "100%",
               minHeight: "44px",
-              accentColor: "var(--goals)",
+              accentColor: "var(--cobalt)",
               cursor: "pointer",
             }}
           />
 
-          <div className="mt-row mt-row--between mt-row--wrap" style={{ gap: "6px" }}>
-            <span className="muted tabular" style={{ fontSize: "12px" }}>
+          <div
+            className="mt-row mt-row--between mt-row--wrap"
+            style={{ gap: "6px" }}
+          >
+            <span className="muted tabular" style={{ fontSize: "12.5px" }}>
               План по времени: {expected}%
             </span>
             <Pill
@@ -148,11 +149,14 @@ export default function GoalCheckinSheet({
             </Pill>
           </div>
 
-          <div className="mt-chip-row mt-chip-row--wrap" style={{ marginTop: "4px" }}>
+          <div
+            className="mt-chip-row mt-chip-row--wrap"
+            style={{ marginTop: "4px" }}
+          >
             {[5, 10, 15].map((delta) => (
               <Pill
                 key={delta}
-                tone="goals"
+                tone="neutral"
                 onClick={() =>
                   setProgressPct((prev) => Math.min(100, prev + delta))
                 }
@@ -165,7 +169,7 @@ export default function GoalCheckinSheet({
               active={progressPct === 100}
               onClick={() => setProgressPct(100)}
             >
-              100% · Выполнено
+              100% · Готово
             </Pill>
           </div>
         </div>
@@ -177,7 +181,7 @@ export default function GoalCheckinSheet({
             {CHECKIN_FEELINGS.map((item) => (
               <Pill
                 key={item.key}
-                tone={item.tone}
+                tone="neutral"
                 active={feeling === item.key}
                 onClick={() => setFeeling(item.key)}
               >
@@ -198,7 +202,7 @@ export default function GoalCheckinSheet({
             rows={3}
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            placeholder="Что получилось за последнее время, что поддержало и какой маленький шаг дальше?"
+            placeholder="Что получилось и какой шаг дальше?"
           />
         </div>
 

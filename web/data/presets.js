@@ -514,10 +514,39 @@ export const GOAL_CHECKIN_CADENCES = [
   { key: 'monthly', label: 'Раз в месяц' },
 ];
 
+export const QUARTER_OPTIONS = [
+  { value: 'Q1', label: '1 кв.' },
+  { value: 'Q2', label: '2 кв.' },
+  { value: 'Q3', label: '3 кв.' },
+  { value: 'Q4', label: '4 кв.' },
+];
+
+export const QUARTER_LABEL_MAP = Object.fromEntries(
+  QUARTER_OPTIONS.map((q) => [q.value, q.label]),
+);
+
+export function formatQuarterRu(q) {
+  if (q == null || q === '') return '';
+  const raw = String(q).trim();
+  const upper = raw.toUpperCase();
+  if (QUARTER_LABEL_MAP[upper]) return QUARTER_LABEL_MAP[upper];
+  const digitMatch = upper.match(/^Q?([1-4])$/);
+  if (digitMatch) return `${digitMatch[1]} кв.`;
+  return raw;
+}
+
+export function formatYearQuarterRu(year, quarter) {
+  const qLabel = formatQuarterRu(quarter);
+  if (qLabel && year) return `${qLabel} ${year}`;
+  if (year) return String(year);
+  return qLabel;
+}
+
 export const GOAL_PACE_META = {
   on_track: {
     key: 'on_track',
     label: 'В графике',
+    shortLabel: 'В графике',
     tone: 'success',
     cssModifier: 'on_track',
     hint: 'Темп соответствует плану — продолжайте в том же ритме.',
@@ -525,13 +554,15 @@ export const GOAL_PACE_META = {
   ahead: {
     key: 'ahead',
     label: 'Опережаю план',
-    tone: 'goals',
+    shortLabel: 'Опережаю',
+    tone: 'cobalt',
     cssModifier: 'ahead',
     hint: 'Вы движетесь быстрее намеченного срока.',
   },
   at_risk: {
     key: 'at_risk',
     label: 'Нужно внимание',
+    shortLabel: 'Внимание',
     tone: 'warning',
     cssModifier: 'at_risk',
     hint: 'Пора сделать небольшой шаг или обновить чек-ин.',
@@ -539,6 +570,7 @@ export const GOAL_PACE_META = {
   attention: {
     key: 'attention',
     label: 'Нужно внимание',
+    shortLabel: 'Внимание',
     tone: 'warning',
     cssModifier: 'at_risk',
     hint: 'Пора сделать небольшой шаг или обновить чек-ин.',
@@ -569,7 +601,7 @@ export const GOAL_STARTER_BLUEPRINTS = [
     milestones: [
       { title: 'Устойчивый словарь и 20 минут практики 4 раза в неделю', offsetMonths: 6 },
       { title: 'Свободный разговорный клуб и книги в оригинале', offsetMonths: 12 },
-      { title: 'Уверенный уровень B2/C1 без языкового барьера', offsetMonths: 24 },
+      { title: 'Свободное общение и чтение без языкового барьера', offsetMonths: 24 },
     ],
   },
   {

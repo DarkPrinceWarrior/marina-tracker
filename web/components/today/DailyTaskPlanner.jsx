@@ -1,20 +1,18 @@
 import React, { useMemo, useState } from "react";
+import { CheckSquare, Plus } from "lucide-react";
 import {
-  ArrowRight,
-  CheckSquare,
-  Clock,
-  Pencil,
-  Plus,
-  Target,
-  Trash2,
-} from "lucide-react";
-import { CheckRow, EmptyState, Pill } from "../UiPrimitives.jsx";
+  EmptyState,
+  GroupHeader,
+  GroupList,
+  ListRow,
+  Pill,
+} from "../UiPrimitives.jsx";
 import { TASK_SECTION_MAP } from "../../data/presets.js";
 
 const FILTER_OPTIONS = [
   { key: "all", label: "Все" },
   { key: "active", label: "Активные" },
-  { key: "done", label: "Сделано" },
+  { key: "done", label: "Готово" },
 ];
 
 export default function DailyTaskPlanner({
@@ -22,8 +20,6 @@ export default function DailyTaskPlanner({
   onAddTask,
   onEditTask,
   onToggleTask,
-  onRescheduleTask,
-  onDeleteTask,
   busyTaskId = null,
 }) {
   const [filter, setFilter] = useState("all");
@@ -44,159 +40,101 @@ export default function DailyTaskPlanner({
   }, [tasks, filter]);
 
   return (
-    <section className="mt-card" aria-label="Планировщик задач на день">
-      <div className="mt-card-head">
-        <div>
-          <h2 className="mt-card-title">Планировщик задач</h2>
-          <p className="mt-card-sub tabular">
-            {counts.all > 0
-              ? `Сделано ${counts.done} из ${counts.all}`
-              : "Спокойный план на день"}
-          </p>
-        </div>
-        <button
-          type="button"
-          className="mt-btn mt-btn--soft mt-btn--sm"
-          onClick={onAddTask}
-        >
-          <Plus size={16} />
-          <span>Задача</span>
-        </button>
-      </div>
+    <section className="mt-group-block" aria-label="Задачи на день">
+      <GroupHeader
+        title="Задачи"
+        meta={counts.all > 0 ? `${counts.done}/${counts.all}` : ""}
+        action={
+          <button
+            type="button"
+            className="mt-btn mt-btn--ghost mt-btn--sm"
+            aria-label="Добавить задачу"
+            onClick={onAddTask}
+          >
+            <Plus size={16} />
+            <span>Задача</span>
+          </button>
+        }
+      />
 
       <div className="mt-chip-row" role="tablist" aria-label="Фильтр задач">
         {FILTER_OPTIONS.map((opt) => (
           <Pill
             key={opt.key}
-            tone="brand"
+            tone="neutral"
             active={filter === opt.key}
             onClick={() => setFilter(opt.key)}
           >
-            {opt.label} · {counts[opt.key]}
+            {opt.label}
+            {counts[opt.key] > 0 ? ` · ${counts[opt.key]}` : ""}
           </Pill>
         ))}
       </div>
 
       {filteredTasks.length === 0 ? (
-        <EmptyState
-          icon={<CheckSquare size={22} />}
-          title={
-            filter === "done"
-              ? "Пока нет выполненных задач"
-              : filter === "active" && counts.all > 0
-                ? "Все задачи на сегодня закрыты"
-                : "Список задач пока пуст"
-          }
-          description={
-            filter === "active" && counts.all > 0
-              ? "Отличный ритм — можно выдохнуть или добавить новую задачу."
-              : "Добавьте главные дела на день с временем и сферой."
-          }
-          action={
-            filter !== "done" ? (
-              <button
-                type="button"
-                className="mt-btn mt-btn--primary mt-btn--sm"
-                onClick={onAddTask}
-              >
-                <Plus size={15} />
-                <span>Добавить задачу</span>
-              </button>
-            ) : null
-          }
-        />
+        <GroupList>
+          <EmptyState
+            icon={<CheckSquare size={20} />}
+            title={
+              filter === "done"
+                ? "Пока нет выполненных задач"
+                : filter === "active" && counts.all > 0
+                  ? "Все задачи выполнены"
+                  : "Задач пока нет"
+            }
+            description={
+              filter === "active" && counts.all > 0
+                ? "Можно выдохнуть или добавить новую задачу."
+                : "Добавьте главные дела на этот день."
+            }
+            action={
+              filter !== "done" ? (
+                <button
+                  type="button"
+                  className="mt-btn mt-btn--primary mt-btn--sm"
+                  onClick={onAddTask}
+                >
+                  <Plus size={15} />
+                  <span>Новая задача</span>
+                </button>
+              ) : null
+            }
+          />
+        </GroupList>
       ) : (
-        <div className="mt-stack mt-stack--xs">
-          {filteredTasks.map((task, idx) => {
-            const sectionMeta =
-              TASK_SECTION_MAP[task.section_tag] || TASK_SECTION_MAP.personal;
-            const accent =
-              sectionMeta.tone === "neutral" ? "brand" : sectionMeta.tone;
-            const isBusy = busyTaskId === task.id;
+        <GroupList>
+          {filteredTasks.map((task) => {
+            const sectionLabel =
+              TASK_SECTION_MAP[task.section_tag]?.label || "Личное";
+            const metaParts = [
+              task.time_slot || "",
+              sectionLabel,
+              task.goal_title || "",
+            ].filter(Boolean);
+            const isHigh = task.priority === "high" && !task.completed;
 
             return (
-              <div key={task.id} className="mt-stack mt-stack--xs">
-                {idx > 0 ? <hr className="mt-divider" /> : null}
-                <CheckRow
-                  checked={Boolean(task.completed)}
-                  onToggle={() => onToggleTask?.(task)}
-                  title={task.title}
-                  accent={accent}
-                  strikethrough
-                  disabled={isBusy}
-                  subtitle={
-                    <span className="today-task-meta">
-                      <span
-                        className={`today-priority-dot today-priority-dot--${task.priority || "medium"}`}
-                        aria-hidden="true"
-                      />
-                      {task.time_slot ? (
-                        <span className="mt-row" style={{ gap: 3 }}>
-                          <Clock size={12} aria-hidden="true" />
-                          <span className="tabular">{task.time_slot}</span>
-                        </span>
-                      ) : null}
-                      <Pill tone={sectionMeta.tone}>{sectionMeta.label}</Pill>
-                      {task.goal_title ? (
-                        <Pill tone="goals" icon={<Target size={11} />}>
-                          {task.goal_title.length > 22
-                            ? `${task.goal_title.slice(0, 21)}…`
-                            : task.goal_title}
-                        </Pill>
-                      ) : null}
-                    </span>
-                  }
-                />
-                <div
-                  className="mt-row mt-row--between"
-                  style={{ paddingLeft: 44 }}
-                >
-                  <div>
-                    {!task.completed ? (
-                      <button
-                        type="button"
-                        className="mt-pill mt-pill--neutral"
-                        disabled={isBusy}
-                        onClick={() => onRescheduleTask?.(task)}
-                      >
-                        <span>На завтра</span>
-                        <ArrowRight size={13} />
-                      </button>
-                    ) : (
-                      <span className="muted" style={{ fontSize: 12 }}>
-                        {task.completed_at
-                          ? `Выполнено в ${task.completed_at}`
-                          : "Выполнено"}
-                      </span>
-                    )}
-                  </div>
-                  <div className="mt-row" style={{ gap: 2 }}>
-                    <button
-                      type="button"
-                      className="mt-icon-btn"
-                      aria-label={`Редактировать задачу «${task.title}»`}
-                      title="Редактировать"
-                      disabled={isBusy}
-                      onClick={() => onEditTask?.(task)}
-                    >
-                      <Pencil size={16} />
-                    </button>
-                    <button
-                      type="button"
-                      className="mt-icon-btn mt-icon-btn--danger"
-                      aria-label={`Удалить задачу «${task.title}»`}
-                      title="Удалить"
-                      disabled={isBusy}
-                      onClick={() => onDeleteTask?.(task)}
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                </div>
-              </div>
+              <ListRow
+                key={task.id}
+                checked={Boolean(task.completed)}
+                onToggle={() => onToggleTask?.(task)}
+                onClick={() => onEditTask?.(task)}
+                title={task.title}
+                meta={metaParts.join(" · ")}
+                strikethrough
+                disabled={busyTaskId === task.id}
+                trailing={
+                  isHigh ? (
+                    <span
+                      className="today-priority-dot today-priority-dot--high"
+                      aria-label="Важная задача"
+                    />
+                  ) : null
+                }
+              />
             );
           })}
-        </div>
+        </GroupList>
       )}
     </section>
   );
