@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: marina-tracker
+    runtime: docker
+    plan: free
+    region: frankfurt
+    branch: main
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/health
+    envVars:
+      - key: MARINA_DB_PATH
+        value: /tmp/marina-tracker/marina_tracker.sqlite3

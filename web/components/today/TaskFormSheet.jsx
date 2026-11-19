@@ -1,0 +1,225 @@
+import React, { useEffect, useState } from "react";
+import { Clock, Target, Trash2 } from "lucide-react";
+import Sheet from "../Sheet.jsx";
+import { Pill } from "../UiPrimitives.jsx";
+import { TASK_PRIORITIES, TASK_SECTIONS } from "../../data/presets.js";
+import { formatRelativeDayRu } from "../../utils/date.js";
+
+const QUICK_TIMES = ["09:00", "11:00", "14:00", "18:00"];
+
+export default function TaskFormSheet({
+  open,
+  onClose,
+  task = null,
+  selectedDate,
+  goals = [],
+  onSave,
+  onDelete,
+  saving = false,
+}) {
+  const isEditing = Boolean(task?.id);
+
+  const [title, setTitle] = useState("");
+  const [timeSlot, setTimeSlot] = useState("");
+  const [priority, setPriority] = useState("medium");
+  const [sectionTag, setSectionTag] = useState("personal");
+  const [goalId, setGoalId] = useState("");
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!open) return;
+    if (task) {
+      setTitle(task.title || "");
+      setTimeSlot(task.time_slot || "");
+      setPriority(task.priority || "medium");
+      setSectionTag(task.section_tag || "personal");
+      setGoalId(task.goal_id ? String(task.goal_id) : "");
+    } else {
+      setTitle("");
+      setTimeSlot("");
+      setPriority("medium");
+      setSectionTag("personal");
+      setGoalId("");
+    }
+    setError("");
+  }, [open, task]);
+
+  const handleSubmit = async (event) => {
+    event?.preventDefault();
+    const trimmed = title.trim();
+    if (!trimmed) {
+      setError("Напишите короткое название задачи.");
+      return;
+    }
+    setError("");
+    try {
+      await onSave?.({
+        id: task?.id,
+        title: trimmed,
+        task_date: task?.task_date || selectedDate,
+        time_slot: timeSlot.trim(),
+        priority,
+        section_tag: sectionTag,
+        goal_id: goalId ? Number(goalId) : null,
+      });
+    } catch (err) {
+      setError(err?.message || "Не удалось сохранить задачу.");
+    }
+  };
+
+  const dayLabel = formatRelativeDayRu(task?.task_date || selectedDate).toLowerCase();
+
+  return (
+    <Sheet
+      open={open}
+      onClose={onClose}
+      title={isEditing ? "Редактировать задачу" : "Новая задача"}
+      subtitle={`План на ${dayLabel}`}
+      footer={
+        <div className="mt-stack mt-stack--sm">
+          <button
+            type="button"
+            className="mt-btn mt-btn--primary mt-btn--wide"
+            disabled={saving}
+            onClick={handleSubmit}
+          >
+            {saving
+              ? "Сохраняем..."
+              : isEditing
+                ? "Сохранить изменения"
+                : "Добавить задачу"}
+          </button>
+          {isEditing && onDelete ? (
+            <button
+              type="button"
+              className="mt-btn mt-btn--danger mt-btn--wide"
+              disabled={saving}
+              onClick={() => onDelete(task)}
+            >
+              <Trash2 size={16} />
+              <span>Удалить задачу</span>
+            </button>
+          ) : null}
+        </div>
+      }
+    >
+      <form className="mt-stack" onSubmit={handleSubmit}>
+        <div className="mt-field">
+          <label className="mt-label" htmlFor="today-task-title">
+            Что нужно сделать
+          </label>
+          <input
+            id="today-task-title"
+            type="text"
+            className="mt-input"
+            placeholder="Например: записаться к врачу"
+            value={title}
+            maxLength={160}
+            onChange={(e) => {
+              setTitle(e.target.value);
+              if (error) setError("");
+            }}
+          />
+          {error ? <p className="mt-form-error">{error}</p> : null}
+        </div>
+
+        <div className="mt-field">
+          <label className="mt-label" htmlFor="today-task-time">
+            Время (необязательно)
+          </label>
+          <div className="mt-input-row">
+            <input
+              id="today-task-time"
+              type="time"
+              className="mt-input tabular"
+              value={timeSlot}
+              onChange={(e) => setTimeSlot(e.target.value)}
+            />
+            {timeSlot ? (
+              <button
+                type="button"
+                className="mt-btn mt-btn--ghost mt-btn--sm"
+                onClick={() => setTimeSlot("")}
+              >
+                Очистить
+              </button>
+            ) : null}
+          </div>
+          <div className="mt-chip-row">
+            {QUICK_TIMES.map((slot) => (
+              <Pill
+                key={slot}
+                tone="neutral"
+                active={timeSlot === slot}
+                icon={<Clock size={13} />}
+                onClick={() => setTimeSlot(timeSlot === slot ? "" : slot)}
+              >
+                {slot}
+              </Pill>
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-field">
+          <span className="mt-label">Приоритет</span>
+          <div className="mt-chip-row mt-chip-row--wrap">
+            {TASK_PRIORITIES.map((item) => (
+              <Pill
+                key={item.key}
+                tone={item.tone}
+                active={priority === item.key}
+                icon={
+                  <span
+                    className={`today-priority-dot today-priority-dot--${item.key}`}
+                    aria-hidden="true"
+                  />
+                }
+                onClick={() => setPriority(item.key)}
+              >
+                {item.label}
+              </Pill>
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-field">
+          <span className="mt-label">Сфера жизни</span>
+          <div className="mt-chip-row mt-chip-row--wrap">
+            {TASK_SECTIONS.map((sec) => (
+              <Pill
+                key={sec.key}
+                tone={sec.tone}
+                active={sectionTag === sec.key}
+                onClick={() => setSectionTag(sec.key)}
+              >
+                {sec.label}
+              </Pill>
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-field">
+          <label className="mt-label" htmlFor="today-task-goal">
+            <span className="mt-row" style={{ gap: 6 }}>
+              <Target size={14} />
+              <span>Привязать к долгосрочной цели</span>
+            </span>
+          </label>
+          <select
+            id="today-task-goal"
+            className="mt-select"
+            value={goalId}
+            onChange={(e) => setGoalId(e.target.value)}
+          >
+            <option value="">Без привязки к цели</option>
+            {goals.map((g) => (
+              <option key={g.id} value={String(g.id)}>
+                {g.title} ({g.progress_pct}%)
+              </option>
+            ))}
+          </select>
+        </div>
+      </form>
+    </Sheet>
+  );
+}

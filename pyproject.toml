@@ -1,0 +1,20 @@
+[project]
+name = "marina-tracker"
+version = "0.1.0"
+description = "Marina Tracker (Ритм) — персональный мобильный PWA-трекер привычек, цикла, питания, дома и целей"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115,<1",
+    "uvicorn[standard]>=0.34,<1",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3,<10",
+    "httpx>=0.28,<1",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]

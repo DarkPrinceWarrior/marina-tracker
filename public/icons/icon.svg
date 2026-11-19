@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Ритм">
+  <defs>
+    <radialGradient id="ritm-bg" cx="26%" cy="22%" r="95%">
+      <stop offset="0%" stop-color="#29795E"/>
+      <stop offset="46%" stop-color="#1F634C"/>
+      <stop offset="100%" stop-color="#174D3B"/>
+    </radialGradient>
+    <radialGradient id="ritm-dot" cx="35%" cy="32%" r="70%">
+      <stop offset="0%" stop-color="#EE988D"/>
+      <stop offset="100%" stop-color="#DF7B70"/>
+    </radialGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#ritm-bg)"/>
+  <path d="M 360.92 160.15 A 151.04 151.04 0 1 1 151.08 160.15" fill="none" stroke="#FAF8F5" stroke-opacity="0.98" stroke-width="29.2" stroke-linecap="round"/>
+  <path d="M 339.08 235.24 A 89.60 89.60 0 1 1 172.92 235.24" fill="none" stroke="#FAF8F5" stroke-opacity="0.82" stroke-width="25.1" stroke-linecap="round"/>
+  <circle cx="256.00" cy="117.76" r="28.7" fill="url(#ritm-dot)"/>
+</svg>

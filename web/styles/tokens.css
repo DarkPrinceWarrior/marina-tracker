@@ -1,0 +1,269 @@
+/* ==========================================================================
+   Marina Tracker («Ритм») — Design Tokens & Motion Primitives
+   Single source of truth aligned with docs/DESIGN_SYSTEM.md
+   Target: iPhone 14 Pro (393×852pt) Standalone PWA + Desktop 430px Preview
+   ========================================================================== */
+
+:root {
+  color-scheme: light;
+  font-synthesis: none;
+
+  /* Typography — Offline Variable Fonts with Native Cyrillic */
+  --font-heading: 'Manrope Variable', 'Manrope', -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+  --font-sans: 'Inter Variable', 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;
+
+  /* Warm Alabaster Paper & Pure White Card Surfaces */
+  --canvas: #F7F5F0;
+  --desktop-backdrop: #EAE5DC;
+  --surface: #FFFFFF;
+  --surface-subtle: #F2EFE8;
+  --surface-hover: #EAE6DC;
+  --surface-frosted: rgba(247, 245, 240, 0.86);
+  --scrim: rgba(28, 38, 33, 0.42);
+
+  /* High-Contrast Botanical Ink & Hairline Borders */
+  --ink: #1C2621;
+  --ink-secondary: #43534B;
+  --muted: #6A7870;
+  --subtle: #8F9C95;
+  --border: #E5E0D6;
+  --border-subtle: #EFECE4;
+  --border-strong: #CFC9BC;
+
+  /* Domain 1: Today / Primary Brand (Deep Botanical Pine) */
+  --brand: #1F634C;
+  --brand-hover: #174E3B;
+  --brand-active: #123D2E;
+  --brand-soft: #E9F3EE;
+  --brand-border: #C4DFD2;
+  --brand-ink: #144434;
+  --brand-ring: rgba(31, 99, 76, 0.18);
+
+  /* Domain 2: Habits, Vitamins & Body (Fresh Sage-Emerald) */
+  --habits: #2D7A5B;
+  --habits-soft: #EAF5EF;
+  --habits-border: #C3E2D1;
+  --habits-ink: #1B543D;
+
+  /* Domain 2b: Water Tracker (Clear Mineral Sky) */
+  --water: #1D7EA8;
+  --water-soft: #E8F5FA;
+  --water-border: #BEE0EE;
+  --water-ink: #135573;
+
+  /* Domain 2c: Female Cycle Tracker (Warm Rose-Terracotta) */
+  --cycle: #C85A66;
+  --cycle-hover: #B04854;
+  --cycle-soft: #FDF0F1;
+  --cycle-border: #F2C9CE;
+  --cycle-ink: #8E303B;
+  --cycle-fertile: #D4844A;
+  --cycle-fertile-soft: #FDF4EB;
+  --cycle-fertile-border: #F2D6BA;
+
+  /* Domain 3: Nutrition & Menu (Warm Amber-Olive) */
+  --nutrition: #A66E1B;
+  --nutrition-olive: #5B7334;
+  --nutrition-soft: #FCF5E6;
+  --nutrition-border: #EED9AE;
+  --nutrition-ink: #734A0E;
+
+  /* Domain 4: Home Chores & Shopping (Warm Terracotta-Sand) */
+  --home: #8B634B;
+  --home-soft: #F7F0EA;
+  --home-border: #E3D1C3;
+  --home-ink: #5E402E;
+
+  /* Domain 5: Multi-Year Goals (Deep Indigo-Plum) */
+  --goals: #55488E;
+  --goals-soft: #F1EFF9;
+  --goals-border: #D5CEEC;
+  --goals-ink: #3B3068;
+
+  /* Semantic Statuses */
+  --success: #256F52;
+  --success-soft: #EAF6F0;
+  --success-border: #C2E2D2;
+  --warning: #B36B16;
+  --warning-soft: #FEF5E6;
+  --warning-border: #F0D6A8;
+  --danger: #BF3B4B;
+  --danger-soft: #FDF0F1;
+  --danger-border: #F0C6CB;
+
+  /* Default Dynamic Accent (bound via data-accent attribute) */
+  --accent: var(--brand);
+  --accent-soft: var(--brand-soft);
+  --accent-border: var(--brand-border);
+  --accent-ink: var(--brand-ink);
+
+  /* Geometry, Safe Areas, Radii & Spacing */
+  --app-max-width: 430px;
+  --page-px: 16px;
+  --card-p: 16px;
+  --section-gap: 14px;
+  --nav-height: 64px;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+
+  --radius-card: 18px;
+  --radius-sheet: 24px;
+  --radius-md: 14px;
+  --radius-control: 12px;
+  --radius-sm: 8px;
+  --radius-pill: 999px;
+
+  /* Whisper-Thin Tactile Paper Elevation */
+  --shadow-card: 0 1px 2px rgba(28, 38, 33, 0.035), 0 2px 6px rgba(28, 38, 33, 0.018);
+  --shadow-control: 0 1px 2px rgba(28, 38, 33, 0.05);
+  --shadow-fab: 0 6px 18px rgba(31, 99, 76, 0.22), 0 2px 5px rgba(28, 38, 33, 0.08);
+  --shadow-sheet: 0 -8px 32px rgba(28, 38, 33, 0.13);
+  --shadow-toast: 0 8px 24px rgba(28, 38, 33, 0.16), 0 2px 6px rgba(28, 38, 33, 0.08);
+  --shadow-device: 0 24px 60px rgba(28, 38, 33, 0.14), 0 4px 14px rgba(28, 38, 33, 0.06);
+
+  /* Scrollbars */
+  --scroll-thumb: #CFC9BC;
+  --scroll-thumb-active: #9B9588;
+
+  /* Motion Curves */
+  --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* ==========================================================================
+   Domain Accent Bindings via data-accent="..."
+   ========================================================================== */
+
+[data-accent="brand"],
+[data-accent="today"] {
+  --accent: var(--brand);
+  --accent-soft: var(--brand-soft);
+  --accent-border: var(--brand-border);
+  --accent-ink: var(--brand-ink);
+}
+
+[data-accent="habits"] {
+  --accent: var(--habits);
+  --accent-soft: var(--habits-soft);
+  --accent-border: var(--habits-border);
+  --accent-ink: var(--habits-ink);
+}
+
+[data-accent="water"] {
+  --accent: var(--water);
+  --accent-soft: var(--water-soft);
+  --accent-border: var(--water-border);
+  --accent-ink: var(--water-ink);
+}
+
+[data-accent="cycle"] {
+  --accent: var(--cycle);
+  --accent-soft: var(--cycle-soft);
+  --accent-border: var(--cycle-border);
+  --accent-ink: var(--cycle-ink);
+}
+
+[data-accent="nutrition"] {
+  --accent: var(--nutrition);
+  --accent-soft: var(--nutrition-soft);
+  --accent-border: var(--nutrition-border);
+  --accent-ink: var(--nutrition-ink);
+}
+
+[data-accent="home"] {
+  --accent: var(--home);
+  --accent-soft: var(--home-soft);
+  --accent-border: var(--home-border);
+  --accent-ink: var(--home-ink);
+}
+
+[data-accent="goals"] {
+  --accent: var(--goals);
+  --accent-soft: var(--goals-soft);
+  --accent-border: var(--goals-border);
+  --accent-ink: var(--goals-ink);
+}
+
+/* ==========================================================================
+   Keyframes & Micro-Interactions
+   ========================================================================== */
+
+@keyframes mt-check-pop {
+  0% {
+    transform: scale(0.84);
+  }
+  55% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes mt-sheet-up {
+  from {
+    transform: translateY(28px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes mt-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes mt-toast-in {
+  from {
+    transform: translateY(10px) scale(0.98);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes mt-section-enter {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes mt-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes mt-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
