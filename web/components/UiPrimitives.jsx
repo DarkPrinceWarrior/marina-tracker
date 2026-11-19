@@ -1,7 +1,15 @@
-import React, { useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { createPortal } from "react-dom";
 import {
   Check,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Plus,
@@ -688,5 +696,296 @@ export function PwaInstallGuide({ open = false, onClose }) {
         </div>
       </div>
     </Sheet>
+  );
+}
+
+/**
+ * Unified custom-styled 2026 Carbon & Cobalt SelectField replacing native OS dropdowns.
+ * Renders its listbox via createPortal(document.body) with smart viewport placement.
+ */
+export function SelectField({
+  id,
+  value,
+  onChange,
+  options = [],
+  placeholder = "Выбрать",
+  disabled = false,
+  ariaLabel,
+  className = "",
+  compact = false,
+}) {
+  const [open, setOpen] = useState(false);
+  const [menuStyle, setMenuStyle] = useState(null);
+  const [placedAbove, setPlacedAbove] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
+
+  const triggerRef = useRef(null);
+  const menuRef = useRef(null);
+  const optionRefs = useRef([]);
+  const listboxId = useId();
+
+  const normalizedOptions = options.map((opt) =>
+    typeof opt === "string" || typeof opt === "number"
+      ? { value: String(opt), label: String(opt) }
+      : {
+          ...opt,
+          value: opt?.value === undefined || opt?.value === null ? "" : String(opt.value),
+          label: opt?.label ?? String(opt?.value ?? ""),
+        }
+  );
+
+  const currentStr =
+    value === undefined || value === null ? "" : String(value);
+  const selectedIndex = normalizedOptions.findIndex(
+    (opt) => opt.value === currentStr
+  );
+  const selectedOption =
+    selectedIndex >= 0 ? normalizedOptions[selectedIndex] : null;
+
+  const closeMenu = useCallback((returnFocus = false) => {
+    setOpen(false);
+    if (returnFocus) {
+      window.requestAnimationFrame(() => {
+        triggerRef.current?.focus();
+      });
+    }
+  }, []);
+
+  const updatePosition = useCallback(() => {
+    const triggerEl = triggerRef.current;
+    if (!triggerEl) return;
+
+    const rect = triggerEl.getBoundingClientRect();
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const margin = 8;
+    const gap = 6;
+    const maxAllowedH = 240;
+
+    const width = Math.min(vw - margin * 2, Math.max(rect.width, 148));
+    const left = Math.min(Math.max(margin, rect.left), vw - margin - width);
+
+    const spaceBelow = Math.max(0, vh - rect.bottom - margin - gap);
+    const spaceAbove = Math.max(0, rect.top - margin - gap);
+    const estimatedH = Math.min(maxAllowedH, normalizedOptions.length * 44 + 12);
+    const flipAbove =
+      spaceBelow < Math.min(estimatedH, 168) && spaceAbove > spaceBelow;
+
+    setPlacedAbove(flipAbove);
+    if (flipAbove) {
+      setMenuStyle({
+        position: "fixed",
+        left: `${Math.round(left)}px`,
+        width: `${Math.round(width)}px`,
+        bottom: `${Math.round(vh - rect.top + gap)}px`,
+        maxHeight: `${Math.round(Math.min(maxAllowedH, Math.max(116, spaceAbove)))}px`,
+      });
+    } else {
+      setMenuStyle({
+        position: "fixed",
+        left: `${Math.round(left)}px`,
+        width: `${Math.round(width)}px`,
+        top: `${Math.round(rect.bottom + gap)}px`,
+        maxHeight: `${Math.round(Math.min(maxAllowedH, Math.max(116, spaceBelow)))}px`,
+      });
+    }
+  }, [normalizedOptions.length]);
+
+  useLayoutEffect(() => {
+    if (!open) return undefined;
+    updatePosition();
+    const initialIdx =
+      selectedIndex >= 0 ? selectedIndex : normalizedOptions.length > 0 ? 0 : -1;
+    setHighlightedIndex(initialIdx);
+
+    const rafId = window.requestAnimationFrame(() => {
+      if (initialIdx >= 0 && optionRefs.current[initialIdx]) {
+        optionRefs.current[initialIdx].scrollIntoView({ block: "nearest" });
+      }
+    });
+    return () => window.cancelAnimationFrame(rafId);
+  }, [open, selectedIndex, normalizedOptions.length, updatePosition]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+
+    const handleResize = () => closeMenu(false);
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        closeMenu(true);
+        return;
+      }
+      if (event.key === "Tab") {
+        closeMenu(false);
+        return;
+      }
+      if (!normalizedOptions.length) return;
+
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        setHighlightedIndex((prev) => {
+          const next = (prev + 1) % normalizedOptions.length;
+          optionRefs.current[next]?.scrollIntoView({ block: "nearest" });
+          return next;
+        });
+      } else if (event.key === "ArrowUp") {
+        event.preventDefault();
+        setHighlightedIndex((prev) => {
+          const next =
+            prev <= 0 ? normalizedOptions.length - 1 : prev - 1;
+          optionRefs.current[next]?.scrollIntoView({ block: "nearest" });
+          return next;
+        });
+      } else if (event.key === "Home") {
+        event.preventDefault();
+        setHighlightedIndex(0);
+        optionRefs.current[0]?.scrollIntoView({ block: "nearest" });
+      } else if (event.key === "End") {
+        event.preventDefault();
+        const last = normalizedOptions.length - 1;
+        setHighlightedIndex(last);
+        optionRefs.current[last]?.scrollIntoView({ block: "nearest" });
+      } else if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        const targetIdx = highlightedIndex >= 0 ? highlightedIndex : selectedIndex;
+        if (targetIdx >= 0 && normalizedOptions[targetIdx]) {
+          onChange?.(normalizedOptions[targetIdx].value);
+        }
+        closeMenu(true);
+      }
+    };
+
+    window.addEventListener("resize", handleResize);
+    window.addEventListener("keydown", handleKeyDown, true);
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      window.removeEventListener("keydown", handleKeyDown, true);
+    };
+  }, [open, highlightedIndex, selectedIndex, normalizedOptions, onChange, closeMenu]);
+
+  const handleTriggerKeyDown = (event) => {
+    if (disabled || open) return;
+    if (
+      event.key === "ArrowDown" ||
+      event.key === "ArrowUp" ||
+      event.key === "Enter" ||
+      event.key === " "
+    ) {
+      event.preventDefault();
+      setOpen(true);
+    }
+  };
+
+  const handleSelectOption = (opt) => {
+    onChange?.(opt.value);
+    closeMenu(true);
+  };
+
+  const popup =
+    open && menuStyle ? (
+      <>
+        <div
+          className="mt-select-backdrop"
+          aria-hidden="true"
+          onClick={() => closeMenu(true)}
+        />
+        <div
+          ref={menuRef}
+          id={listboxId}
+          role="listbox"
+          aria-label={ariaLabel || placeholder}
+          className={`mt-select-menu${placedAbove ? " is-above" : ""}`}
+          style={menuStyle}
+        >
+          {normalizedOptions.length === 0 ? (
+            <div className="mt-select-empty">Нет вариантов</div>
+          ) : (
+            normalizedOptions.map((opt, idx) => {
+              const isSelected = idx === selectedIndex;
+              const isHighlighted = idx === highlightedIndex;
+              return (
+                <button
+                  key={`${opt.value}-${idx}`}
+                  ref={(el) => {
+                    optionRefs.current[idx] = el;
+                  }}
+                  type="button"
+                  role="option"
+                  aria-selected={isSelected}
+                  className={[
+                    "mt-select-option",
+                    isSelected ? "is-selected" : "",
+                    isHighlighted ? "is-highlighted is-focused" : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
+                  onMouseEnter={() => setHighlightedIndex(idx)}
+                  onClick={() => handleSelectOption(opt)}
+                >
+                  <span className="mt-select-option-copy">
+                    <span className="mt-select-option-label">{opt.label}</span>
+                    {opt.meta ? (
+                      <span className="mt-select-option-meta">{opt.meta}</span>
+                    ) : null}
+                  </span>
+                  {isSelected ? (
+                    <Check
+                      size={16}
+                      strokeWidth={2.5}
+                      className="mt-select-option-check"
+                      aria-hidden="true"
+                    />
+                  ) : null}
+                </button>
+              );
+            })
+          )}
+        </div>
+      </>
+    ) : null;
+
+  return (
+    <>
+      <button
+        ref={triggerRef}
+        type="button"
+        id={id}
+        role="combobox"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-controls={open ? listboxId : undefined}
+        aria-label={ariaLabel}
+        disabled={disabled}
+        className={[
+          "mt-select-trigger",
+          compact ? "mt-select-trigger--compact" : "",
+          open ? "is-open" : "",
+          className,
+        ]
+          .filter(Boolean)
+          .join(" ")}
+        onClick={() => {
+          if (!disabled) setOpen((prev) => !prev);
+        }}
+        onKeyDown={handleTriggerKeyDown}
+      >
+        <span
+          className={`mt-select-value${selectedOption ? "" : " is-placeholder"}`}
+        >
+          {selectedOption ? selectedOption.label : placeholder}
+        </span>
+        <ChevronDown
+          size={17}
+          strokeWidth={2}
+          className="mt-select-chevron"
+          aria-hidden="true"
+        />
+      </button>
+      {popup && typeof document !== "undefined"
+        ? createPortal(popup, document.body)
+        : popup}
+    </>
   );
 }

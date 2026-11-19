@@ -875,8 +875,205 @@ button.mt-metric-cell:active {
 }
 
 .mt-input-row > .mt-input,
-.mt-input-row > .mt-select {
+.mt-input-row > .mt-select,
+.mt-input-row > .mt-select-trigger {
   flex: 1 1 auto;
+}
+
+/* ---------- Custom 2026 Studio SelectField Dropdown ---------- */
+
+.mt-select-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  font-family: inherit;
+  font-size: 16px;
+  line-height: 22px;
+  font-weight: 450;
+  text-align: left;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  cursor: pointer;
+  user-select: none;
+  transition: border-color 140ms ease, box-shadow 140ms ease, background-color 120ms ease;
+}
+
+.mt-select-trigger--compact {
+  padding: 9px 10px;
+  gap: 5px;
+}
+
+.mt-select-trigger:hover:not(:disabled) {
+  border-color: var(--border-strong);
+}
+
+.mt-select-trigger:focus-visible,
+.mt-select-trigger.is-open,
+.mt-select-trigger[aria-expanded="true"] {
+  outline: none;
+  border-color: var(--cobalt);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.14);
+}
+
+.mt-select-trigger:disabled {
+  opacity: 0.55;
+  background: var(--surface-subtle);
+  cursor: not-allowed;
+}
+
+.mt-select-value {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mt-select-value.is-placeholder {
+  color: var(--subtle);
+}
+
+.mt-select-chevron {
+  flex-shrink: 0;
+  color: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 160ms var(--ease-spring), color 140ms ease;
+}
+
+.mt-select-trigger.is-open .mt-select-chevron,
+.mt-select-trigger[aria-expanded="true"] .mt-select-chevron {
+  transform: rotate(180deg);
+  color: var(--cobalt);
+}
+
+.mt-select-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1190;
+  background: transparent;
+}
+
+.mt-select-menu {
+  position: fixed;
+  z-index: 1200;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow:
+    0 14px 34px -6px rgba(15, 23, 42, 0.16),
+    0 4px 12px -2px rgba(15, 23, 42, 0.06);
+  padding: 5px;
+  max-height: 240px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  transform-origin: top center;
+  animation: mt-menu-in 140ms var(--ease-spring) backwards;
+}
+
+.mt-select-menu.is-above {
+  transform-origin: bottom center;
+  animation-name: mt-menu-in-up;
+}
+
+.mt-select-empty {
+  padding: 12px 10px;
+  font-size: 13.5px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.mt-select-option {
+  width: 100%;
+  min-height: 42px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 450;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 100ms ease, color 100ms ease;
+}
+
+.mt-select-option:hover,
+.mt-select-option:active,
+.mt-select-option.is-highlighted,
+.mt-select-option.is-focused,
+.mt-select-option:focus-visible {
+  background: var(--surface-subtle);
+  outline: none;
+}
+
+.mt-select-option.is-selected,
+.mt-select-option[aria-selected="true"] {
+  background: var(--cobalt-soft);
+  color: var(--cobalt-hover);
+  font-weight: 600;
+}
+
+.mt-select-option.is-selected:hover,
+.mt-select-option.is-selected.is-highlighted,
+.mt-select-option.is-selected.is-focused {
+  background: #E0EEFF;
+}
+
+.mt-select-option-main,
+.mt-select-option-copy {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.mt-select-option-label {
+  overflow-wrap: anywhere;
+  line-height: 19px;
+}
+
+.mt-select-option-meta {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 450;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+.mt-select-option.is-selected .mt-select-option-meta {
+  color: var(--cobalt-ink);
+  opacity: 0.8;
+}
+
+.mt-select-option-check {
+  flex-shrink: 0;
+  color: var(--cobalt);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .mt-form-grid {

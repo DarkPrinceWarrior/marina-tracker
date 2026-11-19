@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { ArrowRight, Clock, Target, Trash2 } from "lucide-react";
 import Sheet from "../Sheet.jsx";
-import { Pill } from "../UiPrimitives.jsx";
+import { Pill, SelectField } from "../UiPrimitives.jsx";
 import { TASK_PRIORITIES, TASK_SECTIONS } from "../../data/presets.js";
 import { formatRelativeDayRu } from "../../utils/date.js";
 
@@ -71,6 +71,18 @@ export default function TaskFormSheet({
   const dayLabel = formatRelativeDayRu(
     task?.task_date || selectedDate
   ).toLowerCase();
+
+  const goalOptions = useMemo(
+    () => [
+      { value: "", label: "Без привязки к цели" },
+      ...goals.map((g) => ({
+        value: String(g.id),
+        label: g.title,
+        meta: `${g.progress_pct}%`,
+      })),
+    ],
+    [goals]
+  );
 
   return (
     <Sheet
@@ -225,19 +237,14 @@ export default function TaskFormSheet({
               <span>Привязать к цели</span>
             </span>
           </label>
-          <select
+          <SelectField
             id="today-task-goal"
-            className="mt-select"
             value={goalId}
-            onChange={(e) => setGoalId(e.target.value)}
-          >
-            <option value="">Без привязки к цели</option>
-            {goals.map((g) => (
-              <option key={g.id} value={String(g.id)}>
-                {g.title} ({g.progress_pct}%)
-              </option>
-            ))}
-          </select>
+            onChange={(val) => setGoalId(val)}
+            options={goalOptions}
+            placeholder="Без привязки к цели"
+            ariaLabel="Привязать к цели"
+          />
         </div>
       </form>
     </Sheet>

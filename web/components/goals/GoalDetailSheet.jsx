@@ -16,6 +16,7 @@ import {
   GroupList,
   ListRow,
   Pill,
+  SelectField,
 } from "../UiPrimitives.jsx";
 import { CHECKIN_FEELING_MAP } from "./GoalCheckinSheet.jsx";
 import {
@@ -115,7 +116,10 @@ export default function GoalDetailSheet({
         ? AlertTriangle
         : CheckCircle2;
 
-  const yearOptions = Array.from({ length: 7 }, (_, i) => currentYear + i);
+  const yearOptions = Array.from({ length: 7 }, (_, i) => {
+    const y = String(currentYear + i);
+    return { value: y, label: y };
+  });
 
   async function handleSubmitMilestone(event) {
     event?.preventDefault();
@@ -290,32 +294,20 @@ export default function GoalDetailSheet({
                 autoComplete="off"
               />
               <div className="mt-input-row">
-                <select
-                  className="mt-select"
-                  value={msYear}
-                  onChange={(e) => setMsYear(Number(e.target.value))}
-                  aria-label="Год вехи"
-                  style={{ flex: "1 1 88px" }}
-                >
-                  {yearOptions.map((y) => (
-                    <option key={y} value={y}>
-                      {y}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  className="mt-select"
+                <SelectField
+                  value={String(msYear)}
+                  onChange={(val) => setMsYear(Number(val))}
+                  options={yearOptions}
+                  ariaLabel="Год вехи"
+                  compact
+                />
+                <SelectField
                   value={msQuarter}
-                  onChange={(e) => setMsQuarter(e.target.value)}
-                  aria-label="Квартал вехи"
-                  style={{ flex: "0 0 92px" }}
-                >
-                  {QUARTER_OPTIONS.map((q) => (
-                    <option key={q.value} value={q.value}>
-                      {q.label}
-                    </option>
-                  ))}
-                </select>
+                  onChange={setMsQuarter}
+                  options={QUARTER_OPTIONS}
+                  ariaLabel="Квартал вехи"
+                  compact
+                />
                 <button
                   type="submit"
                   className="mt-btn mt-btn--primary mt-btn--sm"

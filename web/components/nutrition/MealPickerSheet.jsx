@@ -14,6 +14,7 @@ import {
   MetricStrip,
   Pill,
   SegmentedControl,
+  SelectField,
   StepperPill,
 } from "../UiPrimitives.jsx";
 import {
@@ -870,18 +871,17 @@ export default function MealPickerSheet({
                   <label className="mt-label" htmlFor="meal-amount-unit">
                     Единица
                   </label>
-                  <select
+                  <SelectField
                     id="meal-amount-unit"
-                    className="mt-select"
+                    compact
                     value={amountUnit}
-                    onChange={(e) => handleUnitChange(e.target.value)}
-                  >
-                    {unitOptions.map((u) => (
-                      <option key={u.key} value={u.key}>
-                        {u.label}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={handleUnitChange}
+                    options={unitOptions.map((u) => ({
+                      value: u.key,
+                      label: u.label,
+                    }))}
+                    ariaLabel="Единица измерения"
+                  />
                 </div>
               </div>
 

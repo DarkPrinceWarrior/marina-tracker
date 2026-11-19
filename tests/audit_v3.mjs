@@ -165,13 +165,13 @@ async function auditScreen(
       if (/\bundefined\b/.test(rawText)) badTokens.push("undefined");
       if (rawText.includes("[object Object]")) badTokens.push("[object Object]");
 
-      // Collect visible text + <option> texts inside visible <select>s
+      // 1b. Assert ZERO native <select> elements exist anywhere in the DOM!
+      const nativeSelectCount = document.querySelectorAll("select").length;
+
+      // Collect visible text + open listbox option texts
       const optionTexts = [];
-      for (const sel of document.querySelectorAll("select")) {
-        if (!visible(sel)) continue;
-        for (const opt of sel.options) {
-          optionTexts.push(opt.textContent || "");
-        }
+      for (const opt of document.querySelectorAll('.mt-select-menu [role="option"]')) {
+        if (visible(opt)) optionTexts.push(opt.textContent || "");
       }
       const combinedText = `${rawText}\n${optionTexts.join("\n")}`;
 
@@ -230,9 +230,9 @@ async function auditScreen(
         }
       }
 
-      // 3. Inputs >= 16px (prevents iOS Safari zoom)
+      // 3. Inputs & custom SelectField triggers >= 16px (prevents iOS Safari zoom)
       const smallInputs = [];
-      for (const el of document.querySelectorAll("input, select, textarea")) {
+      for (const el of document.querySelectorAll("input, textarea, .mt-select-trigger")) {
         if (!visible(el)) continue;
         if (["checkbox", "radio", "range", "hidden"].includes(el.type)) continue;
         const fs = parseFloat(window.getComputedStyle(el).fontSize);
@@ -242,6 +242,16 @@ async function auditScreen(
             label: el.getAttribute("aria-label") || el.placeholder || el.id || "",
             fontSize: fs,
           });
+        }
+      }
+
+      // 3b. Open custom SelectField menu viewport bounds check
+      let selectMenuIssue = null;
+      const openMenu = document.querySelector('.mt-select-menu[role="listbox"]');
+      if (openMenu && visible(openMenu)) {
+        const mr = openMenu.getBoundingClientRect();
+        if (mr.top < 2 || mr.bottom > vpH - 2 || mr.left < 2 || mr.right > vpW - 2) {
+          selectMenuIssue = `SelectField menu outside ${vpW}x${vpH}: top=${Math.round(mr.top)}, bottom=${Math.round(mr.bottom)}, left=${Math.round(mr.left)}, right=${Math.round(mr.right)}`;
         }
       }
 
@@ -344,12 +354,14 @@ async function auditScreen(
 
       return {
         canvasToken,
+        nativeSelectCount,
         docScrollW,
         innerW,
         badTokens,
         englishLeaks,
         alignmentIssues: alignmentIssues.slice(0, 6),
         smallInputs,
+        selectMenuIssue,
         toastOverlaps,
         siblingCollisions,
         clippedTexts: clippedTexts.slice(0, 5),
@@ -361,6 +373,14 @@ async function auditScreen(
   );
 
   let ok = true;
+  if (data.nativeSelectCount > 0) {
+    ok = false;
+    finding("P0", `Native <select> found (${label})`, `count=${data.nativeSelectCount}`);
+  }
+  if (data.selectMenuIssue) {
+    ok = false;
+    finding("P0", `SelectField menu bounds (${label})`, data.selectMenuIssue);
+  }
   if (data.canvasToken !== "#F7F8FA") {
     ok = false;
     finding("P0", `Theme token (${label})`, `Expected --canvas=#F7F8FA, got ${data.canvasToken}`);
@@ -498,13 +518,22 @@ async function runIPhone13FullAudit(browser, todayIso) {
     await closeOpenSheet(page);
   }
 
-  // 1d. TaskFormSheet: create, filter, toggle, tap row to edit/reschedule
+  // 1d. TaskFormSheet: create with custom SelectField goal picker, toggle
   await page.locator(".mt-group-header button", { hasText: /Задача/i }).first().click();
   await page.waitForTimeout(300);
   await auditScreen(page, "iPhone13 Sheet: TaskFormSheet", { isSheet: true });
   await snap(page, "ip13_sheet_task.png", false);
   const tSheet = page.locator(".mt-sheet");
   await tSheet.locator('input[type="text"], input:not([type])').first().fill("Новая задача 2026");
+  // Click custom SelectField #1: Task -> linked goal
+  const taskGoalTrigger = tSheet.locator('.mt-select-trigger[role="combobox"]').first();
+  await taskGoalTrigger.scrollIntoViewIfNeeded();
+  await taskGoalTrigger.click();
+  await page.waitForTimeout(250);
+  await auditScreen(page, "iPhone13 Dropdown #1: Task goal SelectField", { isSheet: true });
+  await snap(page, "ip13_dropdown_task_goal.png", false);
+  await page.locator('.mt-select-menu [role="option"]').nth(1).click();
+  await page.waitForTimeout(150);
   await tSheet.locator(".mt-sheet-footer .mt-btn--primary").first().click();
   await page.waitForTimeout(450);
   const newTaskRow = page.locator(".mt-list-row", { hasText: "Новая задача 2026" }).first();
@@ -627,6 +656,15 @@ async function runIPhone13FullAudit(browser, todayIso) {
     await firstMenuChoice.click();
     await page.waitForTimeout(250);
     await auditScreen(page, "iPhone13 Sheet: MealPicker (portion)", { isSheet: true });
+    // Click custom SelectField #2: Nutrition unit picker
+    const unitTrigger = page.locator('.mt-sheet .mt-select-trigger[role="combobox"]').first();
+    await unitTrigger.scrollIntoViewIfNeeded();
+    await unitTrigger.click();
+    await page.waitForTimeout(250);
+    await auditScreen(page, "iPhone13 Dropdown #2: Nutrition unit SelectField", { isSheet: true });
+    await snap(page, "ip13_dropdown_nutrition_unit.png", false);
+    await page.locator('.mt-select-menu [role="option"]', { hasText: "порция" }).first().click();
+    await page.waitForTimeout(150);
     await page.locator(".mt-sheet-footer .mt-btn--primary").first().click();
     await page.waitForTimeout(450);
   } else {
@@ -682,22 +720,76 @@ async function runIPhone13FullAudit(browser, todayIso) {
   await auditScreen(page, "iPhone13: Цели", { checkBottomScroll: true });
   await snap(page, "ip13_09_goals.png", false);
 
-  // Open NEW GoalDetailSheet (verify Russian quarters "3 кв. 2026" and ZERO Q1-Q4!)
+  // Open NEW GoalDetailSheet (verify Russian quarters "3 кв. 2026" and test SelectFields #3 & #4!)
   await page.locator(".goal-card .goal-milestones-link").first().click();
   await page.waitForTimeout(350);
   await auditScreen(page, "iPhone13 Sheet: GoalDetailSheet", { isSheet: true });
   await snap(page, "ip13_sheet_goal_detail.png", false);
   const detailText = await page.locator(".mt-sheet").innerText();
   assert.ok(/кв\./.test(detailText), `Expected Russian quarters ('кв.') in GoalDetailSheet, got: ${detailText.slice(0, 300)}`);
-  await closeOpenSheet(page);
-  pass("Goals: NEW GoalDetailSheet verified (pure Russian quarters 'кв.')");
 
-  // Open GoalFormSheet (verify dropdown options are '1 кв.'..'4 кв.')
+  // Click "+ Веха" inside GoalDetailSheet to exercise SelectFields #3 (year) & #4 (quarter)
+  await page.locator(".mt-sheet button", { hasText: /Веха/i }).first().click();
+  await page.waitForTimeout(200);
+  await page.locator('.mt-sheet input[aria-label="Название новой вехи"]').fill("Веха из кастомного списка");
+  const detailTriggers = page.locator('.mt-sheet .mt-select-trigger[role="combobox"]');
+  // #3: Year picker
+  await detailTriggers.nth(0).scrollIntoViewIfNeeded();
+  await detailTriggers.nth(0).click();
+  await page.waitForTimeout(250);
+  await auditScreen(page, "iPhone13 Dropdown #3: GoalDetail year SelectField", { isSheet: true });
+  await snap(page, "ip13_dropdown_detail_year.png", false);
+  await page.locator('.mt-select-menu [role="option"]').nth(1).click();
+  await page.waitForTimeout(150);
+  // #4: Quarter picker
+  await detailTriggers.nth(1).click();
+  await page.waitForTimeout(250);
+  await auditScreen(page, "iPhone13 Dropdown #4: GoalDetail quarter SelectField", { isSheet: true });
+  await snap(page, "ip13_dropdown_detail_quarter.png", false);
+  await page.locator('.mt-select-menu [role="option"]', { hasText: "2 кв." }).first().click();
+  await page.waitForTimeout(150);
+  await page.locator('.mt-sheet button[type="submit"]', { hasText: /Добавить/i }).first().click();
+  await page.waitForTimeout(450);
+  assert.ok(
+    (await page.locator(".mt-sheet").innerText()).includes("Веха из кастомного списка"),
+    "Milestone created with custom SelectField did not appear"
+  );
+  await closeOpenSheet(page);
+  pass("Goals: GoalDetailSheet + SelectFields #3 (year) & #4 (quarter) verified");
+
+  // Open GoalFormSheet to exercise SelectFields #5 (linked habit), #6 (milestone year), #7 (milestone quarter)
   await page.locator(".mt-page-header button", { hasText: /Цель|\+/ }).last().click();
   await page.waitForTimeout(300);
   await auditScreen(page, "iPhone13 Sheet: GoalFormSheet", { isSheet: true });
   await snap(page, "ip13_sheet_goal_form.png", false);
+  const gfTriggers = page.locator('.mt-sheet .mt-select-trigger[role="combobox"]');
+  // #5: Linked habit picker
+  await gfTriggers.nth(0).scrollIntoViewIfNeeded();
+  await gfTriggers.nth(0).click();
+  await page.waitForTimeout(250);
+  await auditScreen(page, "iPhone13 Dropdown #5: GoalForm linked habit SelectField", { isSheet: true });
+  await snap(page, "ip13_dropdown_goal_habit.png", false);
+  await page.locator('.mt-select-menu [role="option"]').nth(1).click();
+  await page.waitForTimeout(150);
+  // Ensure a milestone row exists, then click #6 (year) & #7 (quarter)
+  if ((await gfTriggers.count()) < 3) {
+    await page.locator('.mt-sheet button[type="submit"]', { hasText: /Добавить/i }).first().click();
+    await page.waitForTimeout(200);
+  }
+  await gfTriggers.nth(1).scrollIntoViewIfNeeded();
+  await gfTriggers.nth(1).click();
+  await page.waitForTimeout(250);
+  await auditScreen(page, "iPhone13 Dropdown #6: GoalForm milestone year SelectField", { isSheet: true });
+  await page.locator('.mt-select-menu [role="option"]').nth(1).click();
+  await page.waitForTimeout(150);
+  await gfTriggers.nth(2).click();
+  await page.waitForTimeout(250);
+  await auditScreen(page, "iPhone13 Dropdown #7: GoalForm milestone quarter SelectField", { isSheet: true });
+  await snap(page, "ip13_dropdown_goal_quarter.png", false);
+  await page.locator('.mt-select-menu [role="option"]', { hasText: "3 кв." }).first().click();
+  await page.waitForTimeout(150);
   await closeOpenSheet(page);
+  pass("Goals: GoalFormSheet SelectFields #5 (habit), #6 (year), #7 (quarter) verified");
 
   // Open GoalCheckinSheet & save
   await page.locator(".goal-card button", { hasText: "Чек-ин" }).first().click();
@@ -871,11 +963,23 @@ async function runViewportSweep(browser, name, width, height, dpr, prefix) {
   await auditScreen(page, `${name}: Цели`);
   await snap(page, `${prefix}_04_goals.png`, false);
 
-  // Open GoalDetailSheet to verify centering on desktop / iPhone 14 Pro
+  // Open GoalDetailSheet to verify centering + open custom SelectField on desktop / iPhone 14 Pro
   await page.locator(".goal-card .goal-milestones-link").first().click();
   await page.waitForTimeout(300);
   await auditScreen(page, `${name} Sheet: GoalDetailSheet`, { isSheet: true });
   await snap(page, `${prefix}_05_goal_detail_sheet.png`, false);
+  await page.locator(".mt-sheet button", { hasText: /Веха/i }).first().click();
+  await page.waitForTimeout(200);
+  const sweepQuarterTrigger = page.locator('.mt-sheet .mt-select-trigger[role="combobox"]').nth(1);
+  await sweepQuarterTrigger.scrollIntoViewIfNeeded();
+  await sweepQuarterTrigger.click();
+  await page.waitForTimeout(250);
+  await auditScreen(page, `${name} Dropdown: GoalDetail quarter SelectField`, { isSheet: true });
+  if (prefix === "desktop") {
+    await snap(page, "desktop_dropdown_quarter.png", false);
+  }
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(150);
   await closeOpenSheet(page);
 
   if (errs.length) finding("P0", `${name} runtime errors`, errs.join(" | "));

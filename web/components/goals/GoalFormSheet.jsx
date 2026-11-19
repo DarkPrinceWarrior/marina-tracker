@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Plus, Trash2, Sparkles } from "lucide-react";
 import Sheet from "../Sheet.jsx";
-import { GroupList, ListRow, Pill } from "../UiPrimitives.jsx";
+import { GroupList, ListRow, Pill, SelectField } from "../UiPrimitives.jsx";
 import {
   GOAL_SPHERES,
   GOAL_HORIZONS,
@@ -233,7 +233,20 @@ export default function GoalFormSheet({
     }
   }
 
-  const yearOptions = Array.from({ length: 7 }, (_, i) => currentYear + i);
+  const yearOptions = Array.from({ length: 7 }, (_, i) => {
+    const y = String(currentYear + i);
+    return { value: y, label: y };
+  });
+
+  const periodLabels = { morning: "Утро", afternoon: "Обед", evening: "Вечер" };
+  const habitOptions = [
+    { value: "", label: "Без привязки" },
+    ...habits.map((h) => ({
+      value: String(h.id),
+      label: h.title,
+      meta: periodLabels[h.period_of_day] || "",
+    })),
+  ];
 
   return (
     <Sheet
@@ -379,19 +392,14 @@ export default function GoalFormSheet({
           <label className="mt-label" htmlFor="goal-habit-select">
             Связанная привычка
           </label>
-          <select
+          <SelectField
             id="goal-habit-select"
-            className="mt-select"
             value={linkedHabitId}
-            onChange={(e) => setLinkedHabitId(e.target.value)}
-          >
-            <option value="">Без привязки</option>
-            {habits.map((h) => (
-              <option key={h.id} value={String(h.id)}>
-                {h.title}
-              </option>
-            ))}
-          </select>
+            onChange={setLinkedHabitId}
+            options={habitOptions}
+            placeholder="Без привязки"
+            ariaLabel="Связанная привычка"
+          />
         </div>
 
         {/* Check-in Cadence */}
@@ -470,32 +478,20 @@ export default function GoalFormSheet({
                 aria-label="Название вехи"
               />
               <div className="mt-input-row">
-                <select
-                  className="mt-select"
-                  value={msYear}
-                  onChange={(e) => setMsYear(Number(e.target.value))}
-                  aria-label="Год вехи"
-                  style={{ flex: "1 1 92px" }}
-                >
-                  {yearOptions.map((y) => (
-                    <option key={y} value={y}>
-                      {y}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  className="mt-select"
+                <SelectField
+                  value={String(msYear)}
+                  onChange={(val) => setMsYear(Number(val))}
+                  options={yearOptions}
+                  ariaLabel="Год вехи"
+                  compact
+                />
+                <SelectField
                   value={msQuarter}
-                  onChange={(e) => setMsQuarter(e.target.value)}
-                  aria-label="Квартал вехи"
-                  style={{ flex: "0 0 92px" }}
-                >
-                  {QUARTER_OPTIONS.map((q) => (
-                    <option key={q.value} value={q.value}>
-                      {q.label}
-                    </option>
-                  ))}
-                </select>
+                  onChange={setMsQuarter}
+                  options={QUARTER_OPTIONS}
+                  ariaLabel="Квартал вехи"
+                  compact
+                />
                 <button
                   type="button"
                   className="mt-btn mt-btn--soft mt-btn--sm"
